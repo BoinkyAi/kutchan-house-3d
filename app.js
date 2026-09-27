@@ -288,6 +288,7 @@ function wallRun(G, w, lvl, L) {
     for (const q of faces) piece(s0, s1, L.base, L.base + 0.07, q - 0.006, q + 0.006, MAT.white, false);
   };
   const ops = w.doors.slice().sort((p, q) => p.off - q.off);
+  const own = { c0: COLL.length, c1: COLL.length };  /* this run's COLL boxes */
   let cur = -e0;
   const runEnd = len + e1;
   for (const o of ops) {
@@ -297,7 +298,7 @@ function wallRun(G, w, lvl, L) {
     const bot = L.base + Math.min(o.bottom, hIn), top = L.base + Math.min(o.top, hIn);
     if (bot > L.base + 0.01) { solid(s, e, yB, bot); skirt(s, e); }
     if (top < yT - 0.01) solid(s, e, top, yT);
-    opening(G, o, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot, top, ext });
+    opening(G, o, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot, top, ext, own });
     if (ext && lvl > 0 && o.kind !== 'WINDOW' && bot <= L.base + 0.01 && FLOOR_RECTS[lvl]) {
       const pts = [[s, n0 - 0.05], [e, n0 - 0.05], [e, n1 + 0.05], [s, n1 + 0.05]].map(([ss, qq]) => [ax + ux * ss + nx * qq, az + uz * ss + nz * qq]);
       FLOOR_RECTS[lvl].push(bbox(pts));
@@ -305,6 +306,7 @@ function wallRun(G, w, lvl, L) {
     cur = Math.max(cur, e);
   }
   if (cur < runEnd) { solid(cur, runEnd, yB, yT); skirt(Math.max(cur, 0), len); }
+  own.c1 = COLL.length;
   if (ext && e1 > 0) {                               /* clad the exposed corner end */
     const m = new THREE.Mesh(B(0.01, yT - yB, n1 - n0, MAT.clad), MAT.clad);
     m.position.set(ax + ux * (runEnd + 0.005) + nx * (n0 + n1) / 2, (yB + yT) / 2, az + uz * (runEnd + 0.005) + nz * (n0 + n1) / 2);
@@ -359,12 +361,9 @@ function opening(G, o, w, lvl, L, c) {
   if (!ext) { casing(s - 0.04, s, bot, top + 0.04); casing(e, e + 0.04, bot, top + 0.04); casing(s - 0.04, e + 0.04, top, top + 0.04); }
   const nLeaf = o.kind === 'DOUBLE_DOOR' ? 2 : 1, lw = W / nLeaf;
   if (o.kind === 'SLIDING_HUNG_DOOR') {
-    /* slid open, parked against the wall face beside the opening, on a track */
-    const face = ext ? n0 - 0.035 : n1 + 0.035;
-    const sc = s - lw / 2 + 0.08;
-    put(B(lw, H - 0.02, 0.035, leafMat), leafMat, sc, face, bot + (H - 0.02) / 2, true);
-    put(B(0.02, 0.3, 0.03), MAT.blackSteel, sc + lw / 2 - 0.07, face + (ext ? -0.03 : 0.03), bot + 1.0, true);
-    put(B(2 * lw, 0.05, 0.05), MAT.blackSteel, s - lw / 2 + lw / 2 + 0.08, face, top + 0.03, true);
+    /* slid open against a wall face beside the opening, on a track. Which
+       face and which way needs every wall in place: see parkSliders() */
+    SLIDERS.push({ id: o.id, lvl, put, at, lw, H, s, e, bot, top, n0, n1, own: c.own });
     return;
   }
   for (let i = 0; i < nLeaf; i++) {
@@ -391,6 +390,55 @@ function opening(G, o, w, lvl, L, c) {
     }
     g.add(leaf, handle);
     G.walls.add(g);
+  }
+}
+
+/* Every sliding leaf parks flat against a wall face beside its opening, in
+   the first of: n1 face toward the wall start, n1 toward its end, n0 toward
+   the start, n0 toward the end, where the leaf box (lw x H x 5 cm, 3.5 cm off
+   the face) hits no wall but its own and no furniture, fixture or door leaf,
+   stays on this floor of the house and has solid wall behind it (not open
+   space or another opening). If none is free, the first. Runs once all walls
+   of all levels exist, before mergeStatic. */
+const SLIDERS = [];
+function parkSliders() {
+  scene.updateMatrixWorld(true);
+  const obst = [];
+  for (const g of G.furn) for (const o of g.children) obst.push(new THREE.Box3().setFromObject(o));
+  for (const g of G.walls) for (const o of g.children) if (o.isGroup) obst.push(new THREE.Box3().setFromObject(o));
+  const inWall = (v) => COLL.some(b => v.x > b.x0 && v.x < b.x1 && v.z > b.z0 && v.z < b.z1 && v.y > b.y0 && v.y < b.y1);
+  for (const d of SLIDERS) {
+    const { put, at, lw, H, s, e, bot, top, n0, n1, own } = d;
+    const spots = [[1, -1], [1, 1], [-1, -1], [-1, 1]].map(([side, dir]) => ({
+      side, dir,
+      q: side > 0 ? n1 + 0.035 : n0 - 0.035,               /* leaf centre plane */
+      sc: dir < 0 ? s - lw / 2 + 0.08 : e + lw / 2 - 0.08, /* leaf centre along the wall */
+    }));
+    const blocker = (p) => {
+      const c = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => at(p.sc + i * lw / 2, p.q + j * 0.025, 0));
+      const box = new THREE.Box3(new V(Math.min(...c.map(v => v.x)), bot + 0.02, Math.min(...c.map(v => v.z))),
+        new V(Math.max(...c.map(v => v.x)), bot + H - 0.02, Math.max(...c.map(v => v.z))));
+      for (let k = 0; k < COLL.length; k++) {
+        if (k >= own.c0 && k < own.c1) continue;
+        const b = COLL[k];
+        if (box.min.x < b.x1 && box.max.x > b.x0 && box.min.z < b.z1 && box.max.z > b.z0 && box.min.y < b.y1 && box.max.y > b.y0) return 'wall';
+      }
+      if (obst.some(b => b.intersectsBox(box))) return 'furniture';
+      for (let i = 0; i <= 10; i++) for (const j of [-1, 1]) {
+        const v = at(p.sc - lw / 2 + lw * i / 10, p.q + j * 0.025, 0);
+        if (!onRects(FLOOR_RECTS[d.lvl], v.x, v.z, 0.005)) return 'off floor';
+      }
+      const a0 = p.dir < 0 ? s - lw + 0.1 : e + 0.02, a1 = p.dir < 0 ? s - 0.02 : e + lw - 0.1;
+      for (let i = 0; i <= 8; i++) for (const y of [0.3, 1.1, H - 0.15])
+        if (!inWall(at(a0 + (a1 - a0) * i / 8, p.side > 0 ? n1 - 0.02 : n0 + 0.02, bot + y))) return 'no wall behind';
+      return '';
+    };
+    for (const p of spots) p.why = blocker(p);
+    const p = d.park = spots.find(q => !q.why) || spots[0];
+    const leafMat = MAT.oakFurn;
+    put(B(lw, H - 0.02, 0.035, leafMat), leafMat, p.sc, p.q, bot + (H - 0.02) / 2, true);
+    put(B(0.02, 0.3, 0.03), MAT.blackSteel, p.sc - p.dir * (lw / 2 - 0.07), p.q + p.side * 0.03, bot + 1.0, true);   /* pull, opening end */
+    put(B(2 * lw, 0.05, 0.05), MAT.blackSteel, p.dir < 0 ? s + 0.08 : e - 0.08, p.q, top + 0.03, true);       /* track over leaf + opening */
   }
 }
 
@@ -646,7 +694,10 @@ function makeProp(s, lvl) {
     mk(g, RB(w * 0.9, 0.42, d * 0.24, 0.03, MAT.porcelain), MAT.porcelain, 0, 0.3, d * 0.36);
   } else if (has('showerRect')) {
     mk(g, B(w, 0.03, d, MAT.limestone), MAT.limestone, 0, 0.015, 0);
-    const gl = new THREE.Mesh(new THREE.BoxGeometry(w, 2.0, 0.01), MAT.glassIn); gl.position.set(0, 1.03, d / 2); gl.renderOrder = 2; g.add(gl);
+    /* clear screen in a thin black frame on the tray's +z edge, 2 m tall */
+    const gl = new THREE.Mesh(new THREE.BoxGeometry(w - 0.02, 1.98, 0.008), MAT.glassIn); gl.position.set(0, 1.03, d / 2); gl.renderOrder = 2; g.add(gl);
+    for (const y of [0.04, 2.02]) mk(g, B(w, 0.02, 0.022), MAT.blackSteel, 0, y, d / 2);
+    for (const sx of [-1, 1]) mk(g, B(0.02, 1.96, 0.022), MAT.blackSteel, sx * (w / 2 - 0.01), 1.03, d / 2);
     mk(g, CY(0.012, 0.9, 10), MAT.steel, -w * 0.3, 1.6, -d * 0.44);
     mk(g, CY(0.1, 0.012, 24), MAT.steel, -w * 0.3, 2.06, -d * 0.3);
   } else if (has('showerSystem')) {
@@ -1025,6 +1076,7 @@ function buildHouse(plan) {
   buildSauna();
   buildRoof();
   buildSite();
+  parkSliders();
 
   for (let i = 0; i < LV.length; i++) { mergeStatic(G.walls[i]); mergeStatic(G.furn[i]); mergeStatic(G.floor[i]); mergeStatic(G.ceil[i]); }
   mergeStatic(G.ext); mergeStatic(G.roof);
@@ -1033,7 +1085,11 @@ function buildHouse(plan) {
    outside it (level 0 only keeps the outside part, as a lower garden screen) */
 function clipToHouse(w, L) {
   const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az);
-  const inH = (x, z) => L.rooms.some(r => inside(r.poly, x, z));
+  /* a wall drawn in the sliver between two room outlines (1F: the entrance's
+     north wall, sliding door 168) has rooms on both sides: inside, not a screen */
+  const nx = -(bz - az) / len, nz = (bx - ax) / len, D = (w.t || 0.12) / 2 + 0.04;
+  const inR = (x, z) => L.rooms.some(r => inside(r.poly, x, z));
+  const inH = (x, z) => inR(x, z) || (inR(x + nx * D, z + nz * D) && inR(x - nx * D, z - nz * D));
   const N = Math.max(2, Math.ceil(len / 0.05)), runs = [];
   let cur = null;
   for (let k = 0; k <= N; k++) {
@@ -1553,6 +1609,15 @@ function setupComposer() {
   composer.addPass(new RenderPass(scene, camera));
   gtaoPass = new GTAOPass(scene, camera, w, h, undefined, { radius: 0.45, distanceExponent: 1.4, thickness: 1.2, scale: 1.1, samples: 12, distanceFallOff: 1.0 });
   gtaoPass.blendIntensity = 0.9;
+  /* GTAO draws its depth/normal g-buffer with an opaque override material, so
+     clear interior glass (shower screens, balustrades) became a solid surface
+     there: the AO of the room behind it vanished and a noisy dark halo ran
+     round its edges -- a shower screen read as a white slab. Glass doesn't
+     occlude: hide it for that pass (restoreVisibility puts it back). */
+  const noAO = [];
+  scene.traverse(o => { if (o.isMesh && o.material === MAT.glassIn) noAO.push(o); });
+  const hideForGBuffer = gtaoPass.overrideVisibility;
+  gtaoPass.overrideVisibility = function () { hideForGBuffer.call(this); for (const m of noAO) m.visible = false; };
   composer.addPass(gtaoPass);
   composer.addPass(new OutputPass());
   smaaPass = new SMAAPass(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
@@ -1619,7 +1684,7 @@ fetch('plan.json').then(r => r.json()).then(async (plan) => {
   addEventListener('resize', resize);
   goView(VIEWS[0]);
   setFov(FOV.def);
-  Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
+  Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, SLIDERS, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
   $('load').style.display = 'none';
   window.__ready = true;
   requestAnimationFrame(loop);
