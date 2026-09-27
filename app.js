@@ -18,6 +18,13 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
 const EYE = 1.62;
+/* Lens. st.fov is the field of view across the WIDER screen axis (horizontal
+   on landscape, vertical on portrait); 72deg ~ a 24 mm archviz lens. */
+const FOV = { def: 72, min: 40, max: 100, wide: 90, narrow: 50 };
+/* Two-point perspective: looking up/down by up to SHIFT is a vertical lens
+   shift (camera stays level, verticals stay vertical, like an architectural
+   shift lens); only pitch beyond +-SHIFT tilts the camera. */
+const SHIFT = 24 * Math.PI / 180;
 /* sun direction measured off the HDRI (brightest texel): az 36deg from +x
    towards +z, 28deg up. The directional light has to agree with the sky. */
 const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
@@ -34,7 +41,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, 1, 0.08, 1400);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.08, 1400);   /* fov/aspect: applyLens() */
 const root = new THREE.Group(); scene.add(root);
 let sun = null, composer = null, gtaoPass = null, smaaPass = null;
 
@@ -721,9 +728,16 @@ function makeProp(s, lvl) {
       mk(g, B(0.05, top - 0.04, 0.05), MAT.blackSteel, sx * (w / 2 - 0.2), (top - 0.04) / 2, -(d + 0.3) / 2 + 0.12);
       mk(g, B(0.05, top - 0.04, 0.05), MAT.blackSteel, sx * (w / 2 - 0.2), (top - 0.04) / 2, (d + 0.3) / 2 - 0.12);
     }
+  } else if (has('armchair')) {
+    /* must be tested before 'chair' ('living.armchair' contains it). Both
+       Poly Haven chairs face their own +z (rendered alone: seat to +z, back
+       at -z). FPC armchair front = local +y = three +z (the living one faces
+       the TV, the terrace pair the jacuzzi, the 1F one faces west): no flip */
+    placeModel(g, 'armchair', 0, 0, 0, 0, 1, 0);
   } else if (has('chair')) {
-    /* FPC chair symbol: back at local -y */
-    if (!placeModel(g, 'dining', 0, 0, 0, Math.PI, 1)) {
+    /* FPC dining chair front = local -y (the row at y+55 faces up the drawing
+       into the table) = three -z: turn the +z-facing model round */
+    if (!placeModel(g, 'dining', 0, 0, 0, 0, 1, Math.PI)) {
       mk(g, RS(w, 0.04, d, 0.02, MAT.oakFurn), MAT.oakFurn, 0, 0.45, 0);
     }
   } else if (has('sofa')) {
@@ -740,9 +754,6 @@ function makeProp(s, lvl) {
     mk(g, RS(0.22, 0.2, SD - 0.22, 0.07, MAT.linen), MAT.linen, X0 + 0.11, SH + 0.1, Z0 + 0.22 + (SD - 0.22) / 2);
     for (let i = 0; i < 3; i++) mk(g, RB(0.5, 0.44, 0.15, 0.07, i === 1 ? MAT.linenDark : MAT.linenWhite), i === 1 ? MAT.linenDark : MAT.linenWhite, X0 + 0.65 + i * 0.6, SH + 0.2, Z0 + 0.32);
     for (let i = 0; i < 2; i++) mk(g, RB(0.15, 0.44, 0.5, 0.07, MAT.linenWhite), MAT.linenWhite, X1 - 0.32, SH + 0.2, Z0 + 1.4 + i * 0.6);
-  } else if (has('armchair')) {
-    /* FPC armchair faces local +y (all three in the plan face their TV/tub) */
-    placeModel(g, 'armchair', 0, 0, 0, 0, 1);
   } else if (has('rug')) {
     mk(g, B(w, 0.012, d, MAT.rug), MAT.rug, 0, 0.006, 0).castShadow = false;
   } else if (has('tv')) {
@@ -1222,7 +1233,9 @@ function mergeStatic(group) {
 }
 
 /* ------------------------------------------------------------------ presets */
-/* [name, x, z, yaw, pitch, level|null(fly), y(optional)] — yaw 0 looks north (-z) */
+/* [name, x, z, yaw, pitch, level|null(fly), y(optional)] — yaw 0 looks north (-z).
+   pitch = where the centre of the view points; up to +-SHIFT it is lens shift.
+   Framed for the default 72deg (wide-axis) lens. */
 const VIEWS = [
   ['Outside — south-east', 9.5, 10.5, 0.72, -0.10, null, 3.2],
   ['Outside — south (living glass)', -5.0, 14.0, 0.05, -0.02, null, 2.6],
@@ -1233,22 +1246,22 @@ const VIEWS = [
   ['1F — Bath + tubs', -7.4, -8.4, 1.05, -0.12, 0],
   ['1F — Sauna', -9.55, -5.35, 0.25, -0.10, 0],
   ['1F — Wash room', -1.7, -3.4, 1.9, -0.06, 0],
-  ['2F — Living (double height)', -3.4, -4.6, 1.25, 0.10, 1],
+  ['2F — Living (double height)', -3.3, -5.5, 1.85, 0.12, 1],
   ['2F — Dining + kitchen', -3.8, -4.4, -1.35, -0.05, 1],
   ['2F — Kitchen', 0.2, -6.4, 2.6, -0.08, 1],
   ['2F — Stairs up to 3F', -5.4, -5.7, -1.55, 0.18, 1],
-  ['2F — Over the entrance void', -1.8, -3.9, 3.14, -0.35, 1],
+  ['2F — Over the entrance void', -1.8, -3.9, 3.14, -0.52, 1],
   ['3F — Landing over the living', -0.3, -7.6, 1.95, -0.30, 2],
   ['3F — Bedroom 1', -9.9, -8.7, -0.6, -0.08, 2],
   ['3F — Bedroom 2', -6.3, -8.7, -0.6, -0.08, 2],
   ['3F — Bedroom 3', 0.1, -8.75, -0.75, -0.08, 2],
   ['3F — Bedroom 4', 2.2, -2.2, 2.29, -0.10, 2],
-  ['3F — Bathroom', -1.75, -8.8, 0.85, -0.12, 2],
+  ['3F — Bathroom', -3.1, -7.7, -0.50, -0.15, 2],
 ];
 
 /* ---------------------------------------------------------------- controls */
 const st = {
-  yaw: 0, pitch: -0.05, fly: false, floor: 0, speed: 3, fov: 60,
+  yaw: 0, pitch: -0.05, fly: false, floor: 0, speed: 3, fov: FOV.def,
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
@@ -1346,7 +1359,7 @@ function move(dt) {
   if (act.has('right')) fx += 1;
   if (act.has('up')) uy += 1;
   if (act.has('dn')) uy -= 1;
-  const look = 1.35 * dt * (st.fov / 60);
+  const look = 1.35 * dt * (camera.fov / 60);          /* camera.fov = actual vertical fov */
   if (act.has('lookl')) st.yaw += look;
   if (act.has('lookr')) st.yaw -= look;
   if (act.has('lookup')) st.pitch = Math.min(1.5, st.pitch + look);
@@ -1391,9 +1404,25 @@ function move(dt) {
 let _lastFl = -1;
 function syncFloorLabel() { if (_lastFl !== st.floor) { _lastFl = st.floor; syncUI(); } }
 function setFov(v) {
-  st.fov = Math.max(25, Math.min(115, v));
-  camera.fov = st.fov; camera.updateProjectionMatrix();
+  st.fov = Math.max(FOV.min, Math.min(FOV.max, v));
+  applyLens();
   fovEl.value = Math.round(st.fov); fovv.textContent = Math.round(st.fov) + '°';
+}
+/* three's camera.fov is VERTICAL: derive it from st.fov (wide axis) and the
+   aspect, then turn the pitch within +-SHIFT into a vertical lens shift (an
+   off-axis frustum: row y / column z of the projection). updateProjectionMatrix
+   rebuilds a centred frustum, so this runs every frame (frame()) as well as
+   on fov / resize changes. Returns the part of st.pitch the shift took up. */
+function applyLens() {
+  const half = st.fov * Math.PI / 360;
+  camera.fov = camera.aspect >= 1 ? 2 * Math.atan(Math.tan(half) / camera.aspect) * 180 / Math.PI : st.fov;
+  camera.updateProjectionMatrix();
+  const shift = st.orbit ? 0 : Math.max(-SHIFT, Math.min(SHIFT, st.pitch));
+  if (shift) {
+    camera.projectionMatrix.elements[9] += Math.tan(shift) / Math.tan(camera.fov * Math.PI / 360);
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();   /* GTAO reads it */
+  }
+  return shift;
 }
 
 /* --------------------------------------------------------------- UI wiring */
@@ -1452,8 +1481,8 @@ function bindUI() {
   $('bQual').onclick = () => { st.quality = st.quality ? 0 : 1; syncUI(); };
   $('bHelp').onclick = () => $('help').classList.add('show');
   $('bMouse').onclick = () => { canvas.requestPointerLock(); };
-  $('bWide').onclick = () => setFov(100);
-  $('bNarrow').onclick = () => setFov(38);
+  $('bWide').onclick = () => setFov(FOV.wide);
+  $('bNarrow').onclick = () => setFov(FOV.narrow);
   fovEl.oninput = () => setFov(+fovEl.value);
   $('spd').oninput = (e) => { st.speed = +e.target.value * 0.75; };
   $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
@@ -1470,7 +1499,7 @@ function bindUI() {
   canvas.addEventListener('pointermove', (e) => {
     if (st.locked || !dragging) return;
     const dx = e.clientX - px, dy = e.clientY - py; px = e.clientX; py = e.clientY;
-    const k = (st.fov / 60) * 0.0042;
+    const k = (camera.fov / 60) * 0.0042;           /* by the actual vertical fov */
     if (st.orbit) { st.az -= dx * 0.005; st.el = Math.max(0.05, Math.min(1.45, st.el + dy * 0.004)); return; }
     st.yaw += dx * k; st.pitch = Math.max(-1.5, Math.min(1.5, st.pitch + dy * k));
   });
@@ -1532,7 +1561,7 @@ function setupComposer() {
 function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
-  camera.aspect = w / h; camera.updateProjectionMatrix();
+  camera.aspect = w / h; applyLens();              /* vertical fov follows the aspect */
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
 }
 let last = performance.now();
@@ -1552,6 +1581,7 @@ function frame(dt) {
   const target = indoors() ? 1.3 : 0.9;
   expo += (target - expo) * Math.min(1, dt * 2.5);
   renderer.toneMappingExposure = expo;
+  const shift = applyLens();                         /* 0 in orbit */
   if (st.orbit) {
     st.az += dt * 0.08;
     camera.position.set(
@@ -1560,7 +1590,7 @@ function frame(dt) {
       ORBIT_T.z + st.rad * Math.cos(st.el) * Math.cos(st.az));
     camera.lookAt(ORBIT_T);
   } else {
-    EUL.set(st.pitch, st.yaw, 0); camera.quaternion.setFromEuler(EUL);
+    EUL.set(st.pitch - shift, st.yaw, 0); camera.quaternion.setFromEuler(EUL);   /* only pitch beyond the shift tilts */
   }
   applyVis(); fadeLabels();
   const p = camera.position;
@@ -1588,8 +1618,8 @@ fetch('plan.json').then(r => r.json()).then(async (plan) => {
   bindPad(); bindUI(); resize();
   addEventListener('resize', resize);
   goView(VIEWS[0]);
-  setFov(60);
-  Object.assign(window, { frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
+  setFov(FOV.def);
+  Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
   $('load').style.display = 'none';
   window.__ready = true;
   requestAnimationFrame(loop);
