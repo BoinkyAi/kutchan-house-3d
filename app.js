@@ -826,7 +826,8 @@ function buildCarport(s) {
   const nR = Math.max(1, Math.round(W / 1.2));
   for (let i = 1; i < nR; i++) mk(g, B(0.06, bd * 0.7, D - 0.2), MAT.blackSteel, x0 + W * i / nR, H + bd * 0.65, cz);
   if (on.z0) mk(g, B(W, 0.22, 0.06), MAT.blackSteel, cx, H + bd - 0.11, z0 - 0.02);   /* wall ledger */
-  const gl = new THREE.Mesh(new THREE.BoxGeometry(W - 0.02, 0.012, D - 0.02), MAT.glass);
+  if (!MAT.canopy) { MAT.canopy = MAT.glass.clone(); MAT.canopy.envMapIntensity = 0.45; MAT.canopy.opacity = 0.05; MAT.canopy.onBeforeCompile = MAT.glass.onBeforeCompile; }
+  const gl = new THREE.Mesh(new THREE.BoxGeometry(W - 0.02, 0.012, D - 0.02), MAT.canopy);
   gl.position.set(cx, top + 0.006, cz); gl.renderOrder = 2; g.add(gl);
   /* downlight under the canopy by the door */
   const lens = new THREE.Mesh(new THREE.CircleGeometry(0.05, 20), MAT.lampGlow);
