@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Kutchan house — 3D walkthrough</title>
+<style>
+  :root{ --ui:#11161c; --ui2:#1b2430; --fg:#e8eef5; --ac:#5ac8fa; --bd:#2c3a4a; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b0f14;color:var(--fg);
+    font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  #c{position:fixed;inset:0;display:block;touch-action:none;cursor:grab}
+  #c.look{cursor:grabbing}
+  .panel{position:fixed;background:rgba(17,22,28,.86);backdrop-filter:blur(8px);
+    border:1px solid var(--bd);border-radius:12px;padding:8px}
+  #top{top:8px;left:8px;right:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #top .t{font-weight:700;margin-right:4px;white-space:nowrap}
+  #top .sub{opacity:.55;font-size:11px;white-space:nowrap}
+  button{background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;
+    padding:6px 9px;font:inherit;cursor:pointer;white-space:nowrap}
+  button:hover{border-color:var(--ac)}
+  button.on{background:var(--ac);color:#04121c;border-color:var(--ac);font-weight:700}
+  select{background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px 8px;font:inherit}
+  #move{left:8px;bottom:8px;display:grid;grid-template-columns:repeat(3,44px);gap:5px}
+  #look{right:8px;bottom:8px;display:grid;grid-template-columns:repeat(3,44px);gap:5px}
+  .pad button{width:44px;height:40px;padding:0;font-size:15px;display:flex;align-items:center;justify-content:center}
+  .pad button.sp{visibility:hidden;pointer-events:none}
+  .pad .lbl{grid-column:1/4;text-align:center;font-size:10px;opacity:.5;letter-spacing:.06em}
+  #mid{left:50%;transform:translateX(-50%);bottom:8px;display:flex;gap:10px;align-items:center}
+  #mid label{font-size:10px;opacity:.6;display:block;letter-spacing:.05em}
+  input[type=range]{width:110px;accent-color:var(--ac);vertical-align:middle}
+  #hud{position:fixed;left:8px;top:54px;font-size:11px;opacity:.6;pointer-events:none;text-shadow:0 1px 3px #000}
+  #help{position:fixed;inset:0;background:rgba(6,9,12,.9);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+  #help.show{display:flex}
+  #help .box{max-width:560px;background:var(--ui);border:1px solid var(--bd);border-radius:14px;padding:18px 20px;line-height:1.7;max-height:88vh;overflow:auto}
+  #help h3{margin:0 0 8px}
+  kbd{background:var(--ui2);border:1px solid var(--bd);border-radius:5px;padding:1px 6px;font:12px monospace}
+  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0f14;z-index:30;flex-direction:column;gap:10px}
+  .sp{width:26px;height:26px;border:3px solid #223;border-top-color:var(--ac);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  @media (max-width:560px){ #mid{display:none} #top{gap:4px;padding:6px} #top .sub{display:none} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="top" class="panel">
+  <span class="t">Kutchan house · v2 (previous version)</span>
+  <span class="sub" id="areaInfo"></span>
+  <select id="jump" title="Jump to a room"></select>
+  <button id="bWalk" title="Walk = stay on the floor. Fly = free movement">Walk</button>
+  <button id="bFloors" title="Cut the house away floor by floor">All floors</button>
+  <button id="bCeil" title="Take the roof off (C)">Roof</button>
+  <button id="bLbl" title="Room labels (T)">Labels</button>
+  <button id="bMouse" title="Lock the mouse for FPS-style looking">Mouse look</button>
+  <button id="bQual" title="High = ambient occlusion + antialiasing. Fast = drop them if it stutters">Quality: high</button>
+  <button id="bHelp">?</button>
+</div>
+
+<div id="hud"></div>
+
+<div id="move" class="pad panel">
+  <span class="lbl">MOVE</span>
+  <button data-h="up">↑</button><button data-h="fwd">▲</button><button data-h="dn">↓</button>
+  <button data-h="left">◀</button><button data-h="back">▼</button><button data-h="right">▶</button>
+  <span class="lbl">▲▼ fwd/back · ◀▶ strafe · ↑↓ height</span>
+</div>
+
+<div id="mid" class="panel">
+  <div title="Measured across the screen's long side"><label>FIELD OF VIEW <span id="fovv">72°</span></label><input id="fov" type="range" min="40" max="100" value="72"></div>
+  <div><label>SPEED</label><input id="spd" type="range" min="1" max="10" value="4"></div>
+  <button id="bWide" title="Wide angle (90°)">Wide</button>
+  <button id="bNarrow" title="Narrow / zoom (50°)">Narrow</button>
+</div>
+
+<div id="look" class="pad panel">
+  <span class="lbl">LOOK</span>
+  <button class="sp"></button><button data-h="lookup">↑</button><button class="sp"></button>
+  <button data-h="lookl">◀</button><button data-h="lvl" title="Level the view">⌖</button><button data-h="lookr">▶</button>
+  <button class="sp"></button><button data-h="lookdn">↓</button><button class="sp"></button>
+  <button data-h="wide" title="Wider angle">W</button><button data-h="orbit" title="Orbit the building">◎</button><button data-h="narrow" title="Narrower / zoom in">N</button>
+</div>
+
+<div id="help"><div class="box">
+<h3>How to move</h3>
+<b>Keys</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk forward / left / back / right · <kbd>E</kbd>/<kbd>Q</kbd> up / down a floor (in Fly: rise / sink) · <kbd>Shift</kbd> run<br>
+<b>Pan the view</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> (or <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>) look left / right / up / down<br>
+<b>Lens</b> — <kbd>Z</kbd> wider · <kbd>X</kbd> narrower · mouse wheel / pinch too. The angle is across the screen's long side (72° ≈ a 24 mm lens); walls stay upright until you look more than 24° up or down.<br>
+<b>Mouse / touch</b> — drag to pan the view (the picture follows your hand). <b>Mouse look</b> = FPS-style aiming (<kbd>Esc</kbd> to release).<br>
+<b>Shortcuts</b> — <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> jump to a floor · <kbd>0</kbd> outside · <kbd>F</kbd> walk / fly · <kbd>O</kbd> orbit · <kbd>C</kbd> roof · <kbd>T</kbd> labels · <kbd>G</kbd> quality<br><br>
+<b>Walk</b> keeps you at eye height on the floor you are on and stops you at walls. <b>Fly</b> goes anywhere, through everything.<br>
+The dropdown jumps to any room. <b>Roof</b> off + <b>Floors</b> (cut-away) + <b>Fly</b> = doll-house view.<br><br>
+<span style="opacity:.6">Geometry is the real plan (Floor Plan Creator export): 3 floors, 2.74 m ceilings, 37 cm exterior walls, double-height gym, bath, entrance and living, every window and stair as drawn. Finishes are indicative, not specified. Textures, sky and furniture models: Poly Haven (CC0).</span>
+<div style="margin-top:14px"><button onclick="document.getElementById('help').classList.remove('show')">Close</button></div>
+</div></div>
+
+<div id="load"><div class="sp"></div><div id="loadmsg" style="opacity:.6">building the house…</div></div>
+
+<script type="importmap">
+{"imports":{"three":"./three.module.min.js","three/addons/":"./jsm/"}}
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
