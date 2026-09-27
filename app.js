@@ -2,7 +2,10 @@
    Geometry comes from plan.json, parsed out of the Floor Plan Creator share by
    parse_plan.py (walls already resolved into exterior walls + shared partitions,
    openings merged, stairs lifted out). Finishes are indicative, not a spec.
-   Textures + HDRI + furniture models: Poly Haven (CC0). */
+   Textures + HDRI + furniture models: Poly Haven (CC0); worktop marble and the
+   bath-tile source marble: ambientCG (CC0). Derived here: the 60x60 bath tile
+   (Marble012 + 3 mm joints), charred cedar (from japanese_cedar_planks),
+   brushed-steel hairlines and the anti-tiling noise (procedural). */
 'use strict';
 
 import * as THREE from 'three';
@@ -13,7 +16,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
@@ -64,46 +67,196 @@ function tload(file, srgb) {
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   return (TEX[k] = t);
 }
+/* o: color, rough (x the arm roughness), env, ao, nScale, noDiff, noNor,
+   maps {diff, nor, arm} (other texture names), phys {MeshPhysicalMaterial
+   params, e.g. clearcoat}, grain (veneer: UVs follow each piece's long axis,
+   see grainUV), macro (anti-tiling, see macro()) */
 function pbr(name, tile, o) {
   o = o || {};
-  const m = new THREE.MeshStandardMaterial({
-    color: o.color === undefined ? 0xffffff : o.color,
+  const M = o.phys ? THREE.MeshPhysicalMaterial : THREE.MeshStandardMaterial;
+  const m = new M(Object.assign({
+    color: typeof o.color === 'number' ? o.color : 0xffffff,
     roughness: o.rough === undefined ? 1 : o.rough,
-    metalness: 0,
+    metalness: o.metal || 0,
     envMapIntensity: o.env === undefined ? 1 : o.env,
-  });
-  if (!o.noDiff) m.map = tload(name + '_diff.jpg', true);
-  m.normalMap = tload(name + '_nor.jpg', false);
-  const arm = tload(name + '_arm.jpg', false);
+  }, o.phys || {}));
+  if (Array.isArray(o.color)) m.color.setRGB(o.color[0], o.color[1], o.color[2]);   /* linear multiplier on the albedo map */
+  const mp = Object.assign({ diff: name, nor: name, arm: name }, o.maps || {});
+  if (!o.noDiff) m.map = tload(mp.diff + '_diff.jpg', true);
+  if (!o.noNor) m.normalMap = tload(mp.nor + '_nor.jpg', false);
+  const arm = tload(mp.arm + '_arm.jpg', false);
   m.roughnessMap = arm;
   m.aoMap = arm; m.aoMapIntensity = o.ao === undefined ? 1 : o.ao;
   const ns = o.nScale === undefined ? 1 : o.nScale;
-  m.normalScale.set(ns, -ns);          /* Poly Haven nor_gl + three's UV flip */
+  /* OpenGL-convention maps (Poly Haven nor_gl, ambientCG NormalGL, ours) with
+     three's default flipY: +v is image-up, so +green = +B. (v2 had -ns here,
+     which lit every bevel from the wrong side; checked on a lit test plane.) */
+  m.normalScale.set(ns, ns);
   m.userData.tile = tile;
+  if (o.grain) m.userData.grain = true;
+  if (o.macro) macro(m, o.macro);
   return m;
 }
+
+/* Anti-tiling. Large surfaces get a world-space, low-frequency variation from
+   a small tileable noise (assets/tex/macro_noise.png, triplanar, sampled at
+   two incommensurate scales): albedo +-~4-8 %, roughness +-~10 %. Options:
+   blend = isotropic textures (snow, plaster, concrete) also mix in a second,
+   rotated + rescaled sample of every map in noise-driven patches;
+   cells = [n, 0]: plank textures with n boards across u (gaps at k/n): each
+   board column samples a random column at a random offset along the board, so
+   board ends never line up into a repeat; cells = [n, m]: a tile grid, every
+   tile position shows a random one of the n x m tiles. The shuffled samples
+   use textureGrad with the true UV derivatives (no mip seams at the joints). */
+let MACRO_TEX = null;
+const MACRO_HEAD = `
+#if __VERSION__ < 300
+#define textureGrad( s, p, dx, dy ) texture2D( s, p )
+#endif
+varying vec3 vMacroP;
+varying vec3 vMacroN;
+varying vec2 vMacroUv;
+uniform sampler2D uMacroTex;
+uniform vec4 uMacroA;
+uniform vec4 uMacroB;
+uniform vec4 uMacroC;
+vec2 gUvA, gUvB, gDx, gDy, gDxB, gDyB;
+float gBlend, gMacroAlbedo, gMacroRough;
+float mHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+vec4 mNoise( vec3 p, vec3 w ) {
+  return texture2D( uMacroTex, p.zy ) * w.x + texture2D( uMacroTex, p.xz ) * w.y + texture2D( uMacroTex, p.xy ) * w.z;
+}
+vec4 macroTex( sampler2D s ) {
+  vec4 a = textureGrad( s, gUvA, gDx, gDy );
+#ifdef MACRO_BLEND
+  a = mix( a, textureGrad( s, gUvB, gDxB, gDyB ), gBlend );
+#endif
+  return a;
+}
+vec3 macroNor( sampler2D s ) {
+  vec3 a = textureGrad( s, gUvA, gDx, gDy ).xyz * 2.0 - 1.0;
+#ifdef MACRO_BLEND
+  vec3 b = textureGrad( s, gUvB, gDxB, gDyB ).xyz * 2.0 - 1.0;
+  b.xy = vec2( uMacroB.x * b.x + uMacroB.y * b.y, - uMacroB.y * b.x + uMacroB.x * b.y );
+  a = mix( a, b, gBlend );
+#endif
+  return a;
+}
+`;
+const MACRO_MAIN = `
+  gDx = dFdx( vMacroUv ); gDy = dFdy( vMacroUv );
+  gUvA = vMacroUv;
+  float mCell = 0.0;
+#ifdef MACRO_PLANKS
+  { float ci = floor( vMacroUv.x * uMacroC.x );
+    gUvA += vec2( floor( mHash( vec2( ci, 3.1 ) ) * uMacroC.x ) / uMacroC.x, mHash( vec2( ci, 7.7 ) ) * 17.0 );
+    mCell = mHash( vec2( ci, 1.3 ) ) - 0.5; }
+#endif
+#ifdef MACRO_GRID
+  { vec2 ci = floor( vMacroUv * uMacroC.xy );
+    gUvA += floor( vec2( mHash( ci + 0.37 ), mHash( ci + 5.51 ) ) * uMacroC.xy ) / uMacroC.xy;
+    mCell = mHash( ci + 9.13 ) - 0.5; }
+#endif
+  vec3 mw = pow( abs( vMacroN ), vec3( 4.0 ) ); mw /= ( mw.x + mw.y + mw.z + 1e-5 );
+  vec4 mn = mNoise( vMacroP * uMacroA.x, mw ) * 0.62 + mNoise( vMacroP * uMacroA.x * 0.27 + 0.31, mw ) * 0.38;
+  gMacroAlbedo = 1.0 + uMacroA.y * ( mn.r - 0.5 ) * 3.0 + uMacroC.z * mCell * 2.0;
+  gMacroRough = 1.0 + uMacroA.z * ( mn.g - 0.5 ) * 3.0;
+#ifdef MACRO_BLEND
+  gBlend = smoothstep( 0.4, 0.6, mn.b ) * uMacroA.w;
+  mat2 mR = mat2( uMacroB.x, uMacroB.y, - uMacroB.y, uMacroB.x );
+  gUvB = mR * gUvA * uMacroB.z + vec2( 0.37, 0.61 );
+  gDxB = mR * gDx * uMacroB.z; gDyB = mR * gDy * uMacroB.z;
+#endif
+`;
+function macro(m, c) {
+  if (!MACRO_TEX) { MACRO_TEX = TL.load('assets/tex/macro_noise.png'); MACRO_TEX.wrapS = MACRO_TEX.wrapT = THREE.RepeatWrapping; }
+  c = Object.assign({ scale: 7, albedo: 0, rough: 0, blend: 0, rot: 0.9, s2: 0.73, cells: null, tint: 0 }, c);
+  const U = {
+    uMacroTex: { value: MACRO_TEX },
+    uMacroA: { value: new THREE.Vector4(1 / c.scale, c.albedo, c.rough, c.blend) },
+    uMacroB: { value: new THREE.Vector4(Math.cos(c.rot), Math.sin(c.rot), c.s2, 0) },
+    uMacroC: { value: new THREE.Vector4(c.cells ? c.cells[0] : 0, c.cells ? c.cells[1] : 0, c.tint, 0) },
+  };
+  const defs = (c.blend ? '#define MACRO_BLEND\n' : '') + (c.cells ? (c.cells[1] ? '#define MACRO_GRID\n' : '#define MACRO_PLANKS\n') : '');
+  const key = 'macro|' + defs.replace(/\s+/g, ' ');
+  const sub = (chunk, from, to) => THREE.ShaderChunk[chunk].split(from).join(to);
+  m.macroCfg = c;                       /* not userData: Material.copy JSON-clones that */
+  m.customProgramCacheKey = () => key;  /* same defines -> same code -> one program */
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'varying vec3 vMacroP;\nvarying vec3 vMacroN;\nvarying vec2 vMacroUv;\n' + sh.vertexShader.replace('#include <worldpos_vertex>',
+      '#include <worldpos_vertex>\n  vMacroP = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;\n  vMacroN = normalize( mat3( modelMatrix ) * objectNormal );\n  vMacroUv = uv;');
+    sh.fragmentShader = (defs + MACRO_HEAD + sh.fragmentShader)
+      .replace('void main() {', 'void main() {\n' + MACRO_MAIN)
+      .replace('#include <map_fragment>', sub('map_fragment', 'texture2D( map, vMapUv )', 'macroTex( map )') + '\n  diffuseColor.rgb *= gMacroAlbedo;')
+      .replace('#include <normal_fragment_maps>', sub('normal_fragment_maps', 'texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0', 'macroNor( normalMap )'))
+      .replace('#include <roughnessmap_fragment>', sub('roughnessmap_fragment', 'texture2D( roughnessMap, vRoughnessMapUv )', 'macroTex( roughnessMap )') + '\n  roughnessFactor = clamp( roughnessFactor * gMacroRough, 0.03, 1.0 );')
+      .replace('#include <aomap_fragment>', sub('aomap_fragment', 'texture2D( aoMap, vAoMapUv )', 'macroTex( aoMap )'));
+  };
+  return m;
+}
+/* clone() drops onBeforeCompile (and macroCfg): re-apply it */
+function cloneMat(src) {
+  const m = src.clone();
+  if (src.macroCfg) macro(m, src.macroCfg);
+  else if (src.onBeforeCompile) m.onBeforeCompile = src.onBeforeCompile;
+  return m;
+}
+
 const std = (o) => new THREE.MeshStandardMaterial(o);
 const MAT = {};
 function buildMaterials() {
   const IN = 0.42;                      /* env light indoors: the sky can't see in */
-  MAT.oak = pbr('laminate_floor_02', 1.7, { env: IN, rough: 0.9 });
-  MAT.oakFurn = pbr('laminate_floor_02', 1.1, { env: IN, rough: 0.8 });
-  MAT.concrete = pbr('concrete_wall_008', 2.7, { env: IN, color: 0xd9d9d6, rough: 0.72, nScale: 0.5 });
-  MAT.granite = pbr('granite_tile', 2.3, { env: IN, rough: 0.8 });
-  MAT.limestone = pbr('marble_01', 1.5, { env: IN, rough: 0.7 });
-  MAT.hinoki = pbr('hinoki_planks', 1.89, { env: IN });
+  /* 2F/3F: brushed engineered oak, 9 boards of 18.8 cm per 1.69 m, satin lacquer */
+  MAT.oak = pbr('wood_floor', 1.69, { env: IN, rough: 0.72, color: [1.75, 2.05, 2.4],
+    phys: { clearcoat: 0.25, clearcoatRoughness: 0.34 },
+    macro: { cells: [9, 0], tint: 0.05, albedo: 0.10, rough: 0.12, scale: 6 } });
+  /* joinery: continuous oak veneer (no plank seams), grain along each piece's long axis */
+  MAT.oakFurn = pbr('silver_oak_veneer_02', 1.0, { env: IN, rough: 0.78, color: [0.77, 0.86, 0.74], grain: true,
+    macro: { albedo: 0.06, rough: 0.1, scale: 3 } });
+  /* 1F: sealed, lightly polished concrete */
+  MAT.concrete = pbr('concrete_floor_worn_001', 3.0, { env: IN, color: [2.7, 2.8, 3.0], rough: 0.62, nScale: 0.6,
+    phys: { clearcoat: 0.35, clearcoatRoughness: 0.22 },
+    macro: { blend: 1, albedo: 0.14, rough: 0.2, scale: 7 } });
+  /* onsen: dark stone tile, wet-look; entrance: the same stone, honed */
+  MAT.granite = pbr('granite_tile', 2.29, { env: IN, rough: 0.52, color: [0.55, 0.56, 0.58], macro: { albedo: 0.08, rough: 0.12, scale: 5 } });
+  MAT.entranceStone = pbr('granite_tile', 2.29, { env: IN, rough: 0.75, color: [0.6, 0.6, 0.62], macro: { albedo: 0.08, rough: 0.1, scale: 5 } });
+  /* bathrooms / powder / wash room: 60 x 60 light porcelain (marble look), 3 mm joints */
+  MAT.bathTile = pbr('bath_tile', 2.4, { env: IN, rough: 1.0, ao: 0.8, color: [1.45, 1.43, 1.28],
+    macro: { cells: [4, 4], tint: 0.02, albedo: 0.04, rough: 0.1, scale: 5 } });
+  /* sauna + soaking tubs: hinoki - pale cream, straight fine grain, knot-free:
+     12 cm boards with 1.5 mm joints, derived from the oak veneer (10 per 1.2 m) */
+  MAT.hinoki = pbr('hinoki_boards', 1.2, { env: IN, rough: 1.0 });
   MAT.cedar = pbr('japanese_cedar_planks', 1.13, { env: 0.8, color: 0x9c7d66 });
-  MAT.plaster = pbr('painted_plaster_wall', 2.0, { env: IN, noDiff: true, color: 0xeeebe5, nScale: 0.35, ao: 0.5 });
-  MAT.ceiling = pbr('painted_plaster_wall', 2.0, { env: IN, noDiff: true, color: 0xf4f2ee, nScale: 0.25, ao: 0.4 });
-  MAT.clad = pbr('black_painted_planks', 1.6, { env: 0.9, color: 0xc8c8c8 });
-  MAT.snow = pbr('snow_02', 3.0, { env: 1.0, color: 0xf2f5fa, rough: 0.9, nScale: 0.8 });
-  MAT.roofSnow = pbr('snow_02', 2.2, { env: 1.0, color: 0xf6f8fc, rough: 0.9, nScale: 0.6 });
-  MAT.deck = pbr('wood_floor_deck', 1.8, { env: 0.9, color: 0x9a8c86 });
-  MAT.packed = pbr('snow_02', 1.6, { env: 1.0, color: 0xd3d8de, rough: 0.8, nScale: 0.5 });
-  MAT.pad = pbr('concrete_wall_008', 2.7, { env: 0.8, color: 0xb3b9bf, rough: 0.85, nScale: 0.5 });
-  MAT.linen = pbr('rough_linen', 0.35, { env: 0.5, noDiff: true, color: 0xc9c3b8, nScale: 0.8 });
-  MAT.linenDark = pbr('rough_linen', 0.35, { env: 0.5, noDiff: true, color: 0x6c6862, nScale: 0.8 });
-  MAT.linenWhite = pbr('rough_linen', 0.35, { env: 0.5, noDiff: true, color: 0xf1efeb, nScale: 0.6 });
+  /* painted plaster / drywall: near-white, stipple normal kept faint */
+  MAT.plaster = pbr('white_stucco', 1.99, { env: IN, color: [1.26, 1.27, 1.24], nScale: 0.22, ao: 0.3,
+    macro: { blend: 1, albedo: 0.07, rough: 0.14, scale: 5 } });
+  MAT.ceiling = pbr('white_stucco', 1.99, { env: IN, color: [1.33, 1.37, 1.36], nScale: 0.18, ao: 0.3,
+    macro: { blend: 1, albedo: 0.05, rough: 0.1, scale: 5 } });
+  /* charred (yakisugi) cedar boards, 14 cm, brushed so the grain shows */
+  MAT.clad = pbr('charred_cedar', 1.13, { env: 0.85, rough: 1.0, color: [0.38, 0.38, 0.38], maps: { nor: 'japanese_cedar_planks' }, nScale: 1.9,
+    macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
+  /* snow: the scan's normal map carried a 12.8 deg net tilt (removed in the
+     file); v2 lit the field as a plane tilted toward the sun, so the albedo is
+     raised to keep v2's brightness on level ground. Anti-tiling: a second,
+     rotated and slightly finer sample + only +-1-3 % luminance breakup */
+  MAT.snow = pbr('snow_02', 3.0, { env: 1.0, color: [1.2, 1.23, 1.29], rough: 0.9, nScale: 0.8,
+    macro: { blend: 1, albedo: 0.03, rough: 0.03, scale: 9, s2: 1.31, rot: 1.1 } });
+  MAT.roofSnow = pbr('snow_02', 2.2, { env: 1.0, color: [1.245, 1.268, 1.314], rough: 0.9, nScale: 0.6,
+    macro: { blend: 1, albedo: 0.03, rough: 0.03, scale: 6, s2: 1.27, rot: 1.1 } });
+  /* terrace: weathered, silvering timber */
+  MAT.deck = pbr('old_planks_02', 2.0, { env: 0.9, color: [1.0, 1.02, 1.06], macro: { albedo: 0.12, rough: 0.1, scale: 5 } });
+  MAT.packed = pbr('snow_02', 1.6, { env: 1.0, color: [0.879, 0.926, 0.986], rough: 0.8, nScale: 0.5,
+    macro: { blend: 1, albedo: 0.03, rough: 0.03, scale: 7, s2: 1.29, rot: 1.1 } });
+  MAT.pad = pbr('concrete_floor_worn_001', 3.0, { env: 0.8, color: [2.2, 2.2, 2.3], rough: 0.95, nScale: 0.7,
+    macro: { blend: 1, albedo: 0.14, rough: 0.1, scale: 6 } });
+  /* textiles: wool herringbone upholstery, linen bedding, wool throw */
+  /* cloth: sheen (the soft grazing-angle fuzz of fibres) + deeper weave relief */
+  const CLOTH = (c) => ({ sheen: 1, sheenRoughness: 0.6, sheenColor: new THREE.Color(c) });
+  MAT.sofa = pbr('poly_wool_herringbone', 0.3, { env: 0.5, color: [2.2, 2.1, 1.85], nScale: 1.8, rough: 1, phys: CLOTH(0x9c958a) });
+  MAT.linen = pbr('rough_linen', 0.36, { env: 0.5, color: 0xe2dacd, nScale: 1.5, rough: 1.3, phys: CLOTH(0xb8b2a8) });
+  MAT.linenDark = pbr('poly_wool_herringbone', 0.3, { env: 0.5, color: [0.8, 0.78, 0.74], nScale: 1.8, rough: 1, phys: CLOTH(0x5c5852) });
+  MAT.linenWhite = pbr('rough_linen', 0.36, { env: 0.5, color: [1.22, 1.21, 1.19], nScale: 1.2, rough: 1.3, phys: CLOTH(0xc8c6c2) });
 
   /* glass: reflections are ADDED at full strength (Fresnel does the work),
      what's behind is let through at (1 - opacity). Stock transparency would
@@ -123,11 +276,13 @@ function buildMaterials() {
     envMapIntensity: 0.25, side: THREE.DoubleSide, depthWrite: false,
   });
   MAT.frame = std({ color: 0x1b1d20, roughness: 0.38, metalness: 0.6, envMapIntensity: 0.9 });
-  MAT.steel = std({ color: 0xb9bec3, roughness: 0.28, metalness: 0.95, envMapIntensity: 1.2 });
+  /* brushed stainless: streaked normal + roughness (procedural, streaks along u) */
+  MAT.steel = pbr('brushed_steel', 0.5, { noDiff: true, metal: 1, rough: 1, color: 0xbfc4c9, env: 1.2, nScale: 0.8 });
   MAT.blackSteel = std({ color: 0x1d1f22, roughness: 0.45, metalness: 0.5, envMapIntensity: 0.8 });
   MAT.white = std({ color: 0xf1f1ef, roughness: 0.35, metalness: 0, envMapIntensity: IN });
   MAT.porcelain = std({ color: 0xfbfbfa, roughness: 0.08, metalness: 0, envMapIntensity: 1.0 });
-  MAT.stoneTop = std({ color: 0x2c2e31, roughness: 0.18, metalness: 0, envMapIntensity: 0.9 });
+  /* worktops + vanity tops: one dark marble slab (ambientCG Marble016), honed-polished */
+  MAT.stoneTop = pbr('marble016', 1.0, { noNor: true, rough: 1.6, env: 0.9, color: 0xd6d6d6 });
   MAT.water = new THREE.MeshPhysicalMaterial({
     color: 0x6fa9b8, roughness: 0.02, metalness: 0, transparent: true, opacity: 0.55,
     envMapIntensity: 1.4, depthWrite: false,
@@ -136,7 +291,8 @@ function buildMaterials() {
   MAT.screen = std({ color: 0x07090b, roughness: 0.08, metalness: 0.3, envMapIntensity: 1.0 });
   MAT.slabEdge = std({ color: 0xd6d3cd, roughness: 0.9, envMapIntensity: IN });
   MAT.bark = std({ color: 0x4a4038, roughness: 0.95, envMapIntensity: 0.6 });
-  MAT.rug = pbr('rough_linen', 0.6, { env: 0.4, noDiff: true, color: 0x8f877b, nScale: 1.2 });
+  MAT.rug = pbr('hessian_380', 0.8, { env: 0.4, color: [0.92, 1.0, 1.1], nScale: 1.6 });      /* entrance: chunky jute weave (hessian at 3x) */
+  MAT.rugWool = pbr('curly_teddy_natural', 0.33, { env: 0.4, color: [0.62, 0.66, 0.72], nScale: 1.0, rough: 1.25 });  /* living: wool boucle */
   MAT.lampGlow = new THREE.MeshBasicMaterial({ color: 0xfff1d8 });
   MAT.heater = std({ color: 0x2b2b2b, roughness: 0.7, metalness: 0.3 });
   MAT.stones = std({ color: 0x55524e, roughness: 0.95, envMapIntensity: 0.5 });
@@ -180,10 +336,11 @@ function scaleUV(geo, s) {
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * s, uv.getY(i) * s);
   uv.needsUpdate = true; return geo;
 }
-/* BoxGeometry with UVs in metres / tile */
-function B(w, h, d, mat) {
+/* BoxGeometry with UVs in metres / tile. axis: grain axis for veneer ('x'|'y'|'z') */
+function B(w, h, d, mat, axis) {
   const g = new THREE.BoxGeometry(w, h, d);
   const t = tileOf(mat), uv = g.attributes.uv;
+  if (mat && mat.userData.grain) return grainUV(g, t, axis);
   const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
   for (let s = 0; s < 6; s++) for (let v = 0; v < 4; v++) {
     const i = s * 4 + v;
@@ -191,33 +348,80 @@ function B(w, h, d, mat) {
   }
   return g;
 }
+/* Veneer UVs. The veneer texture's grain runs along u. Every triangle is
+   box-projected onto its dominant plane with u along the grain axis (the
+   piece's longest dimension unless given) wherever that axis lies in the
+   face, so the grain follows each piece: up door leaves and cupboard fronts,
+   along tables, treads and rails. A seeded offset per piece keeps identical
+   pieces from showing identical figure. */
+let _grainSeed = 424242;
+function grainUV(geo, tile, axis) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  g.computeBoundingBox();
+  const bb = g.boundingBox, size = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+  const ax = axis ? 'xyz'.indexOf(axis) : size.indexOf(Math.max(...size));
+  const rnd = () => ((_grainSeed = (_grainSeed * 16807) % 2147483647) / 2147483647);
+  const ou = rnd() * 7, ov = rnd() * 7;
+  const P = g.attributes.position.array, n = g.attributes.position.count, uv = new Float32Array(n * 2);
+  for (let i = 0; i + 2 < n; i += 3) {
+    const a = i * 3, b = a + 3, c = a + 6;
+    const e1x = P[b] - P[a], e1y = P[b + 1] - P[a + 1], e1z = P[b + 2] - P[a + 2];
+    const e2x = P[c] - P[a], e2y = P[c + 1] - P[a + 1], e2z = P[c + 2] - P[a + 2];
+    const nx = Math.abs(e1y * e2z - e1z * e2y), ny = Math.abs(e1z * e2x - e1x * e2z), nz = Math.abs(e1x * e2y - e1y * e2x);
+    const dn = nx >= ny && nx >= nz ? 0 : (ny >= nz ? 1 : 2);
+    const ip = [0, 1, 2].filter(k => k !== dn);
+    const ua = ip.includes(ax) ? ax : (size[ip[0]] >= size[ip[1]] ? ip[0] : ip[1]);
+    const va = ip[0] === ua ? ip[1] : ip[0];
+    for (let k = 0; k < 3; k++) {
+      const j = i + k;
+      uv[j * 2] = P[j * 3 + ua] / tile + ou; uv[j * 2 + 1] = P[j * 3 + va] / tile + ov;
+    }
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.userData.grained = true;
+  return g;
+}
 function mk(parent, geo, mat, x, y, z, ry) {
+  if (mat && mat.userData && mat.userData.grain && !geo.userData.grained) geo = grainUV(geo, tileOf(mat));
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x || 0, y || 0, z || 0);
   if (ry) m.rotation.y = ry;
   m.castShadow = true; m.receiveShadow = true;
   parent.add(m); return m;
 }
-/* rounded box (soft furnishings) */
-function RB(w, h, d, r, mat) {
+/* rounded box (soft furnishings). soft = bevel radius in m for cushions and
+   bedding: a deep 6-step rounding with smooth normals and the same outer size
+   as the plain version (whose flat-shaded 3-step bevel read as a hard slab) */
+function RB(w, h, d, r, mat, soft) {
   r = Math.max(0.004, Math.min(r, w / 2 - .002, h / 2 - .002));
+  let bev = Math.min(r * .7, d * .22), segs = 3, cseg = 6;
+  if (soft) {
+    const X = w + 2 * bev, Y = h + 2 * bev, b = Math.min(soft, d * 0.45, X * 0.45, Y * 0.45);
+    w = X - 2 * b; h = Y - 2 * b; r = Math.max(0.004, Math.min(r + bev - b, w / 2 - .002, h / 2 - .002));
+    bev = b; segs = 6; cseg = 10;
+  }
   const sh = new THREE.Shape(), x = -w / 2, y = -h / 2;
   sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r);
   sh.lineTo(x + w, y + h - r); sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
   sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r);
   sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y);
-  const bev = Math.min(r * .7, d * .22);
   const g = new THREE.ExtrudeGeometry(sh, {
     depth: Math.max(.002, d - bev * 2), bevelEnabled: true,
-    bevelSize: bev, bevelThickness: bev, bevelSegments: 3, curveSegments: 6
+    bevelSize: bev, bevelThickness: bev, bevelSegments: segs, curveSegments: cseg
   });
   g.translate(0, 0, -d / 2 + bev);
+  if (soft) {                                        /* weld + smooth: no facets on the roll */
+    g.deleteAttribute('uv'); g.deleteAttribute('normal');
+    const m = mergeVertices(g, 1e-5); m.computeVertexNormals();
+    return grainUV(m, tileOf(mat));
+  }
   g.computeVertexNormals();
-  scaleUV(g, 1 / tileOf(mat));
-  return g;
+  /* box-projected UVs (see grainUV): the extrude generator's bevel UVs smear
+     a woven texture into stripes round every rounded edge */
+  return grainUV(g, tileOf(mat));
 }
 /* flat rounded slab: w along x, d along z, h tall */
-function RS(w, h, d, r, mat) { const g = RB(w, d, h, r, mat); g.rotateX(-Math.PI / 2); return g; }
+function RS(w, h, d, r, mat, soft) { const g = RB(w, d, h, r, mat, soft); g.rotateX(-Math.PI / 2); return g; }
 const CY = (r, h, s) => new THREE.CylinderGeometry(r, r, h, s || 20);
 
 function inside(poly, x, z) {
@@ -244,6 +448,16 @@ function addCollBox(cx, cz, w, d, ang, y0, y1) {
 }
 
 /* ------------------------------------------------------------------- walls */
+/* charred cladding UVs: the cedar scan's boards are 8.1 cm; the facade lays
+   them at 13 cm (14 boards per 1.82 m) with the grain 1.15x longer, and every
+   piece continues the boards of its neighbours: u is the world coordinate
+   along the facade (base + dir * s), v the height, so boards run unbroken past
+   windows and from floor to floor */
+const CLAD_U = 1.82, CLAD_V = 1.3;
+function cladUV(geo, i0, i1, s0, y0, base, dir) {
+  const uv = geo.attributes.uv, t = tileOf(MAT.clad);
+  for (let i = i0; i < i1; i++) uv.setXY(i, (base + dir * (uv.getX(i) * t + s0)) / CLAD_U, (uv.getY(i) * t + y0) / CLAD_V);
+}
 /* A wall run along a->b. The wall occupies [n0, n1] along the unit normal n
    (n0 < n1) and y in [y0, y1]. Openings cut full-height slots; sills / heads
    are added back. Exterior walls get a cladding skin on the +n side. */
@@ -267,7 +481,9 @@ function wallRun(G, w, lvl, L) {
   /* piece: s in [s0,s1], y in [y0,y1] (absolute), across n in [q0,q1] */
   const piece = (s0, s1, y0, y1, q0, q1, mat, coll) => {
     if (s1 - s0 < 0.004 || y1 - y0 < 0.004 || q1 - q0 < 0.002) return;
-    const m = new THREE.Mesh(B(s1 - s0, y1 - y0, q1 - q0, mat), mat);
+    const geo = B(s1 - s0, y1 - y0, q1 - q0, mat);
+    if (mat === MAT.clad) cladUV(geo, 16, 20, s0, y0, Math.abs(ux) > 0.5 ? ax : az, Math.sign(Math.abs(ux) > 0.5 ? ux : uz));  /* outer (+z) face */
+    const m = new THREE.Mesh(geo, mat);
     const cs = (s0 + s1) / 2, cq = (q0 + q1) / 2;
     m.position.set(ax + ux * cs + nx * cq, (y0 + y1) / 2, az + uz * cs + nz * cq);
     m.rotation.y = th;
@@ -308,7 +524,8 @@ function wallRun(G, w, lvl, L) {
   if (cur < runEnd) { solid(cur, runEnd, yB, yT); skirt(Math.max(cur, 0), len); }
   own.c1 = COLL.length;
   if (ext && e1 > 0) {                               /* clad the exposed corner end */
-    const m = new THREE.Mesh(B(0.01, yT - yB, n1 - n0, MAT.clad), MAT.clad);
+    const cg = B(0.01, yT - yB, n1 - n0, MAT.clad); cladUV(cg, 0, 8, 0, yB, 0, 1);
+    const m = new THREE.Mesh(cg, MAT.clad);
     m.position.set(ax + ux * (runEnd + 0.005) + nx * (n0 + n1) / 2, (yB + yT) / 2, az + uz * (runEnd + 0.005) + nz * (n0 + n1) / 2);
     m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
   }
@@ -368,7 +585,7 @@ function opening(G, o, w, lvl, L, c) {
   }
   for (let i = 0; i < nLeaf; i++) {
     const g = new THREE.Group();
-    const leaf = new THREE.Mesh(B(lw - 0.01, H - 0.01, 0.04, leafMat), ext ? MAT.cedar : leafMat);
+    const leaf = new THREE.Mesh(B(lw - 0.01, H - 0.01, 0.04, ext ? MAT.cedar : leafMat), ext ? MAT.cedar : leafMat);
     leaf.castShadow = true; leaf.receiveShadow = true;
     const handle = new THREE.Mesh(B(0.02, 0.26, 0.05), MAT.blackSteel);
     const hinge = i === 0 ? 0 : 1;                       /* 0 = hinge at s side */
@@ -607,8 +824,9 @@ function buildSpiralStair(G, s) {
   const pts = [];
   for (let i = 1; i <= n; i++) {
     const thc = thTop + (n - i) * d;
-    const geo = new THREE.CylinderGeometry(r, r, 0.045, 10, 1, false, thc - d / 2, d * 1.04);
-    scaleUV(geo, 1 / tileOf(MAT.oakFurn));
+    /* built centred on +z so the grain can run out along the radius, then turned into place */
+    const geo = grainUV(new THREE.CylinderGeometry(r, r, 0.045, 10, 1, false, -d / 2, d * 1.04), tileOf(MAT.oakFurn), 'z');
+    geo.rotateY(thc);
     mk(g, geo, MAT.oakFurn, 0, rise * i - 0.0225, 0);
     /* baluster at the outer end */
     const bx = Math.sin(thc) * (r - 0.04), bz = Math.cos(thc) * (r - 0.04);
@@ -673,14 +891,19 @@ function makeProp(s, lvl) {
   let placed = true;
 
   if (has('bed')) {
-    /* FPC bed: headboard at local -y (top of the symbol) */
+    /* FPC bed: headboard at local -y (top of the symbol). On 3F the symbol's
+       head edge IS the wall face, so everything stays inside the footprint:
+       headboard 1.6 cm off the wall (clear of the 1.2 cm skirting), 1 cm clear
+       of the bedside tables, top at 0.92 m (bed 3's window sill board starts at
+       0.97); the frame's head end tucks inside the headboard. (v2's headboard
+       sat in the wall, its face coplanar with the plaster: vertical stripes.) */
     mk(g, B(w - 0.12, 0.14, d - 0.12), MAT.black, 0, 0.07, 0);
-    mk(g, RS(w, 0.16, d, 0.02, MAT.oakFurn), MAT.oakFurn, 0, 0.22, 0);
-    mk(g, RS(w - 0.06, 0.22, d - 0.08, 0.05, MAT.linenWhite), MAT.linenWhite, 0, 0.41, 0.01);
-    mk(g, RS(w + 0.02, 0.09, d * 0.66, 0.06, MAT.linen), MAT.linen, 0, 0.555, d * 0.16);
-    mk(g, RS(w + 0.03, 0.05, 0.36, 0.04, MAT.linenDark), MAT.linenDark, 0, 0.61, d * 0.34);
-    for (const sx of [-1, 1]) mk(g, RS(w * 0.42, 0.13, 0.36, 0.07, MAT.linenWhite), MAT.linenWhite, sx * w * 0.24, 0.58, -d / 2 + 0.3);
-    mk(g, B(w + 0.3, 1.0, 0.06, MAT.oakFurn), MAT.oakFurn, 0, 0.5, -d / 2 - 0.03);
+    mk(g, RS(w, 0.16, d - 0.04, 0.02, MAT.oakFurn), MAT.oakFurn, 0, 0.22, 0.02);
+    mk(g, RS(w - 0.06, 0.22, d - 0.08, 0.05, MAT.linenWhite, 0.06), MAT.linenWhite, 0, 0.41, 0.01);
+    mk(g, RS(w + 0.02, 0.09, d * 0.66, 0.06, MAT.linen, 0.04), MAT.linen, 0, 0.555, d * 0.16);
+    mk(g, RS(w + 0.03, 0.05, 0.36, 0.04, MAT.linenDark, 0.022), MAT.linenDark, 0, 0.61, d * 0.34);
+    for (const sx of [-1, 1]) mk(g, RS(w * 0.42, 0.13, 0.36, 0.07, MAT.linenWhite, 0.055), MAT.linenWhite, sx * w * 0.24, 0.58, -d / 2 + 0.3);
+    mk(g, B(w + 0.28, 0.92, 0.06, MAT.oakFurn), MAT.oakFurn, 0, 0.46, -d / 2 + 0.046);
     for (const sx of [-1, 1]) {                                     /* bedside tables + lamps */
       mk(g, B(0.42, 0.45, 0.38, MAT.oakFurn), MAT.oakFurn, sx * (w / 2 + 0.36), 0.225, -d / 2 + 0.22);
       mk(g, CY(0.06, 0.03, 16), MAT.blackSteel, sx * (w / 2 + 0.36), 0.465, -d / 2 + 0.2);
@@ -693,7 +916,7 @@ function makeProp(s, lvl) {
     mk(g, new THREE.CylinderGeometry(w * 0.36, w * 0.3, 0.06, 24), MAT.porcelain, 0, 0.41, -d * 0.1);
     mk(g, RB(w * 0.9, 0.42, d * 0.24, 0.03, MAT.porcelain), MAT.porcelain, 0, 0.3, d * 0.36);
   } else if (has('showerRect')) {
-    mk(g, B(w, 0.03, d, MAT.limestone), MAT.limestone, 0, 0.015, 0);
+    mk(g, B(w, 0.03, d, MAT.bathTile), MAT.bathTile, 0, 0.015, 0);
     /* clear screen in a thin black frame on the tray's +z edge, 2 m tall */
     const gl = new THREE.Mesh(new THREE.BoxGeometry(w - 0.02, 1.98, 0.008), MAT.glassIn); gl.position.set(0, 1.03, d / 2); gl.renderOrder = 2; g.add(gl);
     for (const y of [0.04, 2.02]) mk(g, B(w, 0.02, 0.022), MAT.blackSteel, 0, y, d / 2);
@@ -729,14 +952,14 @@ function makeProp(s, lvl) {
     }
   } else if (has('cornerCabinet') || has('kitchen.cabinet')) {
     mk(g, B(w, 0.1, d - 0.06), MAT.black, 0, 0.05, -0.03);
-    mk(g, B(w, top - 0.14, d, MAT.oakFurn), MAT.oakFurn, 0, 0.1 + (top - 0.14) / 2, 0);
+    mk(g, B(w, top - 0.14, d, MAT.oakFurn, 'y'), MAT.oakFurn, 0, 0.1 + (top - 0.14) / 2, 0);   /* cupboard fronts: vertical grain */
     mk(g, B(w + 0.01, 0.04, d + 0.03, MAT.stoneTop), MAT.stoneTop, 0, top - 0.02, 0.015);
     mk(g, B(w - 0.004, 0.004, 0.004), MAT.black, 0, top * 0.62, d / 2 + 0.002);
   } else if (has('hood')) {
     mk(g, B(w, 0.06, d, MAT.steel), MAT.steel, 0, bot + 0.03, 0);
     mk(g, B(w * 0.4, h - 0.06, d * 0.5), MAT.steel, 0, bot + 0.06 + (h - 0.06) / 2, 0);
   } else if (has('racks') || has('bookcase')) {
-    mk(g, B(w, top, d, MAT.oakFurn), MAT.oakFurn, 0, top / 2, 0);
+    mk(g, B(w, top, d, MAT.oakFurn, 'y'), MAT.oakFurn, 0, top / 2, 0);
     if (has('racks')) {                                 /* built-in cupboard fronts */
       const nd = Math.max(1, Math.round(w / 0.6));
       for (let i = 1; i < nd; i++) mk(g, B(0.004, top - 0.04, 0.004), MAT.black, -w / 2 + w * i / nd, top / 2, d / 2 + 0.002);
@@ -795,16 +1018,16 @@ function makeProp(s, lvl) {
     /* 250 x 250 "sofa" symbol = corner (L) sofa. The plan parks an armchair in
        the -x/+y corner, so the L runs along -y and +x (backs on those sides). */
     const SD = 0.95, SH = 0.42, BH = 0.8;
-    const seat = (x0, z0, x1, z1) => mk(g, RS(x1 - x0, SH - 0.1, z1 - z0, 0.05, MAT.linen), MAT.linen, (x0 + x1) / 2, 0.1 + (SH - 0.1) / 2, (z0 + z1) / 2);
+    const seat = (x0, z0, x1, z1) => mk(g, RS(x1 - x0, SH - 0.1, z1 - z0, 0.05, MAT.sofa, 0.07), MAT.sofa, (x0 + x1) / 2, 0.1 + (SH - 0.1) / 2, (z0 + z1) / 2);
     const base = (x0, z0, x1, z1) => mk(g, B(x1 - x0, 0.1, z1 - z0), MAT.black, (x0 + x1) / 2, 0.05, (z0 + z1) / 2);
     const X0 = -w / 2, X1 = w / 2, Z0 = -d / 2, Z1 = d / 2;
     base(X0 + 0.05, Z0 + 0.05, X1 - 0.05, Z0 + SD); base(X1 - SD, Z0 + SD, X1 - 0.05, Z1 - 0.05);
     seat(X0, Z0, X1, Z0 + SD); seat(X1 - SD, Z0 + SD, X1, Z1);
-    mk(g, RS(w, BH - SH, 0.22, 0.07, MAT.linen), MAT.linen, 0, SH + (BH - SH) / 2, Z0 + 0.11);
-    mk(g, RS(0.22, BH - SH, d - 0.22, 0.07, MAT.linen), MAT.linen, X1 - 0.11, SH + (BH - SH) / 2, 0.11);
-    mk(g, RS(0.22, 0.2, SD - 0.22, 0.07, MAT.linen), MAT.linen, X0 + 0.11, SH + 0.1, Z0 + 0.22 + (SD - 0.22) / 2);
-    for (let i = 0; i < 3; i++) mk(g, RB(0.5, 0.44, 0.15, 0.07, i === 1 ? MAT.linenDark : MAT.linenWhite), i === 1 ? MAT.linenDark : MAT.linenWhite, X0 + 0.65 + i * 0.6, SH + 0.2, Z0 + 0.32);
-    for (let i = 0; i < 2; i++) mk(g, RB(0.15, 0.44, 0.5, 0.07, MAT.linenWhite), MAT.linenWhite, X1 - 0.32, SH + 0.2, Z0 + 1.4 + i * 0.6);
+    mk(g, RS(w, BH - SH, 0.22, 0.07, MAT.sofa, 0.07), MAT.sofa, 0, SH + (BH - SH) / 2, Z0 + 0.11);
+    mk(g, RS(0.22, BH - SH, d - 0.22, 0.07, MAT.sofa, 0.07), MAT.sofa, X1 - 0.11, SH + (BH - SH) / 2, 0.11);
+    mk(g, RS(0.22, 0.2, SD - 0.22, 0.07, MAT.sofa, 0.07), MAT.sofa, X0 + 0.11, SH + 0.1, Z0 + 0.22 + (SD - 0.22) / 2);
+    for (let i = 0; i < 3; i++) mk(g, RB(0.5, 0.44, 0.15, 0.07, i === 1 ? MAT.linenDark : MAT.linenWhite, 0.06), i === 1 ? MAT.linenDark : MAT.linenWhite, X0 + 0.65 + i * 0.6, SH + 0.2, Z0 + 0.32);
+    for (let i = 0; i < 2; i++) mk(g, RB(0.15, 0.44, 0.5, 0.07, MAT.linenWhite, 0.06), MAT.linenWhite, X1 - 0.32, SH + 0.2, Z0 + 1.4 + i * 0.6);
   } else if (has('rug')) {
     mk(g, B(w, 0.012, d, MAT.rug), MAT.rug, 0, 0.006, 0).castShadow = false;
   } else if (has('tv')) {
@@ -929,14 +1152,14 @@ function buildBareTree(g, H, spread) {
 /* ------------------------------------------------------- finishes & labels */
 /* floor finish overlays [level, x0, z0, x1, z1, material] */
 const ZONES = [
-  [0, -10.486, -11.083, -6.73, -7.97, 'granite'],     /* bath: soaking tubs + showers */
+  [0, -10.486, -11.083, -6.73, -7.97, 'granite'],     /* bath: soaking tubs + showers (dark stone, wet) */
   [0, -10.486, -7.85, -9.20, -4.99, 'hinoki'],         /* sauna */
   [0, -9.08, -7.85, -6.73, -4.99, 'oak'],              /* rest / changing */
-  [0, -4.08, -6.53, -1.12, -2.95, 'limestone'],        /* wash room */
-  [0, -3.225, -2.83, 2.685, 1.06, 'granite'],          /* entrance */
-  [1, -1.39, -9.22, -0.53, -7.44, 'limestone'],        /* powder room */
-  [2, -3.24, -11.05, -1.46, -8.35, 'limestone'],       /* bathroom 1 */
-  [2, 0.38, -8.23, 2.685, -6.41, 'limestone'],         /* bathroom 2 */
+  [0, -4.08, -6.53, -1.12, -2.95, 'bathTile'],         /* wash room */
+  [0, -3.225, -2.83, 2.685, 1.06, 'entranceStone'],    /* entrance */
+  [1, -1.39, -9.22, -0.53, -7.44, 'bathTile'],         /* powder room */
+  [2, -3.24, -11.05, -1.46, -8.35, 'bathTile'],        /* bathroom 1 */
+  [2, 0.38, -8.23, 2.685, -6.41, 'bathTile'],          /* bathroom 2 */
 ];
 const LABELS = [
   [0, -0.27, -0.91, 'Entrance'],
@@ -1035,7 +1258,7 @@ function buildHouse(plan) {
       for (const z of ZONES) if (z[0] === i) {
         const cx = (z[1] + z[3]) / 2, cz = (z[2] + z[4]) / 2;
         if (inside(rm.poly, cx, cz)) {
-          const zm = MAT[z[5]].clone(); zm.polygonOffset = true; zm.polygonOffsetFactor = -2; zm.polygonOffsetUnits = -2;
+          const zm = cloneMat(MAT[z[5]]); zm.polygonOffset = true; zm.polygonOffsetFactor = -2; zm.polygonOffsetUnits = -2;
           gf.add(flat(rectPoly(z[1], z[2], z[3], z[4]), [], L.base + 0.002, zm, 1));
         }
       }
@@ -1148,7 +1371,7 @@ function decorate() {
   /* living: coffee table + rug in front of the corner sofa */
   const sofa = findProp(1, 'sofa');
   if (sofa) {
-    mk(G.furn[1], B(2.3, 0.012, 2.1, MAT.rug), MAT.rug, sofa.x - 0.55, L1.base + 0.006, sofa.y + 0.3).castShadow = false;
+    mk(G.furn[1], B(2.3, 0.012, 2.1, MAT.rugWool), MAT.rugWool, sofa.x - 0.55, L1.base + 0.006, sofa.y + 0.3).castShadow = false;
     placeModel(G.furn[1], 'coffee', sofa.x - 0.85, L1.base, sofa.y + 0.35, Math.PI / 2, 1);
   }
   /* glass balustrade where the 3F landing meets the void beside the stair */
