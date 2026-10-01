@@ -31,6 +31,15 @@ const SHIFT = 24 * Math.PI / 180;
 /* sun direction measured off the HDRI (brightest texel): az 36deg from +x
    towards +z, 28deg up. The directional light has to agree with the sky. */
 const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
+/* Which house. The Floor Plan Creator share holds two: house 1 (3 floors,
+   flat roof: plan.json, the original walkthrough) and house 2 (2 floors,
+   1F 3.5 m, 2F under one mono-pitch roof: plan2.json, re-centred on itself).
+   ?house=2 opens house 2; the switcher reloads with it, so each house is
+   built from a clean start (house 1 renders exactly as it did before). */
+const HOUSE = new URLSearchParams(location.search).get('house') === '2' ? 2 : 1;
+/* house 2: the 2F ceiling plane, see roofSetup(); null for house 1 */
+let ROOF = null;
+const ROOF_HEAD = 0.15;      /* least wall left over a window cut down by the roof */
 
 /* ------------------------------------------------------------ renderer etc */
 const canvas = document.getElementById('c');
@@ -314,7 +323,7 @@ function setupEnv() {
 function setupLights() {
   scene.add(new THREE.HemisphereLight(0xcfe0f2, 0xf2f2f4, 0.25));
   sun = new THREE.DirectionalLight(0xfff1dd, 3.2);
-  sun.target.position.set(-4, 3, -5);
+  if (HOUSE === 2) sun.target.position.set(0, 3, 0); else sun.target.position.set(-4, 3, -5);
   sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 60);
   sun.castShadow = true;
   const big = Math.min(screen.width, screen.height) >= 700 && (navigator.hardwareConcurrency || 4) > 4;
@@ -471,28 +480,46 @@ function wallRun(G, w, lvl, L) {
   const ext = w.kind === 'ext';
   /* Each corner is filled by exactly ONE wall (the one ending there); if both
      ran on, the end face of one sits in the other's outer face and z-fights. */
-  const e0 = 0, e1 = ext ? w.ext1 : 0;
+  const e0 = ext && w.pre ? w.pre : 0, e1 = ext ? w.ext1 : 0;   /* w.pre: house 2 inside corners (parse_plan.py) */
   const isTop = lvl === LV.length - 1;
   const yB = L.base - (lvl === 0 && ext ? 0.25 : 0);
   const yT = L.base + L.h + (ext ? (isTop ? 0 : L.ct) : 0);
   const hIn = L.h;                                   /* interior clear height */
   const th = Math.atan2(-uz, ux);                    /* local x -> u, local z -> n */
   const SKIN = 0.025;
+  /* house 2 2F: every piece that reaches the wall top gets its top face put
+     on the sloped ceiling plane (per vertex), see roofTop() */
+  const roof = isTop ? ROOF : null;
   /* piece: s in [s0,s1], y in [y0,y1] (absolute), across n in [q0,q1] */
   const piece = (s0, s1, y0, y1, q0, q1, mat, coll) => {
     if (s1 - s0 < 0.004 || y1 - y0 < 0.004 || q1 - q0 < 0.002) return;
     const geo = B(s1 - s0, y1 - y0, q1 - q0, mat);
+    const cs = (s0 + s1) / 2, cq = (q0 + q1) / 2;
+    const px = ax + ux * cs + nx * cq, py = (y0 + y1) / 2, pz = az + uz * cs + nz * cq;
+    if (roof && y1 >= yT - 1e-6) roofTop(geo, px, py, pz, th);
     if (mat === MAT.clad) cladUV(geo, 16, 20, s0, y0, Math.abs(ux) > 0.5 ? ax : az, Math.sign(Math.abs(ux) > 0.5 ? ux : uz));  /* outer (+z) face */
     const m = new THREE.Mesh(geo, mat);
-    const cs = (s0 + s1) / 2, cq = (q0 + q1) / 2;
-    m.position.set(ax + ux * cs + nx * cq, (y0 + y1) / 2, az + uz * cs + nz * cq);
+    m.position.set(px, py, pz);
     m.rotation.y = th;
     m.castShadow = true; m.receiveShadow = true;
     G.walls.add(m);
     if (coll) addCollBox(m.position.x, m.position.z, s1 - s0, q1 - q0, -th, y0, y1);
   };
   const solid = (s0, s1, y0, y1) => {
-    if (ext) {
+    if (ext && w.skin) {
+      /* house 2: cladding only where the outer face is outside (parse_plan.py
+         `skin`); elsewhere it is in another wall and the core runs full depth */
+      let c = s0;
+      for (const [k0, k1] of w.skin) {
+        const a = Math.max(c, k0), b = Math.min(s1, k1);
+        if (b <= a) continue;
+        if (a > c) piece(c, a, y0, y1, n0, n1, MAT.plaster, true);
+        piece(a, b, y0, y1, n0, n1 - SKIN, MAT.plaster, true);
+        piece(a, b, y0, y1, n1 - SKIN, n1, MAT.clad, false);
+        c = b;
+      }
+      if (c < s1) piece(c, s1, y0, y1, n0, n1, MAT.plaster, true);
+    } else if (ext) {
       piece(s0, s1, y0, y1, n0, n1 - SKIN, MAT.plaster, true);
       piece(s0, s1, y0, y1, n1 - SKIN, n1, MAT.clad, false);
     } else piece(s0, s1, y0, y1, n0, n1, MAT.plaster, true);
@@ -503,7 +530,9 @@ function wallRun(G, w, lvl, L) {
     const faces = ext ? [n0 - 0.006] : [n0 - 0.006, n1 + 0.006];
     for (const q of faces) piece(s0, s1, L.base, L.base + 0.07, q - 0.006, q + 0.006, MAT.white, false);
   };
-  const ops = w.doors.slice().sort((p, q) => p.off - q.off);
+  const ops = (roof ? underRoof(w, L, ax, az, ux, uz, nx, nz, n0, n1) : w.doors.slice()).sort((p, q) => p.off - q.off);
+  /* lowest point of the ceiling plane over [s0, s1] of this wall (plane: the minimum is at a corner) */
+  const roofMin = (s0, s1) => Math.min(...[s0, s1].flatMap(s => [n0, n1].map(q => ROOF.y(ax + ux * s + nx * q, az + uz * s + nz * q))));
   const own = { c0: COLL.length, c1: COLL.length };  /* this run's COLL boxes */
   let cur = -e0;
   const runEnd = len + e1;
@@ -511,7 +540,10 @@ function wallRun(G, w, lvl, L) {
     const s = Math.max(o.off, cur), e = Math.min(o.off + o.w, runEnd);
     if (e <= s) continue;
     if (s > cur) { solid(cur, s, yB, yT); skirt(Math.max(cur, 0), Math.min(s, len)); }
-    const bot = L.base + Math.min(o.bottom, hIn), top = L.base + Math.min(o.top, hIn);
+    const bot = L.base + Math.min(o.bottom, hIn);
+    /* under house 2's roof: an FPC style-2 hole is open to the ceiling; any
+       other opening keeps its drawn head unless the roof comes down past it */
+    const top = !roof ? L.base + Math.min(o.top, hIn) : (o.full ? Infinity : Math.min(L.base + o.top, roofMin(s, e) - ROOF_HEAD));
     if (bot > L.base + 0.01) { solid(s, e, yB, bot); skirt(s, e); }
     if (top < yT - 0.01) solid(s, e, top, yT);
     opening(G, o, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot, top, ext, own });
@@ -523,12 +555,58 @@ function wallRun(G, w, lvl, L) {
   }
   if (cur < runEnd) { solid(cur, runEnd, yB, yT); skirt(Math.max(cur, 0), len); }
   own.c1 = COLL.length;
-  if (ext && e1 > 0) {                               /* clad the exposed corner end */
-    const cg = B(0.01, yT - yB, n1 - n0, MAT.clad); cladUV(cg, 0, 8, 0, yB, 0, 1);
+  if (ext && e1 > 0 && w.cap !== 0) {                /* clad the exposed corner end (house 2: not where it butts into the next wall) */
+    const cg = B(0.01, yT - yB, n1 - n0, MAT.clad);
+    const cx = ax + ux * (runEnd + 0.005) + nx * (n0 + n1) / 2, cy = (yB + yT) / 2, cz = az + uz * (runEnd + 0.005) + nz * (n0 + n1) / 2;
+    if (roof) roofTop(cg, cx, cy, cz, th);
+    cladUV(cg, 0, 8, 0, yB, 0, 1);
     const m = new THREE.Mesh(cg, MAT.clad);
-    m.position.set(ax + ux * (runEnd + 0.005) + nx * (n0 + n1) / 2, (yB + yT) / 2, az + uz * (runEnd + 0.005) + nz * (n0 + n1) / 2);
+    m.position.set(cx, cy, cz);
     m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
   }
+}
+
+/* house 2: put a wall box's top face on the 2F ceiling plane, vertex by
+   vertex (the box is built up to the nominal level height first). The side
+   faces' v stays in metres / tile, so plaster and cladding keep their scale. */
+function roofTop(geo, px, py, pz, th) {
+  const P = geo.attributes.position, uv = geo.attributes.uv;
+  const c = Math.cos(th), s = Math.sin(th);
+  let hy = -Infinity;
+  for (let i = 0; i < P.count; i++) hy = Math.max(hy, P.getY(i));
+  for (let i = 0; i < P.count; i++) {
+    if (P.getY(i) < hy - 1e-6) continue;
+    const lx = P.getX(i), lz = P.getZ(i);
+    const ny = ROOF.y(px + lx * c + lz * s, pz - lx * s + lz * c) - py;   /* mesh turned by th about y */
+    if (uv && (i < 8 || i >= 16)) uv.setY(i, uv.getY(i) * (ny + hy) / (2 * hy));   /* +-x / +-z faces; v from the bottom */
+    P.setY(i, ny);
+  }
+  P.needsUpdate = true; if (uv) uv.needsUpdate = true;
+  geo.computeBoundingBox(); geo.computeBoundingSphere();
+}
+/* house 2 2F openings: a window the roof would cut is split where an
+   interior wall meets it (one window per room behind it) so only the part
+   under the low side loses height; the rest keeps its drawn head. */
+function underRoof(w, L, ax, az, ux, uz, nx, nz, n0, n1) {
+  const at = (s, q) => ROOF.y(ax + ux * s + nx * q, az + uz * s + nz * q) - L.base;
+  const clear = (s0, s1) => Math.min(at(s0, n0), at(s0, n1), at(s1, n0), at(s1, n1)) - ROOF_HEAD;
+  const out = [];
+  for (const o of w.doors) {
+    if (o.kind !== 'WINDOW' || w.kind !== 'ext' || o.top <= clear(o.off, o.off + o.w)) { out.push(o); continue; }
+    const cuts = [];
+    for (const v of L.walls) {
+      if (v.kind !== 'int' || v === w) continue;
+      const vl = Math.hypot(v.b[0] - v.a[0], v.b[1] - v.a[1]) || 1;
+      if (Math.abs(((v.b[0] - v.a[0]) * ux + (v.b[1] - v.a[1]) * uz) / vl) > 0.3) continue;   /* must stand across this wall */
+      for (const p of [v.a, v.b]) {
+        const q = (p[0] - ax) * nx + (p[1] - az) * nz, s = (p[0] - ax) * ux + (p[1] - az) * uz;
+        if (Math.abs(q - n0) < 0.15 && s > o.off + 0.3 && s < o.off + o.w - 0.3) cuts.push(s);
+      }
+    }
+    const xs = [o.off, ...[...new Set(cuts.map(v => +v.toFixed(3)))].sort((a, b) => a - b), o.off + o.w];
+    for (let i = 0; i + 1 < xs.length; i++) out.push(Object.assign({}, o, { off: xs[i], w: xs[i + 1] - xs[i] }));
+  }
+  return out;
 }
 
 /* glazing, door leaves, frames */
@@ -618,13 +696,13 @@ function opening(G, o, w, lvl, L, c) {
    space or another opening). If none is free, the first. Runs once all walls
    of all levels exist, before mergeStatic. */
 const SLIDERS = [];
-function parkSliders() {
+function parkSliders(list) {
   scene.updateMatrixWorld(true);
   const obst = [];
   for (const g of G.furn) for (const o of g.children) obst.push(new THREE.Box3().setFromObject(o));
   for (const g of G.walls) for (const o of g.children) if (o.isGroup) obst.push(new THREE.Box3().setFromObject(o));
   const inWall = (v) => COLL.some(b => v.x > b.x0 && v.x < b.x1 && v.z > b.z0 && v.z < b.z1 && v.y > b.y0 && v.y < b.y1);
-  for (const d of SLIDERS) {
+  for (const d of (list || SLIDERS)) {
     const { put, at, lw, H, s, e, bot, top, n0, n1, own } = d;
     const spots = [[1, -1], [1, 1], [-1, -1], [-1, 1]].map(([side, dir]) => ({
       side, dir,
@@ -1028,6 +1106,7 @@ function makeProp(s, lvl) {
     mk(g, RS(0.22, 0.2, SD - 0.22, 0.07, MAT.sofa, 0.07), MAT.sofa, X0 + 0.11, SH + 0.1, Z0 + 0.22 + (SD - 0.22) / 2);
     for (let i = 0; i < 3; i++) mk(g, RB(0.5, 0.44, 0.15, 0.07, i === 1 ? MAT.linenDark : MAT.linenWhite, 0.06), i === 1 ? MAT.linenDark : MAT.linenWhite, X0 + 0.65 + i * 0.6, SH + 0.2, Z0 + 0.32);
     for (let i = 0; i < 2; i++) mk(g, RB(0.15, 0.44, 0.5, 0.07, MAT.linenWhite, 0.06), MAT.linenWhite, X1 - 0.32, SH + 0.2, Z0 + 1.4 + i * 0.6);
+    if (s.mx) for (const c of g.children) c.position.x = -c.position.x;   /* mirrored symbol (house 2): the L runs along -x */
   } else if (has('rug')) {
     mk(g, B(w, 0.012, d, MAT.rug), MAT.rug, 0, 0.006, 0).castShadow = false;
   } else if (has('tv')) {
@@ -1041,16 +1120,14 @@ function makeProp(s, lvl) {
     gl.position.y = (top2 - 0.06) / 2 + 0.03; gl.renderOrder = 2; g.add(gl);
     mk(g, along ? B(Lr, 0.04, 0.06, MAT.oakFurn) : B(0.06, 0.04, Lr, MAT.oakFurn), MAT.oakFurn, 0, top2, 0);
     mk(g, along ? B(Lr, 0.03, 0.04) : B(0.04, 0.03, Lr), MAT.blackSteel, 0, 0.015, 0);
-  } else if (has('shade') && lvl === 0 && touchesHouse(s)) {
-    buildCarport(s); placed = false;
+  } else if (has('shade') && lvl === 0 && HOUSE === 1 && touchesHouse(s)) {
+    buildCarport(s); placed = false;                   /* house 1's carport (see buildCarport) */
+  } else if (has('shade') && HOUSE === 2 && lvl === 0) {
+    /* house 2: the same pergola, trimmed so it stands clear of the walls */
+    const c = clearOfHouse(s);
+    if (c) { pergola(g, c.w, c.d, top); s = Object.assign({}, s, { x: c.x, y: c.y }); } else placed = false;
   } else if (has('shade')) {
-    /* free-standing garden pergola: black steel posts, cedar roof, snow load */
-    const t = Math.min(Math.max(top, 2.2), 2.6);
-    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
-      mk(g, B(0.12, t, 0.12), MAT.blackSteel, sx * (w / 2 - 0.15), t / 2, sz * (d / 2 - 0.15));
-    mk(g, B(w, 0.18, d, MAT.cedar), MAT.cedar, 0, t + 0.09, 0);
-    mk(g, B(w + 0.02, 0.05, d + 0.02), MAT.blackSteel, 0, t + 0.2, 0);
-    mk(g, RS(w - 0.05, 0.18, d - 0.05, 0.08, MAT.roofSnow), MAT.roofSnow, 0, t + 0.31, 0);
+    pergola(g, w, d, top);
   } else if (has('treeBig')) {
     buildBareTree(g, top, w);
   } else if (has('box')) {
@@ -1065,6 +1142,35 @@ function makeProp(s, lvl) {
   g.position.set(s.x, 0, s.y);
   g.rotation.y = -s.a;
   return g;
+}
+
+/* free-standing garden pergola: black steel posts, cedar roof, snow load */
+function pergola(g, w, d, top) {
+  const t = Math.min(Math.max(top, 2.2), 2.6);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
+    mk(g, B(0.12, t, 0.12), MAT.blackSteel, sx * (w / 2 - 0.15), t / 2, sz * (d / 2 - 0.15));
+  mk(g, B(w, 0.18, d, MAT.cedar), MAT.cedar, 0, t + 0.09, 0);
+  mk(g, B(w + 0.02, 0.05, d + 0.02), MAT.blackSteel, 0, t + 0.2, 0);
+  mk(g, RS(w - 0.05, 0.18, d - 0.05, 0.08, MAT.roofSnow), MAT.roofSnow, 0, t + 0.31, 0);
+}
+/* house 2: an axis-aligned site symbol drawn into the house corner is
+   trimmed from ONE side until it is clear of the walls (the side that keeps
+   the most of it); null if that leaves less than half */
+function clearOfHouse(s) {
+  const [X0, Z0, X1, Z1] = bbox(rectCorners(s));
+  const clear = (r) => { for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) if (houseAt(r[0] + (r[2] - r[0]) * i / 12, r[1] + (r[3] - r[1]) * j / 12)) return false; return true; };
+  if (clear([X0, Z0, X1, Z1])) return { x: s.x, y: s.y, w: s.w, d: s.d };
+  let best = null;
+  for (let k = 0; k < 4; k++) {
+    const r = [X0, Z0, X1, Z1];
+    for (let it = 0; it < 400 && !clear(r); it++) r[k] += (k < 2 ? 1 : -1) * 0.02;
+    const area = (r[2] - r[0]) * (r[3] - r[1]);
+    if (clear(r) && r[2] > r[0] && r[3] > r[1] && (!best || area > best.area)) best = { r, area };
+  }
+  if (!best || best.area < 0.5 * (X1 - X0) * (Z1 - Z0)) return null;
+  const r = best.r, gap = 0.1;                               /* and 10 cm off the cladding */
+  for (let k = 0; k < 4; k++) if (r[k] !== [X0, Z0, X1, Z1][k]) r[k] += (k < 2 ? 1 : -1) * gap;
+  return { x: (r[0] + r[2]) / 2, y: (r[1] + r[3]) / 2, w: r[2] - r[0], d: r[3] - r[1] };
 }
 
 /* Carport. The plan's "shade" over the two cars is drawn hard against the
@@ -1151,7 +1257,7 @@ function buildBareTree(g, H, spread) {
 
 /* ------------------------------------------------------- finishes & labels */
 /* floor finish overlays [level, x0, z0, x1, z1, material] */
-const ZONES = [
+const ZONES1 = [
   [0, -10.486, -11.083, -6.73, -7.97, 'granite'],     /* bath: soaking tubs + showers (dark stone, wet) */
   [0, -10.486, -7.85, -9.20, -4.99, 'hinoki'],         /* sauna */
   [0, -9.08, -7.85, -6.73, -4.99, 'oak'],              /* rest / changing */
@@ -1161,7 +1267,7 @@ const ZONES = [
   [2, -3.24, -11.05, -1.46, -8.35, 'bathTile'],        /* bathroom 1 */
   [2, 0.38, -8.23, 2.685, -6.41, 'bathTile'],          /* bathroom 2 */
 ];
-const LABELS = [
+const LABELS1 = [
   [0, -0.27, -0.91, 'Entrance'],
   [0, -8.60, -9.30, 'Bath · soaking tubs'],
   [0, -9.85, -6.40, 'Sauna'],
@@ -1205,11 +1311,58 @@ function labelSprite(text) {
 /* ceiling lights [level, x, z] */
 /* [x, z, lit] — every one gets a fitting; only `lit` ones get a real light
    (each extra light costs every pixel, so they're rationed) */
-const DOWN = {
+const DOWN1 = {
   0: [[-8.6, -9.6, 1], [-3.6, -9.2, 0], [0.9, -8.8, 0], [-7.3, -3.9, 1], [-2.6, -4.7, 0], [1.0, -4.4, 0], [-0.3, -0.9, 1], [-7.9, -6.4, 0]],
   1: [[-8.2, -4.6, 0], [-5.4, -4.2, 0], [0.9, -8.0, 1], [1.0, -4.4, 0], [-0.9, -8.3, 1]],
   2: [[-8.7, -9.7, 1], [-5.1, -9.7, 1], [1.0, -9.7, 1], [-2.4, -9.9, 0], [1.5, -7.3, 0], [0.6, -0.6, 0], [-4.6, -7.8, 1]],
 };
+
+/* house 2 (plan2.json: re-centred on the house, x east, z south). FPC has
+   no room names: they are read off the fixtures (1F reuses house 1's set:
+   tubs, sauna benches + heater, plant room, wash room) and Toby's note (1F =
+   gym + bath). */
+const ZONES2 = [
+  [0, -7.76, -5.52, -1.25, -3.16, 'granite'],          /* bath: soaking tubs + showers */
+  [0, -7.76, -6.92, -4.23, -5.52, 'granite'],
+  [0, -4.11, -6.92, -1.25, -5.64, 'hinoki'],           /* sauna */
+  [0, -3.82, -3.04, -2.91, -1.98, 'bathTile'],         /* WC */
+  [0, -2.79, -0.51, 0.84, 3.69, 'bathTile'],           /* wash room */
+  [0, -2.79, 3.81, 0.84, 6.92, 'entranceStone'],       /* entrance (south door) */
+  [1, -7.74, 0.33, -4.26, 1.88, 'bathTile'],           /* bathrooms */
+  [1, -7.74, -1.31, -4.26, 0.21, 'bathTile'],
+  [1, -2.80, -3.09, 0.91, -1.78, 'bathTile'],
+  [1, -1.82, 0.87, 0.91, 2.11, 'bathTile'],
+];
+const LABELS2 = [
+  [0, -5.30, 1.30, 'Gym'],
+  [0, -1.00, 5.40, 'Entrance'],
+  [0, 4.40, 3.70, 'Stair hall · north door'],
+  [0, -5.00, -4.60, 'Bath · soaking tubs'],
+  [0, -2.70, -6.25, 'Sauna'],
+  [0, -3.36, -2.50, 'WC'],
+  [0, -1.00, 1.50, 'Wash room'],
+  [0, -0.15, -2.30, 'Laundry'],
+  [0, -0.15, -5.50, 'Plant room'],
+  [1, 4.60, 3.60, 'Living'],
+  [1, 0.30, 3.10, 'Dining'],
+  [1, -2.60, 4.60, 'Kitchen'],
+  [1, -6.00, -5.60, 'Bedroom 1'],
+  [1, -0.65, -5.00, 'Bedroom 2'],
+  [1, -0.95, -0.40, 'Bedroom 3'],
+  [1, -6.20, 5.30, 'Bedroom 4'],
+  [1, -6.00, 1.10, 'Bathroom'],
+  [1, -6.00, -0.55, 'Bathroom'],
+  [1, -0.95, -2.42, 'Bathroom'],
+  [1, -0.45, 1.48, 'Bathroom'],
+  [1, -3.53, -0.80, 'Hall'],
+];
+/* 1F lights; the 2F ones hang off the sloped ceiling: ROOF_LIGHTS2 */
+const DOWN2 = {
+  0: [[-5.3, 0.8, 1], [-5.3, 4.6, 0], [-1.0, 5.4, 0], [4.4, 3.4, 1], [-5.0, -4.4, 1], [-1.0, 1.6, 0], [-0.15, -2.3, 0], [-0.15, -5.5, 0], [-2.7, -6.25, 0]],
+};
+const ROOF_LIGHTS2 = [[-2.6, 4.6, 1], [-6.0, -5.6, 1], [-0.65, -5.0, 1], [-0.95, -0.4, 0], [-6.2, 5.3, 1], [-3.53, -0.8, 0],
+  [-6.0, 1.1, 0], [-6.0, -0.55, 0], [-0.95, -2.42, 0], [-0.45, 1.48, 0], [5.6, 4.6, 0], [3.3, 4.6, 0]];
+const ZONES = HOUSE === 2 ? ZONES2 : ZONES1, LABELS = HOUSE === 2 ? LABELS2 : LABELS1, DOWN = HOUSE === 2 ? DOWN2 : DOWN1;
 
 /* ------------------------------------------------------------ build it all */
 const G = { floor: [], walls: [], furn: [], ceil: [], labels: [], ext: new THREE.Group(), roof: new THREE.Group() };
@@ -1225,7 +1378,7 @@ function buildHouse(plan) {
     const up = s.level + 1; if (!LV[up]) continue;
     const c = s.name === 'stairsCircle'
       ? rectPoly(s.x - s.w / 2 - 0.02, s.y - s.d / 2 - 0.02, s.x + s.w / 2 + 0.02, s.y + s.d / 2 + 0.02)
-      : rectCorners({ x: s.x, y: s.y, w: s.w + 0.04, d: s.d + 0.04, a: s.a });
+      : s.hole ? holeOver(s) : rectCorners({ x: s.x, y: s.y, w: s.w + 0.04, d: s.d + 0.04, a: s.a });
     extraHoles[up].push(c);
     if (s.name === 'stairs') {
       /* the top edge of the flight must meet floor: bridge any gap to the slab */
@@ -1265,10 +1418,13 @@ function buildHouse(plan) {
       for (const f of rm.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base; gu.add(p); } }
     }
     for (const p of patches[i]) rects.push(bbox(p));
+    /* house 2: floor across the gap between two rooms' facing walls (parse_plan.py) */
+    for (const p of L.patches || []) rects.push(...rectsOf(rectPoly(p[0], p[1], p[2], p[3]), extraHoles[i]));
     FLOOR_RECTS[i] = rects;
     /* this level's floor; its underside is the ceiling of the level below */
     slabRects(gf, rects, L.base, th, floorMat, i > 0 ? MAT.ceiling : null, MAT.slabEdge);
-    for (const w of L.walls) {
+    if (HOUSE === 2 && i === LV.length - 1) { /* house 2 2F walls follow the roof: buildUnderRoof() */ }
+    else for (const w of L.walls) {
       if (w.kind === 'int' && i === 0) {
         /* free walls that run out past the house become a garden screen */
         for (const part of clipToHouse(w, L)) wallRun(GL, part, i, L);
@@ -1295,14 +1451,19 @@ function buildHouse(plan) {
 
   for (const s of STAIRS) (s.name === 'stairsCircle' ? buildSpiralStair : buildStraightStair)({ furn: s.level === 0 && !LV[0].rooms.some(r => inside(r.poly, s.x, s.y)) ? G.ext : G.furn[s.level] }, s);
 
-  decorate();
-  buildSauna();
-  buildRoof();
-  buildSite();
+  if (HOUSE === 2) { roofSetup(); decorate2(); buildUnderRoof(); buildSite2(); }
+  else { decorate(); buildSauna(); buildRoof(); buildSite(); }
   parkSliders();
 
   for (let i = 0; i < LV.length; i++) { mergeStatic(G.walls[i]); mergeStatic(G.furn[i]); mergeStatic(G.floor[i]); mergeStatic(G.ceil[i]); }
   mergeStatic(G.ext); mergeStatic(G.roof);
+}
+/* the part of a flight the floor above is open over: s.hole = [from, to] as
+   fractions of the flight from its foot (parse_plan.py: from the balustrade
+   drawn across it upstairs to the top) */
+function holeOver(s) {
+  const [f0, f1] = s.hole, ly = s.d / 2 - (f0 + f1) / 2 * s.d;   /* local y of the hole's middle (the flight climbs to -y) */
+  return rectCorners({ x: s.x - ly * Math.sin(s.a), y: s.y + ly * Math.cos(s.a), w: s.w + 0.04, d: (f1 - f0) * s.d + 0.04, a: s.a });
 }
 /* split a free wall into the part inside the house footprint and the part
    outside it (level 0 only keeps the outside part, as a lower garden screen) */
@@ -1481,6 +1642,172 @@ function buildSite() {
 
 }
 
+/* ================================================================ house 2 */
+/* The 2F ceiling is ONE plane (a mono-pitch / shed roof). It falls from the
+   living room towards the bedrooms, along the plan's own axis: the vector
+   from the living room's centroid (the 2F room with the sofa) to the mean
+   of the bed centres, snapped to x or z. The heights are the plane's height
+   above the 2F floor at the OUTER faces of the two end walls; the "Living
+   side" / "Bedroom side" sliders change them and everything under the roof
+   is rebuilt (buildUnderRoof). */
+function roofSetup() {
+  const top = LV[LV.length - 1];
+  const cen = (P) => {
+    let a = 0, cx = 0, cz = 0;
+    for (let i = 0; i < P.length; i++) {
+      const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % P.length], k = x0 * z1 - x1 * z0;
+      a += k; cx += (x0 + x1) * k; cz += (z0 + z1) * k;
+    }
+    return [cx / (3 * a), cz / (3 * a)];
+  };
+  const liv = top.rooms.find(r => r.furniture.some(f => f.name === 'sofa')) || top.rooms[0];
+  const lc = cen(liv.poly);
+  const beds = LV.flatMap(L => L.rooms.flatMap(r => r.furniture.filter(f => f.name === 'bed')));
+  const bc = beds.length ? [beds.reduce((a, f) => a + f.x, 0) / beds.length, beds.reduce((a, f) => a + f.y, 0) / beds.length] : [0, 0];
+  const d = [bc[0] - lc[0], bc[1] - lc[1]];
+  const axis = Math.abs(d[0]) >= Math.abs(d[1]) ? 0 : 1;              /* 0: x (east-west), 1: z (north-south) */
+  const t = Math.max(...top.walls.filter(w => w.kind === 'ext').map(w => w.t));
+  const lo = Math.min(...top.rooms.flatMap(r => r.poly.map(q => q[axis]))) - t;
+  const hi = Math.max(...top.rooms.flatMap(r => r.poly.map(q => q[axis]))) + t;
+  const bedLow = d[axis] < 0;
+  ROOF = {
+    axis, living: lc, bedrooms: bc, delta: d, sBed: bedLow ? lo : hi, sLiv: bedLow ? hi : lo,
+    hBed: 3.0, hLiv: 6.0, base: top.base,
+    y(x, z) { return this.base + this.hBed + this.k * ((this.axis ? z : x) - this.sBed); },
+    get k() { return (this.hLiv - this.hBed) / (this.sLiv - this.sBed); },
+    get n() { return new V(this.axis ? 0 : -this.k, 1, this.axis ? -this.k : 0).normalize(); },
+    get pitch() { return Math.atan(Math.abs(this.hLiv - this.hBed) / Math.abs(this.sLiv - this.sBed)) * 180 / Math.PI; },
+  };
+  console.log('[h3d] roof axis', axis ? 'z' : 'x', 'living', lc.map(v => +v.toFixed(2)), 'bedrooms', bc.map(v => +v.toFixed(2)),
+    'delta', d.map(v => +v.toFixed(2)), 'bedroom side at', ROOF.sBed.toFixed(2), 'living side at', ROOF.sLiv.toFixed(2));
+}
+function clearGroup(g) {
+  g.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
+  g.clear();
+}
+/* Everything that depends on the roof heights: the 2F walls (tops on the
+   plane, windows cut down where it comes too low), the roof and what hangs
+   off the ceiling. Run once by buildHouse, then again on every slider move. */
+let _rdFloor = null, _built = false;
+function buildUnderRoof() {
+  const li = LV.length - 1, L = LV[li];
+  if (!G.rdep) { G.rdep = new THREE.Group(); G.rdep.userData.keep = true; root.add(G.rdep); }
+  for (const g of [G.walls[li], G.roof, G.rdep]) clearGroup(g);
+  for (let k = COLL.length - 1; k >= 0; k--) if (COLL[k].rd) COLL.splice(k, 1);
+  for (let k = SLIDERS.length - 1; k >= 0; k--) if (SLIDERS[k].lvl === li) SLIDERS.splice(k, 1);
+  if (_rdFloor) FLOOR_RECTS[li] = _rdFloor.slice(); else _rdFloor = FLOOR_RECTS[li].slice();
+  const c0 = COLL.length, s0 = SLIDERS.length, GL = { walls: G.walls[li], furn: G.furn[li] };
+  for (const w of L.walls) {
+    if (w.kind === 'int') { for (const part of clipToHouse(w, L)) if (part.inHouse) wallRun(GL, part, li, L); }
+    else wallRun(GL, w, li, L);
+  }
+  for (let k = c0; k < COLL.length; k++) COLL[k].rd = true;
+  buildShedRoof();
+  roofFixtures();
+  if (_built) {                       /* a rebuild: park the new sliding doors and merge, as buildHouse does */
+    parkSliders(SLIDERS.slice(s0));
+    mergeStatic(G.walls[li]); mergeStatic(G.roof);
+  }
+}
+let _rdPending = false;
+function rebuildRoof() {
+  const t0 = performance.now();
+  buildUnderRoof();
+  ROOF.ms = Math.round(performance.now() - t0);
+}
+/* shed roof: plaster ceiling inside, cedar soffit under the 45 cm overhang,
+   black fascia, snow load on top -- all parallel to the ceiling plane */
+function buildShedRoof() {
+  const top = LV[LV.length - 1];
+  const walls = top.rooms.map(r => offsetPoly(r.poly, 0.37));
+  const eaves = top.rooms.map(r => offsetPoly(r.poly, 0.37 + 0.45));
+  const snowP = top.rooms.map(r => offsetPoly(r.poly, 0.37 + 0.38));
+  /* inside the walls and the overhang as separate rect sets: a merged row
+     would span both and take one material (the soffit has to be cedar all round) */
+  const all = eaves.concat(walls), inner = (x, z) => walls.some(p => inside(p, x, z));
+  slopedSlab(G.roof, unionRects(all, inner), 0, 0.32, MAT.blackSteel, MAT.blackSteel, () => MAT.ceiling);
+  slopedSlab(G.roof, unionRects(all, (x, z) => !inner(x, z)), 0, 0.32, MAT.blackSteel, MAT.blackSteel, () => MAT.cedar);
+  slopedSlab(G.roof, unionRects(snowP), 0.32, 0.30, MAT.roofSnow, MAT.roofSnow, null);
+}
+/* slabRects on the roof plane: bottom face = plane + off, top = bottom + th */
+function slopedSlab(parent, rects, off, th, topMat, edgeMat, botPick) {
+  const T = Quads(topMat), E = Quads(edgeMat), Bm = new Map();
+  const n = ROOF.n, up = [n.x, n.y, n.z], dn = [-n.x, -n.y, -n.z];
+  const yb = (x, z) => ROOF.y(x, z) + off, yt = (x, z) => ROOF.y(x, z) + off + th;
+  const plan = (v) => [v[0], -v[2]];
+  for (const r of rects) {
+    const [x0, z0, x1, z1] = r;
+    quad(T, [x0, yt(x0, z0), z0], [x0, yt(x0, z1), z1], [x1, yt(x1, z1), z1], [x1, yt(x1, z0), z0], up, plan);
+    const bm = botPick && botPick(r);
+    if (bm) {
+      if (!Bm.has(bm)) Bm.set(bm, Quads(bm));
+      quad(Bm.get(bm), [x0, yb(x0, z0), z0], [x1, yb(x1, z0), z0], [x1, yb(x1, z1), z1], [x0, yb(x0, z1), z1], dn, plan);
+    }
+    const side = (ax, az, bx, bz, nn) => quad(E, [ax, yb(ax, az), az], [bx, yb(bx, bz), bz], [bx, yt(bx, bz), bz], [ax, yt(ax, az), az], nn,
+      (v) => [Math.abs(nn[0]) > 0 ? v[2] : v[0], v[1]]);
+    side(x0, z0, x1, z0, [0, 0, -1]); side(x1, z1, x0, z1, [0, 0, 1]);
+    side(x0, z1, x0, z0, [-1, 0, 0]); side(x1, z0, x1, z1, [1, 0, 0]);
+  }
+  for (const Q of [T, E, ...Bm.values()]) { const m = qMesh(Q); if (m) parent.add(m); }
+}
+/* 2F downlights flush with the sloped ceiling + pendants over the dining table */
+function roofFixtures() {
+  const li = LV.length - 1, L = LV[li], g = G.rdep;
+  const q = new THREE.Quaternion().setFromUnitVectors(new V(0, 0, 1), ROOF.n.clone().negate());
+  for (const [x, z, lit] of ROOF_LIGHTS2) {
+    const y = ROOF.y(x, z);
+    if (lit) { const pl = new THREE.PointLight(0xffdcb0, 6, 9, 1.5); pl.position.set(x, y - 0.25, z); g.add(pl); }
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow);
+    lens.quaternion.copy(q); lens.position.set(x, y - 0.004, z); g.add(lens);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white);
+    ring.quaternion.copy(q); ring.position.set(x, y - 0.003, z); g.add(ring);
+  }
+  const tbl = findProp(li, 'table');
+  if (tbl) for (const dx of [-0.5, 0.5]) {
+    const px = tbl.x + dx * Math.cos(tbl.a), pz = tbl.y + dx * Math.sin(tbl.a);
+    const lamp = placeModel(g, 'pendant', px, L.base + 1.62, pz, 0, 1);       /* shade ~0.77 m over the table */
+    if (!lamp) continue;
+    const yc = ROOF.y(px, pz), y1 = lamp.position.y + GLTF.pendant.size.y;
+    mk(g, CY(0.004, yc - y1, 6), MAT.black, px, (yc + y1) / 2, pz);
+    const pl = new THREE.PointLight(0xffd6a0, 3.2, 5, 1.8); pl.position.set(px, lamp.position.y + 0.05, pz); g.add(pl);
+  }
+}
+/* a few things the plan implies but doesn't draw */
+function decorate2() {
+  const li = LV.length - 1, L = LV[li];
+  const sofa = findProp(li, 'sofa');
+  if (sofa) {                                        /* rug + coffee table on the sofa's open side */
+    const sx = sofa.mx ? 1 : -1;
+    mk(G.furn[li], B(2.3, 0.012, 2.1, MAT.rugWool), MAT.rugWool, sofa.x + sx * 0.55, L.base + 0.006, sofa.y + 0.3).castShadow = false;
+    placeModel(G.furn[li], 'coffee', sofa.x + sx * 0.85, L.base, sofa.y + 0.35, Math.PI / 2, 1);
+  }
+  placeModel(G.furn[li], 'plant', 7.2, L.base, 2.7, 0.4, 1.25);
+  placeModel(G.furn[0], 'plant', 0.45, LV[0].base, 4.2, 1.1, 1.15);
+  placeModel(G.furn[0], 'plant', 7.3, LV[0].base, 6.45, 2.2, 1.2);
+}
+/* snow field, the ploughed north-east yard (parking: the L's open corner),
+   paths to the doors */
+function buildSite2() {
+  const E = G.ext, R = 480;
+  const geo = new THREE.CircleGeometry(R, 96, 0, Math.PI * 2);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), d = Math.hypot(x, y);
+    const k = Math.min(1, Math.max(0, (d - 30) / 120));
+    p.setZ(i, (Math.sin(x * 0.05) * Math.cos(y * 0.043) * 0.6 + Math.sin(x * 0.013 + 1) * Math.cos(y * 0.011) * 2.2) * k);
+  }
+  geo.computeVertexNormals();
+  scaleUV(geo, R * 2 / tileOf(MAT.snow));
+  const gnd = new THREE.Mesh(geo, MAT.snow);
+  gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, -0.02, 0); gnd.receiveShadow = true;
+  E.add(gnd);
+  const flatOn = (m) => { m.castShadow = false; return m; };
+  flatOn(mk(E, B(7.4, 0.04, 9.0, MAT.packed), MAT.packed, 4.95, 0.0, -2.75));      /* parking, north-east yard */
+  flatOn(mk(E, B(13.4, 0.04, 6.0, MAT.packed), MAT.packed, 15.3, 0.0, -2.0));      /* drive out east */
+  flatOn(mk(E, B(2.0, 0.05, 2.8, MAT.pad), MAT.pad, -0.6, 0.005, 8.7));            /* path, south door */
+  flatOn(mk(E, B(2.4, 0.14, 2.4, MAT.deck), MAT.deck, -9.35, 0.07, -5.1));         /* deck, bath's west door */
+}
+
 /* Collapse single-material static meshes into one mesh per material. */
 function mergeStatic(group) {
   const buckets = new Map(), victims = [];
@@ -1515,7 +1842,7 @@ function mergeStatic(group) {
 /* [name, x, z, yaw, pitch, level|null(fly), y(optional)] — yaw 0 looks north (-z).
    pitch = where the centre of the view points; up to +-SHIFT it is lens shift.
    Framed for the default 72deg (wide-axis) lens. */
-const VIEWS = [
+const VIEWS1 = [
   ['Outside — south-east', 9.5, 10.5, 0.72, -0.10, null, 3.2],
   ['Outside — south (living glass)', -5.0, 14.0, 0.05, -0.02, null, 2.6],
   ['Outside — north terrace', -12.5, -21.0, -2.59, -0.06, null, 2.4],
@@ -1538,13 +1865,36 @@ const VIEWS = [
   ['3F — Bathroom', -3.1, -7.7, -0.50, -0.15, 2],
 ];
 
+/* house 2 presets (plan2.json coordinates) */
+const VIEWS2 = [
+  ['Outside — south-east (living end: roof high)', 13.0, 22.0, 0.57, 0.02, null, 2.8],
+  ['Outside — north-west (bedroom end: roof low)', -15.5, -17.0, -2.40, -0.16, null, 6.0],
+  ['Outside — south elevation', 0.0, 24.0, 0.0, 0.04, null, 3.2],
+  ['Outside — north-east yard', 17.0, -14.0, 2.30, -0.06, null, 4.5],
+  ['Doll-house from above', 0.0, 17.0, 0.0, -0.92, null, 23.0],
+  ['1F — Gym', -3.3, -0.5, 2.30, 0.08, 0],
+  ['1F — Entrance', 0.4, 6.4, 0.95, -0.02, 0],
+  ['1F — Stair hall', 7.1, 2.8, 1.85, 0.12, 0],
+  ['1F — Bath + tubs', -1.7, -3.6, 1.35, -0.10, 0],
+  ['1F — Wash room', -2.4, 3.2, -0.6, -0.05, 0],
+  ['2F — Living, looking west to the bedrooms', 7.3, 2.65, 1.80, 0.24, 1],
+  ['2F — Dining, looking east (roof rises)', -1.6, 3.4, -1.45, 0.18, 1],
+  ['2F — Kitchen + dining', 1.2, 2.7, 2.35, 0.02, 1],
+  ['2F — Top of the stairs', 4.2, 6.2, 1.57, -0.30, 1],
+  ['2F — Bedroom 1 (lowest ceiling)', -7.35, -4.55, -0.75, 0.16, 1],
+  ['2F — Bedroom 2', 0.65, -3.45, 0.75, 0.18, 1],
+  ['2F — Bedroom 3', -2.5, -1.4, -2.30, 0.06, 1],
+  ['2F — Bedroom 4', -4.45, 4.15, 2.45, 0.14, 1],
+];
+const VIEWS = HOUSE === 2 ? VIEWS2 : VIEWS1;
+
 /* ---------------------------------------------------------------- controls */
 const st = {
   yaw: 0, pitch: -0.05, fly: false, floor: 0, speed: 3, fov: FOV.def,
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
-const ORBIT_T = new V(-4, 3, -5);
+const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : new V(-4, 3, -5);
 const act = new Set();
 const KEYMAP = {
   KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',
@@ -1579,6 +1929,7 @@ function applyVis() {
     G.ceil[i].visible = on && st.roof && (st.fmode === 'all' || i < st.fmode);
   });
   G.roof.visible = st.roof && st.fmode === 'all';
+  if (G.rdep) G.rdep.visible = G.furn[LV.length - 1].visible;
 }
 function fadeLabels() {
   const p = camera.position;
@@ -1765,6 +2116,13 @@ function bindUI() {
   fovEl.oninput = () => setFov(+fovEl.value);
   $('spd').oninput = (e) => { st.speed = +e.target.value * 0.75; };
   $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
+  /* house switcher: each house is its own page load (?house=2) */
+  for (const h of [1, 2]) {
+    const b = $('bH' + h); if (!b) continue;
+    b.classList.toggle('on', h === HOUSE);
+    b.onclick = () => { if (h !== HOUSE) location.href = location.pathname + (h === 2 ? '?house=2' : ''); };
+  }
+  if (HOUSE === 2) bindRoof();
 
   /* drag = grab the view and pull it (drag right -> the scene follows right) */
   let dragging = false, px = 0, py = 0;
@@ -1810,9 +2168,10 @@ function bindUI() {
     if (e.code === 'KeyC') $('bCeil').onclick();
     if (e.code === 'KeyT') $('bLbl').onclick();
     if (e.code === 'KeyO') { st.orbit = !st.orbit; syncUI(); }
-    if (e.code === 'Digit1') goView(VIEWS[4]);
-    if (e.code === 'Digit2') goView(VIEWS[9]);
-    if (e.code === 'Digit3') goView(VIEWS[14]);
+    const first = (lv) => VIEWS.find(v => v[5] === lv);   /* first preset on that floor */
+    if (e.code === 'Digit1' && first(0)) goView(first(0));
+    if (e.code === 'Digit2' && first(1)) goView(first(1));
+    if (e.code === 'Digit3' && first(2)) goView(first(2));
     if (e.code === 'Digit0') goView(VIEWS[0]);
     if (e.code === 'Slash') $('help').classList.add('show');
     if (e.code === 'Escape') $('help').classList.remove('show');
@@ -1822,6 +2181,36 @@ function bindUI() {
     const a = KEYMAP[e.code]; if (a) act.delete(a);
   });
   addEventListener('blur', () => act.clear());
+}
+
+/* house 2: roof sliders + readout */
+function roofReadout() {
+  const f = (v) => v.toFixed(1);
+  $('roofRead').textContent = '1F ' + f(LV[0].h) + ' m · 2F ' + f(ROOF.hBed) + ' → ' + f(ROOF.hLiv) + ' m · pitch ' + Math.round(ROOF.pitch) + '°';
+  $('hLivV').textContent = f(ROOF.hLiv) + ' m'; $('hBedV').textContent = f(ROOF.hBed) + ' m';
+}
+function placeRoofPanel() {
+  const rp = $('roofp'); if (rp) rp.style.top = Math.round($('top').getBoundingClientRect().bottom + 6) + 'px';
+}
+/* the top bar wraps on narrow screens (more so with the house switcher): keep the HUD line under it */
+function placeHud() { hud.style.top = Math.round($('top').getBoundingClientRect().bottom + 4) + 'px'; }
+function bindRoof() {
+  const rp = $('roofp'), liv = $('hLiv'), bed = $('hBed');
+  rp.hidden = false;
+  rp.title = 'One sloped (mono-pitch) roof, falling ' + (ROOF.axis ? (ROOF.sLiv < ROOF.sBed ? 'north to south' : 'south to north') : (ROOF.sLiv > ROOF.sBed ? 'east to west' : 'west to east')) +
+    ' from the living room to the bedrooms. Heights: ceiling above the 2F floor at the outside face of each end wall.';
+  liv.value = ROOF.hLiv; bed.value = ROOF.hBed;
+  const upd = () => {
+    ROOF.hLiv = +liv.value; ROOF.hBed = +bed.value; roofReadout();
+    if (_rdPending) return;
+    _rdPending = true;
+    requestAnimationFrame(() => { _rdPending = false; rebuildRoof(); });
+  };
+  liv.oninput = upd; bed.oninput = upd;
+  for (const el of [liv, bed]) el.addEventListener('keydown', (e) => e.stopPropagation());
+  roofReadout(); placeRoofPanel();
+  const geo = $('helpGeo');
+  if (geo) geo.textContent = 'House 2 is the real plan too (the left-hand house of the same Floor Plan Creator share): 2 floors, 1F ceilings 3.5 m, 37 cm exterior walls, every window, door and the stair as drawn. The 2F sits under one sloped (mono-pitch) roof, high over the living room and falling towards the bedrooms; set the two heights with the Roof sliders. Room names are inferred from the fixtures (the plan has none). Finishes are indicative. Textures, sky and furniture models: Poly Haven (CC0).';
 }
 
 /* ------------------------------------------------------------ post + loop */
@@ -1850,6 +2239,8 @@ function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; applyLens();              /* vertical fov follows the aspect */
+  placeHud();
+  if (HOUSE === 2) placeRoofPanel();
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
 }
 let last = performance.now();
@@ -1891,12 +2282,13 @@ function frame(dt) {
 const MARKS = window.__marks = {};
 const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
-fetch('plan.json').then(r => r.json()).then(async (plan) => {
+if (HOUSE === 2) document.title = 'Kutchan house 2 — 3D walkthrough';
+fetch(HOUSE === 2 ? 'plan2.json' : 'plan.json').then(r => r.json()).then(async (plan) => {
   let t = performance.now();
   buildMaterials(); t = mark('materials', t);
   setupLights();
   await Promise.all([setupEnv(), loadModels()]); t = mark('env+models', t);
-  buildHouse(plan); t = mark('house', t);
+  buildHouse(plan); t = mark('house', t); _built = true;
   setupComposer(); t = mark('composer', t);
   await Promise.race([texturesReady, new Promise(r => setTimeout(r, 20000))]); t = mark('textures', t);
   console.log('build ms', JSON.stringify(MARKS));
@@ -1908,6 +2300,8 @@ fetch('plan.json').then(r => r.json()).then(async (plan) => {
   goView(VIEWS[0]);
   setFov(FOV.def);
   Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, SLIDERS, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
+  Object.assign(window, { __house: HOUSE, ROOF, rebuildRoof, roofReadout });
+  window.__roofInfo = () => ROOF && { axis: ROOF.axis ? 'z' : 'x', living: ROOF.living, bedrooms: ROOF.bedrooms, delta: ROOF.delta, sBed: ROOF.sBed, sLiv: ROOF.sLiv, hBed: ROOF.hBed, hLiv: ROOF.hLiv, pitch: +ROOF.pitch.toFixed(2), ms: ROOF.ms };
   $('load').style.display = 'none';
   window.__ready = true;
   requestAnimationFrame(loop);
