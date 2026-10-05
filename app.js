@@ -23,7 +23,7 @@ const FLOOR_NAMES = ['1F', '2F', '3F'];
 const EYE = 1.62;
 /* Lens. st.fov is the field of view across the WIDER screen axis (horizontal
    on landscape, vertical on portrait); 72deg ~ a 24 mm archviz lens. */
-const FOV = { def: 72, min: 40, max: 100, wide: 90, narrow: 50 };
+const FOV = { def: 100, min: 40, max: 100, wide: 90, narrow: 50 };   /* default = the widest (Toby 2026-10-05) */
 /* Two-point perspective: looking up/down by up to SHIFT is a vertical lens
    shift (camera stays level, verticals stay vertical, like an architectural
    shift lens); only pitch beyond +-SHIFT tilts the camera. */
@@ -37,6 +37,96 @@ const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
    ?house=2 opens house 2; the switcher reloads with it, so each house is
    built from a clean start (house 1 renders exactly as it did before). */
 const HOUSE = new URLSearchParams(location.search).get('house') === '2' ? 2 : 1;
+/* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
+   ?lang=en|ja overrides; the choice is remembered in localStorage. */
+const _qLang = new URLSearchParams(location.search).get('lang');
+let LANG = (_qLang === 'en' || _qLang === 'ja') ? _qLang : (localStorage.getItem('h3dLang') === 'en' ? 'en' : 'ja');
+const TXT = {
+  ja: {
+    title: '倶知安 住宅計画', h1: 'プランA', h2: 'プランB',
+    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', hsegt: '同じ図面に描かれた2つのプラン',
+    jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
+    floors: '全フロア', upto: (f) => f + 'まで', floorst: '上の階から順に切断表示', roof: '屋根', rooft: '屋根を外す（C）',
+    labels: '部屋名', labelst: '部屋名の表示（T）', mouse: 'マウス視点', mouset: 'マウスを固定してFPSのように視点を操作',
+    qhi: '画質：高', qlo: '画質：軽量', qualt: '高＝陰影とアンチエイリアスあり／軽量＝動きが重い場合に',
+    lang: 'English', langt: 'Switch to English',
+    roofp: '屋根・2階天井', livs: 'リビング側', beds: '寝室側',
+    livst: 'リビング側の端の壁での2階床からの天井高', bedst: '寝室側の端の壁での2階床からの天井高',
+    roofread: (a, b, c, p) => '1階 ' + a + 'm・2階 ' + b + '→' + c + 'm・勾配 ' + p + '°',
+    rooftip: (dir) => '片流れの屋根1枚。リビング側から寝室側へ下がります（' + dir + '）。高さは、各端の壁の外面位置での2階床からの天井高です。',
+    dirs: { ns: '北→南', sn: '南→北', ew: '東→西', we: '西→東' },
+    move: '移動', moveh: '▲▼ 前後・◀▶ 左右・↑↓ 上下', look: '視点', lvlt: '水平に戻す', wt: '広角に', ot: '建物の周りを周回', nt: '望遠に',
+    fov: '画角', fovt: '画面の長辺方向の角度', speed: '速度', wide: '広角', narrow: '望遠', widet: '広角（90°）', narrowt: '望遠（50°）',
+    hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
+    loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
+    doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー',
+    help: '<h3>操作方法</h3>'
+      + '<b>キー</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 前・左・後ろ・右へ移動 ・ <kbd>E</kbd>/<kbd>Q</kbd> 上の階・下の階へ（飛行モードでは上昇・下降） ・ <kbd>Shift</kbd> 走る<br>'
+      + '<b>視点の向き</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>（または <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>）で左右・上下を見る<br>'
+      + '<b>画角</b> — <kbd>Z</kbd> 広角 ・ <kbd>X</kbd> 望遠 ・ マウスホイール／ピンチでも変更できます。画面の長辺方向の角度です（初期値100°）。上下に24°以上見るまでは、壁の縦線はまっすぐのままです。<br>'
+      + '<b>マウス／タッチ</b> — ドラッグで視点を動かします（画像が手の動きについてきます）。<b>マウス視点</b>はFPSのような操作です（<kbd>Esc</kbd>で解除）。<br>'
+      + '<b>ショートカット</b> — <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 各階へ ・ <kbd>0</kbd> 外観 ・ <kbd>F</kbd> 歩行／飛行 ・ <kbd>O</kbd> 周回 ・ <kbd>C</kbd> 屋根 ・ <kbd>T</kbd> 部屋名 ・ <kbd>G</kbd> 画質<br><br>'
+      + '<b>歩行</b>モードでは今いる階の床の上を目の高さで移動し、壁で止まります。<b>飛行</b>モードではどこへでも自由に移動できます。<br>'
+      + 'プルダウンから各部屋へ移動できます。<b>屋根</b>オフ＋<b>フロア</b>（切断表示）＋<b>飛行</b>で、模型のように見ることができます。<br><br>',
+    geo1: '形状は実際の計画図（Floor Plan Creatorのデータ）どおりです：3階建て、天井高2.74m、外壁厚37cm、吹抜けのトレーニングルーム・浴室・玄関・リビング、窓と階段は図面どおり。仕上げはイメージで、仕様を示すものではありません。テクスチャ・空・家具モデル：Poly Haven（CC0）。',
+    geo2: 'プランBも実際の計画図（同じFloor Plan Creatorの左側の建物）どおりです：2階建て、1階天井高3.5m、外壁厚37cm、窓・扉・階段は図面どおり。2階は片流れの屋根で、リビング側が高く寝室側に向かって低くなります（屋根のスライダーで高さを変更できます）。部屋名は設備の配置から推定しています。仕上げはイメージです。テクスチャ・空・家具モデル：Poly Haven（CC0）。',
+    close: '閉じる',
+  },
+  en: {
+    title: 'Kutchan house', h1: 'Plan A', h2: 'Plan B',
+    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', hsegt: 'Two plans drawn in the same plan file',
+    jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
+    floors: 'All floors', upto: (f) => 'Up to ' + f, floorst: 'Cut the house away floor by floor', roof: 'Roof', rooft: 'Take the roof off (C)',
+    labels: 'Labels', labelst: 'Room labels (T)', mouse: 'Mouse look', mouset: 'Lock the mouse for FPS-style looking',
+    qhi: 'Quality: high', qlo: 'Quality: fast', qualt: 'High = ambient occlusion + antialiasing. Fast = drop them if it stutters',
+    lang: '日本語', langt: '日本語に切り替え',
+    roofp: 'ROOF · 2F CEILING', livs: 'Living side', beds: 'Bedroom side',
+    livst: 'Ceiling height above the 2F floor at the living-room end wall', bedst: 'Ceiling height above the 2F floor at the bedroom end wall',
+    roofread: (a, b, c, p) => '1F ' + a + ' m · 2F ' + b + ' → ' + c + ' m · pitch ' + p + '°',
+    rooftip: (dir) => 'One sloped (mono-pitch) roof, falling ' + dir + ' from the living room to the bedrooms. Heights: ceiling above the 2F floor at the outside face of each end wall.',
+    dirs: { ns: 'north to south', sn: 'south to north', ew: 'east to west', we: 'west to east' },
+    move: 'MOVE', moveh: '▲▼ fwd/back · ◀▶ strafe · ↑↓ height', look: 'LOOK', lvlt: 'Level the view', wt: 'Wider angle', ot: 'Orbit the building', nt: 'Narrower / zoom in',
+    fov: 'FIELD OF VIEW', fovt: "Measured across the screen's long side", speed: 'SPEED', wide: 'Wide', narrow: 'Narrow', widet: 'Wide angle (90°)', narrowt: 'Narrow / zoom (50°)',
+    hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
+    loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
+    doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough',
+    help: '<h3>How to move</h3>'
+      + '<b>Keys</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk forward / left / back / right · <kbd>E</kbd>/<kbd>Q</kbd> up / down a floor (in Fly: rise / sink) · <kbd>Shift</kbd> run<br>'
+      + '<b>Pan the view</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> (or <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>) look left / right / up / down<br>'
+      + "<b>Lens</b> — <kbd>Z</kbd> wider · <kbd>X</kbd> narrower · mouse wheel / pinch too. The angle is across the screen's long side (default 100°); walls stay upright until you look more than 24° up or down.<br>"
+      + '<b>Mouse / touch</b> — drag to pan the view (the picture follows your hand). <b>Mouse look</b> = FPS-style aiming (<kbd>Esc</kbd> to release).<br>'
+      + '<b>Shortcuts</b> — <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> jump to a floor · <kbd>0</kbd> outside · <kbd>F</kbd> walk / fly · <kbd>O</kbd> orbit · <kbd>C</kbd> roof · <kbd>T</kbd> labels · <kbd>G</kbd> quality<br><br>'
+      + '<b>Walk</b> keeps you at eye height on the floor you are on and stops you at walls. <b>Fly</b> goes anywhere, through everything.<br>'
+      + 'The dropdown jumps to any room. <b>Roof</b> off + <b>Floors</b> (cut-away) + <b>Fly</b> = doll-house view.<br><br>',
+    geo1: 'Geometry is the real plan (Floor Plan Creator export): 3 floors, 2.74 m ceilings, 37 cm exterior walls, double-height gym, bath, entrance and living, every window and stair as drawn. Finishes are indicative, not specified. Textures, sky and furniture models: Poly Haven (CC0).',
+    geo2: 'Plan B is the real plan too (the left-hand house of the same Floor Plan Creator share): 2 floors, 1F ceilings 3.5 m, 37 cm exterior walls, every window, door and the stair as drawn. The 2F sits under one sloped (mono-pitch) roof, high over the living room and falling towards the bedrooms; set the two heights with the Roof sliders. Room names are inferred from the fixtures (the plan has none). Finishes are indicative. Textures, sky and furniture models: Poly Haven (CC0).',
+    close: 'Close',
+  },
+};
+const T = (k) => (TXT[LANG][k] !== undefined ? TXT[LANG][k] : TXT.en[k]);
+/* preset + room-label names: English is the key (goView tests 'Doll'), Japanese looked up */
+const JA_NAMES = {
+  'Outside — south-east': '外観 — 南東', 'Outside — south (living glass)': '外観 — 南（リビングの大開口）', 'Outside — north terrace': '外観 — 北側テラス',
+  'Doll-house from above': '模型表示（上から）', '1F — Entrance': '1F — 玄関', '1F — Gym (double height)': '1F — トレーニングルーム（吹抜け）',
+  '1F — Bath + tubs': '1F — 浴室・浴槽', '1F — Sauna': '1F — サウナ', '1F — Wash room': '1F — 洗面室', '2F — Living (double height)': '2F — リビング（吹抜け）',
+  '2F — Dining + kitchen': '2F — ダイニング・キッチン', '2F — Kitchen': '2F — キッチン', '2F — Stairs up to 3F': '2F — 3Fへの階段',
+  '2F — Over the entrance void': '2F — 玄関の吹抜け', '3F — Landing over the living': '3F — リビング上部の廊下',
+  '3F — Bedroom 1': '3F — 寝室1', '3F — Bedroom 2': '3F — 寝室2', '3F — Bedroom 3': '3F — 寝室3', '3F — Bedroom 4': '3F — 寝室4', '3F — Bathroom': '3F — バスルーム',
+  'Outside — south-east (living end: roof high)': '外観 — 南東（リビング側：屋根が高い）', 'Outside — north-west (bedroom end: roof low)': '外観 — 北西（寝室側：屋根が低い）',
+  'Outside — south elevation': '外観 — 南側', 'Outside — north-east yard': '外観 — 北東の庭', 'Site from above (fences, carport)': '敷地全体（上空から：フェンス・カーポート）',
+  'Outside — carport (north-east)': '外観 — カーポート（北東）', 'Outside — stair up to the 2F door': '外観 — 2F出入口への外部階段',
+  '1F — Gym': '1F — トレーニングルーム', '1F — Stair hall': '1F — 階段ホール', '2F — Living, looking west to the bedrooms': '2F — リビングから寝室側（西）を見る',
+  '2F — Dining, looking east (roof rises)': '2F — ダイニングから東を見る（屋根が高くなる側）', '2F — Kitchen + dining': '2F — キッチン・ダイニング',
+  '2F — Top of the stairs': '2F — 階段の上', '2F — Door out to the stair landing': '2F — 外部階段への出入口', '2F — Bedroom 1 (lowest ceiling)': '2F — 寝室1（天井が最も低い）',
+  '2F — Bedroom 2': '2F — 寝室2', '2F — Bedroom 3': '2F — 寝室3', '2F — Bedroom 4': '2F — 寝室4',
+  'Entrance': '玄関', 'Bath · soaking tubs': '浴室・浴槽', 'Sauna': 'サウナ', 'Gym (double height)': 'トレーニングルーム（吹抜け）', 'Rest / changing': '休憩・脱衣',
+  'Plant room · laundry': '機械室・洗濯', 'Wash room': '洗面室', 'Garage / ski room': 'ガレージ・スキー室', 'Living': 'リビング', 'Dining': 'ダイニング', 'Kitchen': 'キッチン',
+  'Powder': 'パウダールーム', 'Void over entrance': '玄関の吹抜け', 'Bedroom 1': '寝室1', 'Bedroom 2': '寝室2', 'Bedroom 3': '寝室3', 'Bedroom 4': '寝室4',
+  'Bathroom': 'バスルーム', 'Bathroom 2': 'バスルーム2', 'Void over living': 'リビングの吹抜け', 'Gym': 'トレーニングルーム', 'Stair hall · north door': '階段ホール・北側出入口',
+  'WC': 'トイレ', 'Laundry': '洗濯室', 'Plant room': '機械室', 'Hall': '廊下', 'Carport': 'カーポート', 'Outside stair · 2F door': '外部階段・2F出入口',
+};
+const NM = (en) => (LANG === 'ja' && JA_NAMES[en]) ? JA_NAMES[en] : en;
+
 /* house 2: the 2F ceiling plane, see roofSetup(); null for house 1 */
 let ROOF = null;
 const ROOF_HEAD = 0.15;      /* least wall left over a window cut down by the roof */
@@ -60,7 +150,7 @@ let sun = null, composer = null, gtaoPass = null, smaaPass = null;
 const LM = new THREE.LoadingManager();
 const TL = new THREE.TextureLoader(LM);
 const loadMsg = (t) => { const e = document.getElementById('loadmsg'); if (e) e.textContent = t; };
-LM.onProgress = (url, n, total) => loadMsg('loading textures + models… ' + n + ' / ' + total);
+LM.onProgress = (url, n, total) => loadMsg(T('loadingTex')(n, total));
 
 /* ---------------------------------------------------------------- materials */
 /* Every textured material carries userData.tile = metres covered by one
@@ -1418,14 +1508,21 @@ const LABELS1 = [
   [2, 1.50, -7.30, 'Bathroom 2'],
   [2, -5.65, -5.00, 'Void over living'],
 ];
+function buildLabels(i) {
+  const gl = G.labels[i], L = LV[i];
+  for (const sp of gl.children.slice()) { sp.material.map.dispose(); sp.material.dispose(); gl.remove(sp); }
+  for (const l of LABELS) if (l[0] === i) {
+    const sp = labelSprite(NM(l[3])); sp.position.set(l[1], L.base + 2.1, l[2]); gl.add(sp);
+  }
+}
 function labelSprite(text) {
   const pad = 16, f = 30;
   const c = document.createElement('canvas'), x = c.getContext('2d');
-  x.font = `600 ${f}px -apple-system,Segoe UI,Roboto,sans-serif`;
+  x.font = `600 ${f}px -apple-system,Segoe UI,Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif`;
   const w = Math.ceil(x.measureText(text).width) + pad * 2;
   c.width = w; c.height = f + pad * 2;
   const g = c.getContext('2d');
-  g.font = `600 ${f}px -apple-system,Segoe UI,Roboto,sans-serif`;
+  g.font = `600 ${f}px -apple-system,Segoe UI,Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif`;
   g.fillStyle = 'rgba(12,17,22,.72)';
   g.beginPath(); g.roundRect(0, 0, c.width, c.height, 14); g.fill();
   g.fillStyle = '#eaf2f8'; g.textBaseline = 'middle';
@@ -1460,8 +1557,8 @@ const ZONES2 = [
   [0, -2.79, 3.33, 0.84, 6.92, 'entranceStone'],       /* entrance (south door) */
   [1, -7.74, 0.33, -4.26, 1.88, 'bathTile'],           /* bathrooms */
   [1, -7.74, -1.31, -4.26, 0.21, 'bathTile'],
-  [1, -2.80, -3.31, 0.91, -1.93, 'bathTile'],
-  [1, -1.82, 0.87, 0.91, 2.11, 'bathTile'],
+  [1, -2.80, -3.31, 0.84, -1.93, 'bathTile'],
+  [1, -1.82, 0.87, 0.84, 2.11, 'bathTile'],
 ];
 const LABELS2 = [
   [0, -5.30, 1.30, 'Gym'],
@@ -1570,9 +1667,7 @@ function buildHouse(plan) {
       (i === 0 ? G.ext : gu).add(p);
       if (p.userData.fence) addCollBox(f.x, f.y, Math.max(f.w, f.d), 0.08, f.w >= f.d ? f.a : f.a + Math.PI / 2, L.base, L.base + p.userData.fence.top);
     }
-    for (const l of LABELS) if (l[0] === i) {
-      const sp = labelSprite(l[3]); sp.position.set(l[1], L.base + 2.1, l[2]); gl.add(sp);
-    }
+    buildLabels(i);
     for (const p of DOWN[i] || []) {
       if (p[2]) { const pl = new THREE.PointLight(0xffdcb0, 6, 9, 1.5); pl.position.set(p[0], L.base + L.h - 0.25, p[1]); gu.add(pl); }
       const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow);
@@ -2233,14 +2328,14 @@ function applyLens() {
 const $ = (id) => document.getElementById(id);
 const fovEl = $('fov'), fovv = $('fovv'), hud = $('hud');
 function syncUI() {
-  $('bWalk').textContent = st.fly ? 'Fly' : 'Walk';
+  $('bWalk').textContent = st.fly ? T('fly') : T('walk');
   $('bWalk').classList.toggle('on', st.fly);
-  $('bFloors').textContent = st.fmode === 'all' ? 'All floors' : 'Up to ' + FLOOR_NAMES[st.fmode];
+  $('bFloors').textContent = st.fmode === 'all' ? T('floors') : T('upto')(FLOOR_NAMES[st.fmode]);
   $('bFloors').classList.toggle('on', st.fmode !== 'all');
   $('bCeil').classList.toggle('on', !st.roof);
   $('bLbl').classList.toggle('on', st.labels);
   $('bMouse').classList.toggle('on', st.locked);
-  $('bQual').textContent = st.quality ? 'Quality: high' : 'Quality: fast';
+  $('bQual').textContent = st.quality ? T('qhi') : T('qlo');
   $('bQual').classList.toggle('on', !!st.quality);
   $('look').querySelector('[data-h=orbit]').classList.toggle('on', st.orbit);
   applyVis();
@@ -2263,8 +2358,9 @@ function bindPad() {
 }
 function bindUI() {
   const jump = $('jump');
-  VIEWS.forEach((v, i) => { const o = document.createElement('option'); o.value = i; o.textContent = v[0]; jump.appendChild(o); });
+  fillJump();
   jump.value = 0;
+  $('bLang').onclick = () => { LANG = LANG === 'ja' ? 'en' : 'ja'; try { localStorage.setItem('h3dLang', LANG); } catch (e) {} applyLang(); };
   jump.addEventListener('change', () => { goView(VIEWS[+jump.value]); jump.blur(); });
 
   $('bWalk').onclick = () => {
@@ -2357,10 +2453,33 @@ function bindUI() {
   addEventListener('blur', () => act.clear());
 }
 
+function fillJump() {
+  const jump = $('jump'), keep = jump.value;
+  jump.innerHTML = '';
+  VIEWS.forEach((v, i) => { const o = document.createElement('option'); o.value = i; o.textContent = NM(v[0]); jump.appendChild(o); });
+  if (keep !== '') jump.value = keep;
+}
+/* every UI string from TXT: [data-i18n] = text, [data-i18n-title] = tooltip */
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(e => { const v = T(e.dataset.i18n); if (typeof v === 'string') e.textContent = v; });
+  document.querySelectorAll('[data-i18n-title]').forEach(e => { const v = T(e.dataset.i18nTitle); if (typeof v === 'string') e.title = v; });
+  const hb = $('helpBody'); if (hb) hb.innerHTML = T('help');
+  const geo = $('helpGeo'); if (geo) geo.textContent = T(HOUSE === 2 ? 'geo2' : 'geo1');
+  document.title = T(HOUSE === 2 ? 'doc2' : 'doc1');
+  if (LV.length) {
+    fillJump();
+    for (let i = 0; i < LV.length; i++) if (G.labels[i]) buildLabels(i);
+    syncUI();
+    if (HOUSE === 2 && ROOF) { roofReadout(); bindRoofTip(); }
+    placeHud(); if (HOUSE === 2) placeRoofPanel();
+  }
+}
+
 /* house 2: roof sliders + readout */
 function roofReadout() {
   const f = (v) => v.toFixed(1);
-  $('roofRead').textContent = '1F ' + f(LV[0].h) + ' m · 2F ' + f(ROOF.hBed) + ' → ' + f(ROOF.hLiv) + ' m · pitch ' + Math.round(ROOF.pitch) + '°';
+  $('roofRead').textContent = T('roofread')(f(LV[0].h), f(ROOF.hBed), f(ROOF.hLiv), Math.round(ROOF.pitch));
   $('hLivV').textContent = f(ROOF.hLiv) + ' m'; $('hBedV').textContent = f(ROOF.hBed) + ' m';
 }
 function placeRoofPanel() {
@@ -2371,8 +2490,7 @@ function placeHud() { hud.style.top = Math.round($('top').getBoundingClientRect(
 function bindRoof() {
   const rp = $('roofp'), liv = $('hLiv'), bed = $('hBed');
   rp.hidden = false;
-  rp.title = 'One sloped (mono-pitch) roof, falling ' + (ROOF.axis ? (ROOF.sLiv < ROOF.sBed ? 'north to south' : 'south to north') : (ROOF.sLiv > ROOF.sBed ? 'east to west' : 'west to east')) +
-    ' from the living room to the bedrooms. Heights: ceiling above the 2F floor at the outside face of each end wall.';
+  bindRoofTip();
   liv.value = ROOF.hLiv; bed.value = ROOF.hBed;
   const upd = () => {
     ROOF.hLiv = +liv.value; ROOF.hBed = +bed.value; roofReadout();
@@ -2383,8 +2501,10 @@ function bindRoof() {
   liv.oninput = upd; bed.oninput = upd;
   for (const el of [liv, bed]) el.addEventListener('keydown', (e) => e.stopPropagation());
   roofReadout(); placeRoofPanel();
-  const geo = $('helpGeo');
-  if (geo) geo.textContent = 'House 2 is the real plan too (the left-hand house of the same Floor Plan Creator share): 2 floors, 1F ceilings 3.5 m, 37 cm exterior walls, every window, door and the stair as drawn. The 2F sits under one sloped (mono-pitch) roof, high over the living room and falling towards the bedrooms; set the two heights with the Roof sliders. Room names are inferred from the fixtures (the plan has none). Finishes are indicative. Textures, sky and furniture models: Poly Haven (CC0).';
+}
+function bindRoofTip() {
+  const d = T('dirs');
+  $('roofp').title = T('rooftip')(ROOF.axis ? (ROOF.sLiv < ROOF.sBed ? d.ns : d.sn) : (ROOF.sLiv > ROOF.sBed ? d.ew : d.we));
 }
 
 /* ------------------------------------------------------------ post + loop */
@@ -2447,7 +2567,7 @@ function frame(dt) {
   }
   applyVis(); fadeLabels();
   const p = camera.position;
-  hud.textContent = (st.orbit ? 'orbit' : (st.fly ? 'fly' : 'walk · ' + FLOOR_NAMES[st.floor]))
+  hud.textContent = (st.orbit ? T('hudOrbit') : (st.fly ? T('hudFly') : T('hudWalk') + ' · ' + FLOOR_NAMES[st.floor]))
     + '  ·  ' + Math.round(st.fov) + '°';
   if (st.quality && composer) composer.render(dt); else renderer.render(scene, camera);
 }
@@ -2456,8 +2576,9 @@ function frame(dt) {
 const MARKS = window.__marks = {};
 const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
-if (HOUSE === 2) document.title = 'Kutchan house 2 — 3D walkthrough';
-fetch(HOUSE === 2 ? 'plan2.json?v=6' : 'plan.json').then(r => r.json()).then(async (plan) => {
+applyLang();   /* static UI text + titles before the house loads */
+loadMsg(T('loading'));
+fetch(HOUSE === 2 ? 'plan2.json?v=7' : 'plan.json').then(r => r.json()).then(async (plan) => {
   let t = performance.now();
   buildMaterials(); t = mark('materials', t);
   setupLights();
@@ -2469,7 +2590,7 @@ fetch(HOUSE === 2 ? 'plan2.json?v=6' : 'plan.json').then(r => r.json()).then(asy
   const a = plan.levels.map(L => L.rooms.reduce((s, r) => s + r.area, 0));
   $('areaInfo').textContent = a.map((v, i) => FLOOR_NAMES[i] + ' ' + v.toFixed(0) + 'm²').join(' · ');
   if ((navigator.hardwareConcurrency || 8) <= 4 || Math.min(screen.width, screen.height) < 500) st.quality = 0;
-  bindPad(); bindUI(); resize();
+  bindPad(); bindUI(); applyLang(); resize();
   addEventListener('resize', resize);
   goView(VIEWS[0]);
   setFov(FOV.def);
@@ -2480,6 +2601,6 @@ fetch(HOUSE === 2 ? 'plan2.json?v=6' : 'plan.json').then(r => r.json()).then(asy
   window.__ready = true;
   requestAnimationFrame(loop);
 }).catch(e => {
-  document.getElementById('load').innerHTML = '<div style="color:#f88">failed to load: ' + e + '</div>';
+  document.getElementById('load').innerHTML = '<div style="color:#f88">' + T('failed') + e + '</div>';
   console.error(e);
 });

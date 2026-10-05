@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Kutchan house — 3D walkthrough</title>
+<title>倶知安 住宅計画 — 3Dウォークスルー</title>
 <style>
   :root{ --ui:#11161c; --ui2:#1b2430; --fg:#e8eef5; --ac:#5ac8fa; --bd:#2c3a4a; }
   *{box-sizing:border-box}
@@ -59,68 +59,62 @@
 <canvas id="c"></canvas>
 
 <div id="top" class="panel">
-  <span class="t">Kutchan house</span>
-  <span class="seg" title="Two houses drawn in the same plan"><button id="bH1" title="House 1: 3 floors, flat roof">House 1</button><button id="bH2" title="House 2: 2 floors, sloped (shed) roof">House 2</button></span>
+  <span class="t" data-i18n="title">倶知安 住宅計画</span>
+  <span class="seg" data-i18n-title="hsegt"><button id="bH1" data-i18n="h1" data-i18n-title="h1t">プランA</button><button id="bH2" data-i18n="h2" data-i18n-title="h2t">プランB</button></span>
   <span class="sub" id="areaInfo"></span>
-  <select id="jump" title="Jump to a room"></select>
-  <button id="bWalk" title="Walk = stay on the floor. Fly = free movement">Walk</button>
-  <button id="bFloors" title="Cut the house away floor by floor">All floors</button>
-  <button id="bCeil" title="Take the roof off (C)">Roof</button>
-  <button id="bLbl" title="Room labels (T)">Labels</button>
-  <button id="bMouse" title="Lock the mouse for FPS-style looking">Mouse look</button>
-  <button id="bQual" title="High = ambient occlusion + antialiasing. Fast = drop them if it stutters">Quality: high</button>
+  <select id="jump" data-i18n-title="jumpt"></select>
+  <button id="bWalk" data-i18n-title="walkt">歩行</button>
+  <button id="bFloors" data-i18n-title="floorst">全フロア</button>
+  <button id="bCeil" data-i18n="roof" data-i18n-title="rooft">屋根</button>
+  <button id="bLbl" data-i18n="labels" data-i18n-title="labelst">部屋名</button>
+  <button id="bMouse" data-i18n="mouse" data-i18n-title="mouset">マウス視点</button>
+  <button id="bQual" data-i18n-title="qualt">画質：高</button>
+  <button id="bLang" data-i18n="lang" data-i18n-title="langt">English</button>
   <button id="bHelp">?</button>
 </div>
 
 <div id="hud"></div>
 
 <div id="roofp" class="panel" hidden>
-  <div class="rt">ROOF · 2F CEILING</div>
+  <div class="rt" data-i18n="roofp">屋根・2階天井</div>
   <div id="roofRead"></div>
-  <label title="Ceiling height above the 2F floor at the living-room end wall">Living side <input id="hLiv" type="range" min="2.4" max="9" step="0.1" value="6"><b id="hLivV">6.0 m</b></label>
-  <label title="Ceiling height above the 2F floor at the bedroom end wall">Bedroom side <input id="hBed" type="range" min="2.4" max="9" step="0.1" value="3"><b id="hBedV">3.0 m</b></label>
+  <label data-i18n-title="livst"><span data-i18n="livs">リビング側</span> <input id="hLiv" type="range" min="2.4" max="9" step="0.1" value="6"><b id="hLivV">6.0 m</b></label>
+  <label data-i18n-title="bedst"><span data-i18n="beds">寝室側</span> <input id="hBed" type="range" min="2.4" max="9" step="0.1" value="3"><b id="hBedV">3.0 m</b></label>
 </div>
 
 <div id="move" class="pad panel">
-  <span class="lbl">MOVE</span>
+  <span class="lbl" data-i18n="move">移動</span>
   <button data-h="up">↑</button><button data-h="fwd">▲</button><button data-h="dn">↓</button>
   <button data-h="left">◀</button><button data-h="back">▼</button><button data-h="right">▶</button>
-  <span class="lbl">▲▼ fwd/back · ◀▶ strafe · ↑↓ height</span>
+  <span class="lbl" data-i18n="moveh">▲▼ 前後・◀▶ 左右・↑↓ 上下</span>
 </div>
 
 <div id="mid" class="panel">
-  <div title="Measured across the screen's long side"><label>FIELD OF VIEW <span id="fovv">72°</span></label><input id="fov" type="range" min="40" max="100" value="72"></div>
-  <div><label>SPEED</label><input id="spd" type="range" min="1" max="10" value="4"></div>
-  <button id="bWide" title="Wide angle (90°)">Wide</button>
-  <button id="bNarrow" title="Narrow / zoom (50°)">Narrow</button>
+  <div data-i18n-title="fovt"><label><span data-i18n="fov">画角</span> <span id="fovv">100°</span></label><input id="fov" type="range" min="40" max="100" value="100"></div>
+  <div><label data-i18n="speed">速度</label><input id="spd" type="range" min="1" max="10" value="4"></div>
+  <button id="bWide" data-i18n="wide" data-i18n-title="widet">広角</button>
+  <button id="bNarrow" data-i18n="narrow" data-i18n-title="narrowt">望遠</button>
 </div>
 
 <div id="look" class="pad panel">
-  <span class="lbl">LOOK</span>
+  <span class="lbl" data-i18n="look">視点</span>
   <button class="sp"></button><button data-h="lookup">↑</button><button class="sp"></button>
-  <button data-h="lookl">◀</button><button data-h="lvl" title="Level the view">⌖</button><button data-h="lookr">▶</button>
+  <button data-h="lookl">◀</button><button data-h="lvl" data-i18n-title="lvlt">⌖</button><button data-h="lookr">▶</button>
   <button class="sp"></button><button data-h="lookdn">↓</button><button class="sp"></button>
-  <button data-h="wide" title="Wider angle">W</button><button data-h="orbit" title="Orbit the building">◎</button><button data-h="narrow" title="Narrower / zoom in">N</button>
+  <button data-h="wide" data-i18n-title="wt">W</button><button data-h="orbit" data-i18n-title="ot">◎</button><button data-h="narrow" data-i18n-title="nt">N</button>
 </div>
 
 <div id="help"><div class="box">
-<h3>How to move</h3>
-<b>Keys</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk forward / left / back / right · <kbd>E</kbd>/<kbd>Q</kbd> up / down a floor (in Fly: rise / sink) · <kbd>Shift</kbd> run<br>
-<b>Pan the view</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> (or <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>) look left / right / up / down<br>
-<b>Lens</b> — <kbd>Z</kbd> wider · <kbd>X</kbd> narrower · mouse wheel / pinch too. The angle is across the screen's long side (72° ≈ a 24 mm lens); walls stay upright until you look more than 24° up or down.<br>
-<b>Mouse / touch</b> — drag to pan the view (the picture follows your hand). <b>Mouse look</b> = FPS-style aiming (<kbd>Esc</kbd> to release).<br>
-<b>Shortcuts</b> — <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> jump to a floor · <kbd>0</kbd> outside · <kbd>F</kbd> walk / fly · <kbd>O</kbd> orbit · <kbd>C</kbd> roof · <kbd>T</kbd> labels · <kbd>G</kbd> quality<br><br>
-<b>Walk</b> keeps you at eye height on the floor you are on and stops you at walls. <b>Fly</b> goes anywhere, through everything.<br>
-The dropdown jumps to any room. <b>Roof</b> off + <b>Floors</b> (cut-away) + <b>Fly</b> = doll-house view.<br><br>
-<span id="helpGeo" style="opacity:.6">Geometry is the real plan (Floor Plan Creator export): 3 floors, 2.74 m ceilings, 37 cm exterior walls, double-height gym, bath, entrance and living, every window and stair as drawn. Finishes are indicative, not specified. Textures, sky and furniture models: Poly Haven (CC0).</span>
-<div style="margin-top:14px"><button onclick="document.getElementById('help').classList.remove('show')">Close</button></div>
+<div id="helpBody"></div>
+<span id="helpGeo" style="opacity:.6"></span>
+<div style="margin-top:14px"><button data-i18n="close" onclick="document.getElementById('help').classList.remove('show')">閉じる</button></div>
 </div></div>
 
-<div id="load"><div class="sp"></div><div id="loadmsg" style="opacity:.6">building the house…</div></div>
+<div id="load"><div class="sp"></div><div id="loadmsg" style="opacity:.6">建物を作成中…</div></div>
 
 <script type="importmap">
 {"imports":{"three":"./three.module.min.js","three/addons/":"./jsm/"}}
 </script>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>
