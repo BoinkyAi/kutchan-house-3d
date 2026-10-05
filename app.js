@@ -1451,9 +1451,10 @@ const DOWN1 = {
    tubs, sauna benches + heater, plant room, wash room) and Toby's note (1F =
    gym + bath). */
 const ZONES2 = [
-  [0, -7.76, -5.52, -1.25, -3.16, 'granite'],          /* bath: soaking tubs + showers */
-  [0, -7.76, -7.33, -4.23, -5.52, 'granite'],
-  [0, -4.11, -7.33, -1.25, -5.64, 'hinoki'],           /* sauna */
+  [0, -7.76, -4.95, -3.94, -1.84, 'granite'],          /* bath: soaking tubs + showers (2026-10-05 v6 layout) */
+  [0, -3.94, -4.95, -1.25, -3.10, 'granite'],
+  [0, -7.76, -6.73, -4.17, -4.95, 'granite'],
+  [0, -4.11, -6.73, -1.25, -4.95, 'hinoki'],           /* sauna */
   [0, -3.82, -3.04, -2.91, -1.98, 'bathTile'],         /* WC */
   [0, -2.79, -0.51, 0.84, 3.21, 'bathTile'],           /* wash room */
   [0, -2.79, 3.33, 0.84, 6.92, 'entranceStone'],       /* entrance (south door) */
@@ -1466,8 +1467,8 @@ const LABELS2 = [
   [0, -5.30, 1.30, 'Gym'],
   [0, -1.00, 5.40, 'Entrance'],
   [0, 4.40, 3.70, 'Stair hall · north door'],
-  [0, -5.00, -4.60, 'Bath · soaking tubs'],
-  [0, -2.70, -6.45, 'Sauna'],
+  [0, -6.00, -4.30, 'Bath · soaking tubs'],
+  [0, -2.70, -5.85, 'Sauna'],
   [0, -3.36, -2.50, 'WC'],
   [0, -1.00, 1.50, 'Wash room'],
   [0, -0.15, -2.30, 'Laundry'],
@@ -1489,7 +1490,7 @@ const LABELS2 = [
 ];
 /* 1F lights; the 2F ones hang off the sloped ceiling: ROOF_LIGHTS2 */
 const DOWN2 = {
-  0: [[-5.3, 0.8, 1], [-5.3, 4.6, 0], [-1.0, 5.4, 0], [4.4, 3.4, 1], [-5.0, -4.4, 1], [-1.0, 1.6, 0], [-0.15, -2.3, 0], [-0.15, -5.5, 0], [-2.7, -6.45, 0]],
+  0: [[-5.3, 0.8, 1], [-5.3, 4.6, 0], [-1.0, 5.4, 0], [4.4, 3.4, 1], [-5.9, -4.0, 1], [-1.0, 1.6, 0], [-0.15, -2.3, 0], [-0.15, -5.4, 0], [-2.7, -5.85, 0]],
 };
 const ROOF_LIGHTS2 = [[-2.6, 4.6, 1], [-6.0, -5.6, 1], [-0.65, -5.2, 1], [-0.95, -0.4, 0], [-6.2, 5.3, 1], [-3.53, -0.8, 0],
   [-6.0, 1.1, 0], [-6.0, -0.55, 0], [-0.95, -2.62, 0], [-0.45, 1.48, 0], [5.6, 4.6, 0], [3.3, 4.6, 0]];
@@ -1927,9 +1928,9 @@ function decorate2() {
     mk(G.furn[li], B(2.3, 0.012, 2.1, MAT.rugWool), MAT.rugWool, sofa.x + sx * 0.55, L.base + 0.006, sofa.y + 0.3).castShadow = false;
     placeModel(G.furn[li], 'coffee', sofa.x + sx * 0.85, L.base, sofa.y + 0.35, Math.PI / 2, 1);
   }
-  placeModel(G.furn[li], 'plant', 7.2, L.base, 2.7, 0.4, 1.25);
+  placeModel(G.furn[li], 'plant', 6.75, L.base, 2.65, 0.4, 1.25);
   placeModel(G.furn[0], 'plant', 0.45, LV[0].base, 4.2, 1.1, 1.15);
-  placeModel(G.furn[0], 'plant', 7.3, LV[0].base, 6.45, 2.2, 1.2);
+  placeModel(G.furn[0], 'plant', 6.65, LV[0].base, 6.5, 2.2, 1.2);
 }
 /* snow field, the ploughed north-east yard (parking: the L's open corner),
    paths to the doors */
@@ -2041,10 +2042,10 @@ const VIEWS2 = [
   ['Outside — stair up to the 2F door', 10.5, 16.0, 0.72, 0.02, null, 2.3],
   ['1F — Gym', -3.3, -0.5, 2.30, 0.08, 0],
   ['1F — Entrance', 0.4, 6.4, 0.95, -0.02, 0],
-  ['1F — Stair hall', 7.1, 2.8, 1.85, 0.12, 0],
+  ['1F — Stair hall', 6.7, 2.8, 1.85, 0.12, 0],
   ['1F — Bath + tubs', -1.7, -3.6, 1.35, -0.10, 0],
   ['1F — Wash room', -2.3, 2.7, -0.6, -0.05, 0],
-  ['2F — Living, looking west to the bedrooms', 7.3, 2.65, 1.80, 0.24, 1],
+  ['2F — Living, looking west to the bedrooms', 6.55, 5.95, 1.62, 0.24, 1],
   ['2F — Dining, looking east (roof rises)', -1.6, 3.4, -1.45, 0.18, 1],
   ['2F — Kitchen + dining', 1.2, 2.7, 2.35, 0.02, 1],
   ['2F — Top of the stairs', 3.75, 5.85, 1.57, -0.30, 1],
@@ -2456,7 +2457,7 @@ const MARKS = window.__marks = {};
 const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
 if (HOUSE === 2) document.title = 'Kutchan house 2 — 3D walkthrough';
-fetch(HOUSE === 2 ? 'plan2.json?v=5' : 'plan.json').then(r => r.json()).then(async (plan) => {
+fetch(HOUSE === 2 ? 'plan2.json?v=6' : 'plan.json').then(r => r.json()).then(async (plan) => {
   let t = performance.now();
   buildMaterials(); t = mark('materials', t);
   setupLights();
