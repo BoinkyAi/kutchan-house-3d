@@ -370,6 +370,11 @@ function buildMaterials() {
     sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>',
       'gl_FragColor = vec4( totalSpecular + totalDiffuse * diffuseColor.a, diffuseColor.a );');
   };
+  /* interior door leaves: frosted, see-through (opening() shows them closed) */
+  MAT.doorGhost = new THREE.MeshStandardMaterial({
+    color: 0xeae3d6, roughness: 0.6, metalness: 0, transparent: true, opacity: 0.3,
+    envMapIntensity: 0.4, side: THREE.DoubleSide, depthWrite: false,
+  });
   MAT.glassIn = new THREE.MeshStandardMaterial({
     color: 0xdfe9ea, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.1,
     envMapIntensity: 0.25, side: THREE.DoubleSide, depthWrite: false,
@@ -745,6 +750,18 @@ function opening(G, o, w, lvl, L, c) {
   const casing = (s0, s1, y0, y1) => put(B(s1 - s0, y1 - y0, (n1 - n0) + 0.02, MAT.white), MAT.white, (s0 + s1) / 2, (n0 + n1) / 2, (y0 + y1) / 2, true);
   if (!ext) { casing(s - 0.04, s, bot, top + 0.04); casing(e, e + 0.04, bot, top + 0.04); casing(s - 0.04, e + 0.04, top, top + 0.04); }
   const nLeaf = o.kind === 'DOUBLE_DOOR' ? 2 : 1, lw = W / nLeaf;
+  if (!ext) {
+    /* Interior doors (Toby 2026-10-05): shown CLOSED in their own openings as
+       see-through leaves with a handle -- no swing or parked sliding leaf can
+       end up through a wall, and you can still see into the room. */
+    for (let i = 0; i < nLeaf; i++) {
+      const lc = s + lw * (i + 0.5);
+      const leaf = put(B(lw - 0.012, H - 0.012, 0.035), MAT.doorGhost, lc, 0, bot + H / 2, false);
+      leaf.renderOrder = 2;
+      put(B(0.02, 0.24, 0.06), MAT.blackSteel, lc + (i === 0 ? 1 : -1) * (lw / 2 - 0.09), 0, bot + 1.0, false);
+    }
+    return;
+  }
   if (o.kind === 'SLIDING_HUNG_DOOR') {
     /* slid open against a wall face beside the opening, on a track. Which
        face and which way needs every wall in place: see parkSliders() */
@@ -2520,10 +2537,9 @@ function setupComposer() {
      there: the AO of the room behind it vanished and a noisy dark halo ran
      round its edges -- a shower screen read as a white slab. Glass doesn't
      occlude: hide it for that pass (restoreVisibility puts it back). */
-  const noAO = [];
-  scene.traverse(o => { if (o.isMesh && o.material === MAT.glassIn) noAO.push(o); });
+  const NO_AO = new Set([MAT.glassIn, MAT.doorGhost]);   /* looked up per frame: house 2's 2F walls are rebuilt by the roof sliders */
   const hideForGBuffer = gtaoPass.overrideVisibility;
-  gtaoPass.overrideVisibility = function () { hideForGBuffer.call(this); for (const m of noAO) m.visible = false; };
+  gtaoPass.overrideVisibility = function () { hideForGBuffer.call(this); scene.traverse(o => { if (o.isMesh && NO_AO.has(o.material)) o.visible = false; }); };
   composer.addPass(gtaoPass);
   composer.addPass(new OutputPass());
   smaaPass = new SMAAPass(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
