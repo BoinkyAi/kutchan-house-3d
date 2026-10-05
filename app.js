@@ -891,6 +891,40 @@ function buildStraightStair(G, s) {
   g.rotation.y = -s.a;
   G.furn.add(g);
 }
+/* house 2: a flat landing (FPC stair piece with landing="1", parse_plan.py)
+   at the top of a flight: deck at the floor above, on a black steel frame and
+   four posts; a guard rail on every side that neither a wall nor the flight
+   closes. Walkable: stairHeights(). */
+function landingTop(s) { const N = LV[s.level + 1]; return N ? N.base : LV[s.level].base + s.top; }
+function buildLanding(G, s) {
+  const g = new THREE.Group(), H = landingTop(s) - LV[s.level].base, w = s.w, d = s.d;
+  const outside = s.level === 0 && !LV[0].rooms.some(r => inside(r.poly, s.x, s.y));
+  mk(g, B(w, 0.045, d, outside ? MAT.deck : MAT.oakFurn), outside ? MAT.deck : MAT.oakFurn, 0, H - 0.0225, 0);
+  if (outside) mk(g, RS(w - 0.08, 0.05, d - 0.08, 0.02, MAT.snow), MAT.snow, 0, H + 0.012, 0).castShadow = false;
+  const fr = 0.16, yF = H - 0.045 - fr / 2;
+  mk(g, B(w, fr, 0.06), MAT.blackSteel, 0, yF, -d / 2 + 0.03); mk(g, B(w, fr, 0.06), MAT.blackSteel, 0, yF, d / 2 - 0.03);
+  mk(g, B(0.06, fr, d - 0.12), MAT.blackSteel, -w / 2 + 0.03, yF, 0); mk(g, B(0.06, fr, d - 0.12), MAT.blackSteel, w / 2 - 0.03, yF, 0);
+  const yb = H - 0.045 - fr;
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.1, yb, 0.1), MAT.blackSteel, sx * (w / 2 - 0.05), yb / 2, sz * (d / 2 - 0.05));
+  /* open sides: not against the house, not where a flight arrives */
+  const ca = Math.cos(s.a), sa = Math.sin(s.a), W = (lx, lz) => [s.x + lx * ca - lz * sa, s.y + lx * sa + lz * ca];
+  const flightAt = (x, z) => STAIRS.some(f => f !== s && f.name === 'stairs' && inside(rectCorners({ x: f.x, y: f.y, w: f.w + 0.1, d: f.d + 0.1, a: f.a }), x, z));
+  const sides = [[0, -d / 2, w, 0], [0, d / 2, w, 0], [-w / 2, 0, d, 1], [w / 2, 0, d, 1]];
+  for (const [cx, cz, L, vert] of sides) {
+    const ox = vert ? Math.sign(cx) * 0.25 : 0, oz = vert ? 0 : Math.sign(cz) * 0.25;
+    if (houseAt(...W(cx + ox, cz + oz)) || flightAt(...W(cx + ox, cz + oz))) continue;
+    const rx = vert ? cx - Math.sign(cx) * 0.03 : cx, rz = vert ? cz : cz - Math.sign(cz) * 0.03;
+    mk(g, vert ? B(0.05, 0.04, L) : B(L, 0.04, 0.05), MAT.blackSteel, rx, H + 1.1, rz);
+    const nb = Math.round(L / 0.11);
+    for (let i = 0; i <= nb; i++) {
+      const t = -L / 2 + 0.03 + (L - 0.06) * i / nb;
+      mk(g, B(0.016, 1.08, 0.016), MAT.blackSteel, vert ? rx : rx + t, H + 0.56, vert ? rz + t : rz);
+    }
+  }
+  g.position.set(s.x, LV[s.level].base, s.y);
+  g.rotation.y = -s.a;
+  G.furn.add(g);
+}
 function buildSpiralStair(G, s) {
   const g = new THREE.Group();
   const H = stairRise(s), n = s.treads || 16, sweep = s.rot || Math.PI * 2;
@@ -1114,6 +1148,20 @@ function makeProp(s, lvl) {
     mk(g, B(w * 1.1, 0.64, 0.03), MAT.screen, 0, 0.42 + 0.06 + 0.32, 0);
   } else if (has('mirror')) {
     mk(g, B(w, h, 0.012), std({ color: 0xe8eef2, roughness: 0.02, metalness: 1, envMapIntensity: 1.2 }), 0, bot + h / 2, 0);
+  } else if (n === 'fence') {
+    /* house 2: the plot's boundary (FPC railing drawn round the site; parse_plan.py) */
+    buildFence(g, Math.max(w, d), w >= d, Math.max(top, 0.9));
+  } else if (has('coatHanger')) {
+    /* wardrobe: hanging rail under a shelf, a few garments on it */
+    const ry = Math.min(1.85, Math.max(bot, 1.6) + 0.12);
+    const rail = mk(g, CY(0.013, w - 0.04, 12), MAT.steel, 0, ry, 0); rail.rotation.z = Math.PI / 2;
+    mk(g, B(w, 0.025, d + 0.12, MAT.oakFurn), MAT.oakFurn, 0, Math.max(top, ry + 0.12), 0);
+    const cloth = [MAT.linen, MAT.linenDark, MAT.linenWhite, MAT.sofa];
+    const ng = Math.max(3, Math.round(w / 0.13));
+    for (let i = 0; i < ng; i++) {
+      const L = 0.78 + ((i * 7) % 5) * 0.08, gx = -w / 2 + 0.08 + (w - 0.16) * i / (ng - 1);
+      mk(g, RB(0.03, L, Math.min(0.44, d + 0.08), 0.012, cloth[i % 4]), cloth[i % 4], gx, ry - 0.03 - L / 2, 0);
+    }
   } else if (has('railing')) {
     const Lr = Math.max(w, d), along = w >= d, top2 = Math.max(top, 1.05);
     const gl = new THREE.Mesh(along ? new THREE.BoxGeometry(Lr, top2 - 0.06, 0.012) : new THREE.BoxGeometry(0.012, top2 - 0.06, Lr), MAT.glassIn);
@@ -1123,9 +1171,13 @@ function makeProp(s, lvl) {
   } else if (has('shade') && lvl === 0 && HOUSE === 1 && touchesHouse(s)) {
     buildCarport(s); placed = false;                   /* house 1's carport (see buildCarport) */
   } else if (has('shade') && HOUSE === 2 && lvl === 0) {
-    /* house 2: the same pergola, trimmed so it stands clear of the walls */
+    /* house 2: a shade over a car (or >= 20 m2) is the carport (Toby moved it
+       into the north-east yard, 2026-10-05); a small one is a garden pergola.
+       Both trimmed clear of the walls; c is world-axis-aligned, hence a: 0 */
     const c = clearOfHouse(s);
-    if (c) { pergola(g, c.w, c.d, top); s = Object.assign({}, s, { x: c.x, y: c.y }); } else placed = false;
+    if (!c) placed = false;
+    else if (isCarport(s)) { buildCarport2(Object.assign({}, c, { top })); placed = false; }
+    else { pergola(g, c.w, c.d, top); s = Object.assign({}, s, { x: c.x, y: c.y, a: 0 }); }
   } else if (has('shade')) {
     pergola(g, w, d, top);
   } else if (has('treeBig')) {
@@ -1159,7 +1211,7 @@ function pergola(g, w, d, top) {
 function clearOfHouse(s) {
   const [X0, Z0, X1, Z1] = bbox(rectCorners(s));
   const clear = (r) => { for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) if (houseAt(r[0] + (r[2] - r[0]) * i / 12, r[1] + (r[3] - r[1]) * j / 12)) return false; return true; };
-  if (clear([X0, Z0, X1, Z1])) return { x: s.x, y: s.y, w: s.w, d: s.d };
+  if (clear([X0, Z0, X1, Z1])) return { x: s.x, y: s.y, w: X1 - X0, d: Z1 - Z0 };   /* world extents (a rotated symbol: w/d swap) */
   let best = null;
   for (let k = 0; k < 4; k++) {
     const r = [X0, Z0, X1, Z1];
@@ -1171,6 +1223,83 @@ function clearOfHouse(s) {
   const r = best.r, gap = 0.1;                               /* and 10 cm off the cladding */
   for (let k = 0; k < 4; k++) if (r[k] !== [X0, Z0, X1, Z1][k]) r[k] += (k < 2 ? 1 : -1) * gap;
   return { x: (r[0] + r[2]) / 2, y: (r[1] + r[3]) / 2, w: r[2] - r[0], d: r[3] - r[1] };
+}
+
+/* house 2: a shade with a car symbol under it, or a big one, is a carport */
+function isCarport(s) {
+  const c = rectCorners(s);
+  if (s.w * s.d >= 20) return true;
+  return LV[0].furniture.some(f => /suv|car\b|\.car/.test(f.name) && inside(c, f.x, f.y));
+}
+/* house 2 carport: the FPC shade's footprint and top (3.0 m). Black steel
+   posts and beams, cedar soffit between the rafters, flat steel deck with
+   its snow load. Posts at the corners plus one mid-span on the edge nearest
+   the house: the drive side and the doors stay clear. */
+let CARPORT2 = null;
+function buildCarport2(c) {
+  const g = G.ext, top = Math.max(2.4, Math.min(c.top || 3.0, 3.4));
+  const x0 = c.x - c.w / 2, x1 = c.x + c.w / 2, z0 = c.y - c.d / 2, z1 = c.y + c.d / 2, W = x1 - x0, D = z1 - z0;
+  CARPORT2 = { x0, z0, x1, z1, top };
+  const bd = 0.24, dk = 0.05, H = top - dk - bd, P = 0.14;
+  /* which edge faces the house: the one whose outside strip (0.6 m) touches it */
+  const near = (ax, az, bx, bz) => { for (let k = 0; k <= 10; k++) if (houseAt(ax + (bx - ax) * k / 10, az + (bz - az) * k / 10)) return true; return false; };
+  const edges = [
+    { m: [x0 - 0.6, z0, x0 - 0.6, z1], post: (t) => [x0 + P / 2 + 0.03, z0 + (D) * t] },
+    { m: [x1 + 0.6, z0, x1 + 0.6, z1], post: (t) => [x1 - P / 2 - 0.03, z0 + (D) * t] },
+    { m: [x0, z0 - 0.6, x1, z0 - 0.6], post: (t) => [x0 + W * t, z0 + P / 2 + 0.03] },
+    { m: [x0, z1 + 0.6, x1, z1 + 0.6], post: (t) => [x0 + W * t, z1 - P / 2 - 0.03] },
+  ];
+  const posts = [[x0 + P / 2 + 0.03, z0 + P / 2 + 0.03], [x1 - P / 2 - 0.03, z0 + P / 2 + 0.03],
+    [x0 + P / 2 + 0.03, z1 - P / 2 - 0.03], [x1 - P / 2 - 0.03, z1 - P / 2 - 0.03]];
+  /* a mid-span post never stands in front of a door in the house wall */
+  const doorClear = (px, pz) => !LV[0].walls.some(w => w.kind === 'ext' && w.doors.some(o => {
+    if (o.kind === 'WINDOW' || o.kind === 'HOLE') return false;
+    const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / len, uz = (bz - az) / len;
+    const sa = (px - ax) * ux + (pz - az) * uz, q = (px - ax) * w.n[0] + (pz - az) * w.n[1];
+    return sa > o.off - 0.6 && sa < o.off + o.w + 0.6 && q > 0 && q < w.t + 1.5;
+  }));
+  for (const e of edges) if (near(...e.m)) {
+    const len = Math.hypot(e.m[2] - e.m[0], e.m[3] - e.m[1]), pp = e.post(0.5);
+    if (len > 5.5 && doorClear(...pp)) posts.push(pp);
+  }
+  for (const [px, pz] of posts) { mk(g, B(P, H, P), MAT.blackSteel, px, H / 2, pz); addCollBox(px, pz, P, P, 0, 0, H); }
+  /* perimeter beams, rafters across the short span */
+  mk(g, B(W, bd, 0.12), MAT.blackSteel, (x0 + x1) / 2, H + bd / 2, z0 + 0.06);
+  mk(g, B(W, bd, 0.12), MAT.blackSteel, (x0 + x1) / 2, H + bd / 2, z1 - 0.06);
+  mk(g, B(0.12, bd, D - 0.24), MAT.blackSteel, x0 + 0.06, H + bd / 2, (z0 + z1) / 2);
+  mk(g, B(0.12, bd, D - 0.24), MAT.blackSteel, x1 - 0.06, H + bd / 2, (z0 + z1) / 2);
+  const alongX = W <= D, span = alongX ? D : W, nR = Math.max(1, Math.round(span / 1.2));
+  for (let i = 1; i < nR; i++) {
+    const t = i / nR;
+    if (alongX) mk(g, B(W - 0.24, 0.16, 0.06), MAT.blackSteel, (x0 + x1) / 2, H + bd - 0.08, z0 + D * t);
+    else mk(g, B(0.06, 0.16, D - 0.24), MAT.blackSteel, x0 + W * t, H + bd - 0.08, (z0 + z1) / 2);
+  }
+  /* cedar soffit just under the deck, the deck, its snow */
+  const sof = mk(g, B(W - 0.24, 0.02, D - 0.24, MAT.cedar), MAT.cedar, (x0 + x1) / 2, H + bd - 0.012, (z0 + z1) / 2); sof.castShadow = false;
+  mk(g, B(W + 0.04, dk, D + 0.04), MAT.blackSteel, (x0 + x1) / 2, H + bd + dk / 2, (z0 + z1) / 2);
+  mk(g, RS(W - 0.5, 0.2, D - 0.5, 0.08, MAT.roofSnow), MAT.roofSnow, (x0 + x1) / 2, top + 0.1, (z0 + z1) / 2);
+  /* two downlights in the soffit */
+  for (const t of [0.3, 0.7]) {
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.05, 20), MAT.lampGlow);
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(alongX ? (x0 + x1) / 2 : x0 + W * t, H + bd - 0.024, alongX ? z0 + D * t : (z0 + z1) / 2); g.add(lens);
+  }
+}
+/* house 2 boundary fence, length L along local x: black steel posts every
+   ~1.8 m, six horizontal cedar boards, a steel cap with a line of snow */
+function buildFence(g0, L, alongX, top) {
+  const g = new THREE.Group(); g0.add(g);
+  if (!alongX) g.rotation.y = Math.PI / 2;            /* symbol drawn with its length along local y */
+  const n = Math.max(2, Math.ceil(L / 1.8) + 1), bh = 0.11, gap = 0.045, nb = 6;
+  for (let i = 0; i < n; i++) mk(g, B(0.07, top, 0.07), MAT.blackSteel, -L / 2 + 0.035 + (L - 0.07) * i / (n - 1), top / 2, 0);
+  for (let k = 0; k < nb; k++) {
+    const y = top - 0.04 - bh / 2 - k * (bh + gap);
+    mk(g, B(L, bh, 0.022, MAT.cedar), MAT.cedar, 0, y, 0.0);
+  }
+  mk(g, B(L + 0.02, 0.03, 0.08), MAT.blackSteel, 0, top - 0.015, 0);
+  mk(g, RS(L, 0.05, 0.09, 0.02, MAT.roofSnow), MAT.roofSnow, 0, top + 0.022, 0).castShadow = false;
+  /* collision (walk mode): one box along the run, added by buildHouse */
+  g0.userData.fence = { L, top };
 }
 
 /* Carport. The plan's "shade" over the two cars is drawn hard against the
@@ -1323,14 +1452,14 @@ const DOWN1 = {
    gym + bath). */
 const ZONES2 = [
   [0, -7.76, -5.52, -1.25, -3.16, 'granite'],          /* bath: soaking tubs + showers */
-  [0, -7.76, -6.92, -4.23, -5.52, 'granite'],
-  [0, -4.11, -6.92, -1.25, -5.64, 'hinoki'],           /* sauna */
+  [0, -7.76, -7.33, -4.23, -5.52, 'granite'],
+  [0, -4.11, -7.33, -1.25, -5.64, 'hinoki'],           /* sauna */
   [0, -3.82, -3.04, -2.91, -1.98, 'bathTile'],         /* WC */
-  [0, -2.79, -0.51, 0.84, 3.69, 'bathTile'],           /* wash room */
-  [0, -2.79, 3.81, 0.84, 6.92, 'entranceStone'],       /* entrance (south door) */
+  [0, -2.79, -0.51, 0.84, 3.21, 'bathTile'],           /* wash room */
+  [0, -2.79, 3.33, 0.84, 6.92, 'entranceStone'],       /* entrance (south door) */
   [1, -7.74, 0.33, -4.26, 1.88, 'bathTile'],           /* bathrooms */
   [1, -7.74, -1.31, -4.26, 0.21, 'bathTile'],
-  [1, -2.80, -3.09, 0.91, -1.78, 'bathTile'],
+  [1, -2.80, -3.31, 0.91, -1.93, 'bathTile'],
   [1, -1.82, 0.87, 0.91, 2.11, 'bathTile'],
 ];
 const LABELS2 = [
@@ -1338,30 +1467,32 @@ const LABELS2 = [
   [0, -1.00, 5.40, 'Entrance'],
   [0, 4.40, 3.70, 'Stair hall · north door'],
   [0, -5.00, -4.60, 'Bath · soaking tubs'],
-  [0, -2.70, -6.25, 'Sauna'],
+  [0, -2.70, -6.45, 'Sauna'],
   [0, -3.36, -2.50, 'WC'],
   [0, -1.00, 1.50, 'Wash room'],
   [0, -0.15, -2.30, 'Laundry'],
   [0, -0.15, -5.50, 'Plant room'],
+  [0, 5.07, -2.99, 'Carport'],
+  [0, 3.20, 8.09, 'Outside stair · 2F door'],
   [1, 4.60, 3.60, 'Living'],
   [1, 0.30, 3.10, 'Dining'],
   [1, -2.60, 4.60, 'Kitchen'],
   [1, -6.00, -5.60, 'Bedroom 1'],
-  [1, -0.65, -5.00, 'Bedroom 2'],
+  [1, -0.65, -5.20, 'Bedroom 2'],
   [1, -0.95, -0.40, 'Bedroom 3'],
   [1, -6.20, 5.30, 'Bedroom 4'],
   [1, -6.00, 1.10, 'Bathroom'],
   [1, -6.00, -0.55, 'Bathroom'],
-  [1, -0.95, -2.42, 'Bathroom'],
+  [1, -0.95, -2.62, 'Bathroom'],
   [1, -0.45, 1.48, 'Bathroom'],
   [1, -3.53, -0.80, 'Hall'],
 ];
 /* 1F lights; the 2F ones hang off the sloped ceiling: ROOF_LIGHTS2 */
 const DOWN2 = {
-  0: [[-5.3, 0.8, 1], [-5.3, 4.6, 0], [-1.0, 5.4, 0], [4.4, 3.4, 1], [-5.0, -4.4, 1], [-1.0, 1.6, 0], [-0.15, -2.3, 0], [-0.15, -5.5, 0], [-2.7, -6.25, 0]],
+  0: [[-5.3, 0.8, 1], [-5.3, 4.6, 0], [-1.0, 5.4, 0], [4.4, 3.4, 1], [-5.0, -4.4, 1], [-1.0, 1.6, 0], [-0.15, -2.3, 0], [-0.15, -5.5, 0], [-2.7, -6.45, 0]],
 };
-const ROOF_LIGHTS2 = [[-2.6, 4.6, 1], [-6.0, -5.6, 1], [-0.65, -5.0, 1], [-0.95, -0.4, 0], [-6.2, 5.3, 1], [-3.53, -0.8, 0],
-  [-6.0, 1.1, 0], [-6.0, -0.55, 0], [-0.95, -2.42, 0], [-0.45, 1.48, 0], [5.6, 4.6, 0], [3.3, 4.6, 0]];
+const ROOF_LIGHTS2 = [[-2.6, 4.6, 1], [-6.0, -5.6, 1], [-0.65, -5.2, 1], [-0.95, -0.4, 0], [-6.2, 5.3, 1], [-3.53, -0.8, 0],
+  [-6.0, 1.1, 0], [-6.0, -0.55, 0], [-0.95, -2.62, 0], [-0.45, 1.48, 0], [5.6, 4.6, 0], [3.3, 4.6, 0]];
 const ZONES = HOUSE === 2 ? ZONES2 : ZONES1, LABELS = HOUSE === 2 ? LABELS2 : LABELS1, DOWN = HOUSE === 2 ? DOWN2 : DOWN1;
 
 /* ------------------------------------------------------------ build it all */
@@ -1375,7 +1506,7 @@ function buildHouse(plan) {
   /* stair openings through the floor above + landing nosings */
   const extraHoles = LV.map(() => []), patches = LV.map(() => []);
   for (const s of STAIRS) {
-    const up = s.level + 1; if (!LV[up]) continue;
+    const up = s.level + 1; if (!LV[up] || s.name === 'landing') continue;
     const c = s.name === 'stairsCircle'
       ? rectPoly(s.x - s.w / 2 - 0.02, s.y - s.d / 2 - 0.02, s.x + s.w / 2 + 0.02, s.y + s.d / 2 + 0.02)
       : s.hole ? holeOver(s) : rectCorners({ x: s.x, y: s.y, w: s.w + 0.04, d: s.d + 0.04, a: s.a });
@@ -1436,6 +1567,7 @@ function buildHouse(plan) {
       const p = makeProp(f, i); if (!p) continue;
       p.position.y += L.base;
       (i === 0 ? G.ext : gu).add(p);
+      if (p.userData.fence) addCollBox(f.x, f.y, Math.max(f.w, f.d), 0.08, f.w >= f.d ? f.a : f.a + Math.PI / 2, L.base, L.base + p.userData.fence.top);
     }
     for (const l of LABELS) if (l[0] === i) {
       const sp = labelSprite(l[3]); sp.position.set(l[1], L.base + 2.1, l[2]); gl.add(sp);
@@ -1449,7 +1581,7 @@ function buildHouse(plan) {
     }
   });
 
-  for (const s of STAIRS) (s.name === 'stairsCircle' ? buildSpiralStair : buildStraightStair)({ furn: s.level === 0 && !LV[0].rooms.some(r => inside(r.poly, s.x, s.y)) ? G.ext : G.furn[s.level] }, s);
+  for (const s of STAIRS) (s.name === 'stairsCircle' ? buildSpiralStair : s.name === 'landing' ? buildLanding : buildStraightStair)({ furn: s.level === 0 && !LV[0].rooms.some(r => inside(r.poly, s.x, s.y)) ? G.ext : G.furn[s.level] }, s);
 
   if (HOUSE === 2) { roofSetup(); decorate2(); buildUnderRoof(); buildSite2(); }
   else { decorate(); buildSauna(); buildRoof(); buildSite(); }
@@ -1486,7 +1618,11 @@ function clipToHouse(w, L) {
     if (r.v) { t0 = Math.max(0, t0 - 0.3 / len); t1 = Math.min(1, t1 + 0.3 / len); }   /* run into the outer wall */
     else {
       if (L !== LV[0] || (t1 - t0) * len < 1.0) continue;
-      t0 = Math.min(1, t0 + 0.37 / len);
+      if (HOUSE === 2) {           /* drawn from either end: stop 1 cm off the cladding (houseAt) */
+        const P = (t) => [ax + (bx - ax) * t, az + (bz - az) * t];
+        while (t1 > t0 && houseAt(...P(t1))) t1 -= 0.01 / len;
+        while (t0 < t1 && houseAt(...P(t0))) t0 += 0.01 / len;
+      } else t0 = Math.min(1, t0 + 0.37 / len);
     }
     const a = [ax + (bx - ax) * t0, az + (bz - az) * t0], b = [ax + (bx - ax) * t1, az + (bz - az) * t1];
     const doors = w.doors.map(d => Object.assign({}, d, { off: d.off - t0 * len })).filter(d => d.off > -d.w && d.off < (t1 - t0) * len);
@@ -1678,6 +1814,16 @@ function roofSetup() {
     get n() { return new V(this.axis ? 0 : -this.k, 1, this.axis ? -this.k : 0).normalize(); },
     get pitch() { return Math.atan(Math.abs(this.hLiv - this.hBed) / Math.abs(this.sLiv - this.sBed)) * 180 / Math.PI; },
   };
+  /* default bedroom side: the lowest, in 0.1 m steps from 3.0 m, that keeps
+     every window and door in the 2F facades at its drawn head (2026-10-05:
+     the 3.5 m windows Toby added on the bedroom side need 3.7 m) */
+  const fits = () => top.walls.every(w => {
+    if (w.kind !== 'ext') return true;
+    const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / len, uz = (bz - az) / len;
+    return w.doors.every(o => o.kind === 'HOLE' || o.full ||
+      Math.min(...[o.off, o.off + o.w].flatMap(s => [0, w.t].map(q => ROOF.y(ax + ux * s + w.n[0] * q, az + uz * s + w.n[1] * q)))) - ROOF_HEAD - top.base >= o.top - 1e-6);
+  });
+  while (ROOF.hBed < ROOF.hLiv - 1 && !fits()) ROOF.hBed = Math.round(ROOF.hBed * 10 + 1) / 10;
   console.log('[h3d] roof axis', axis ? 'z' : 'x', 'living', lc.map(v => +v.toFixed(2)), 'bedrooms', bc.map(v => +v.toFixed(2)),
     'delta', d.map(v => +v.toFixed(2)), 'bedroom side at', ROOF.sBed.toFixed(2), 'living side at', ROOF.sLiv.toFixed(2));
 }
@@ -1802,10 +1948,28 @@ function buildSite2() {
   gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, -0.02, 0); gnd.receiveShadow = true;
   E.add(gnd);
   const flatOn = (m) => { m.castShadow = false; return m; };
-  flatOn(mk(E, B(7.4, 0.04, 9.0, MAT.packed), MAT.packed, 4.95, 0.0, -2.75));      /* parking, north-east yard */
+  const C = CARPORT2;
+  if (C) {                                                                           /* concrete under the carport, packed snow round it */
+    flatOn(mk(E, B(C.x1 - C.x0, 0.05, C.z1 - C.z0, MAT.pad), MAT.pad, (C.x0 + C.x1) / 2, 0.005, (C.z0 + C.z1) / 2));
+    flatOn(mk(E, B(7.4, 0.04, 9.0, MAT.packed), MAT.packed, 4.95, -0.004, -2.75));
+  } else flatOn(mk(E, B(7.4, 0.04, 9.0, MAT.packed), MAT.packed, 4.95, 0.0, -2.75));   /* parking, north-east yard */
   flatOn(mk(E, B(13.4, 0.04, 6.0, MAT.packed), MAT.packed, 15.3, 0.0, -2.0));      /* drive out east */
-  flatOn(mk(E, B(2.0, 0.05, 2.8, MAT.pad), MAT.pad, -0.6, 0.005, 8.7));            /* path, south door */
+  /* the south door (moved west, 2026-10-05): a pad, and a path along the south
+     yard to the drive past the foot of the outside stair (fenced N, W, S) */
+  const sd = LV[0].walls.find(w => w.kind === 'ext' && w.doors.some(o => o.kind === 'DOUBLE_DOOR') && Math.abs(w.a[1] - w.b[1]) < 0.01 && w.n[1] > 0.5);
+  const dd = sd && sd.doors.find(o => o.kind === 'DOUBLE_DOOR');
+  const dx = dd ? sd.a[0] + Math.sign(sd.b[0] - sd.a[0]) * (dd.off + dd.w / 2) : -0.6, zf = sd ? sd.a[1] + sd.t : 7.29;
+  flatOn(mk(E, B(2.0, 0.05, 1.7, MAT.pad), MAT.pad, dx, 0.005, zf + 0.85));
+  const site = PLAN.site;
+  if (site) flatOn(mk(E, B(site[2] - dx + 1.0, 0.04, 1.4, MAT.packed), MAT.packed, (dx - 1.0 + site[2]) / 2 + 0.001, 0.0, zf + 2.4));
+  else flatOn(mk(E, B(2.0, 0.05, 2.8, MAT.pad), MAT.pad, -0.6, 0.005, 8.7));
   flatOn(mk(E, B(2.4, 0.14, 2.4, MAT.deck), MAT.deck, -9.35, 0.07, -5.1));         /* deck, bath's west door */
+  /* garden lounge (small pergola + sofa in the south-west corner): cleared paving */
+  const lounge = LV[0].furniture.filter(f => /shade/.test(f.name) && !isCarport(f) || (f.name === 'sofa'));
+  if (lounge.length) {
+    const b = bbox(lounge.flatMap(f => rectCorners(f)));
+    flatOn(mk(E, B(b[2] - b[0] + 0.4, 0.05, b[3] - b[1] + 0.4, MAT.pad), MAT.pad, (b[0] + b[2]) / 2, 0.005, (b[1] + b[3]) / 2));
+  }
 }
 
 /* Collapse single-material static meshes into one mesh per material. */
@@ -1872,19 +2036,23 @@ const VIEWS2 = [
   ['Outside — south elevation', 0.0, 24.0, 0.0, 0.04, null, 3.2],
   ['Outside — north-east yard', 17.0, -14.0, 2.30, -0.06, null, 4.5],
   ['Doll-house from above', 0.0, 17.0, 0.0, -0.92, null, 23.0],
+  ['Site from above (fences, carport)', -1.8, 14.6, 0.0, -1.2, null, 40.0],
+  ['Outside — carport (north-east)', 14.0, -9.5, 2.19, -0.04, null, 2.4],
+  ['Outside — stair up to the 2F door', 10.5, 16.0, 0.72, 0.02, null, 2.3],
   ['1F — Gym', -3.3, -0.5, 2.30, 0.08, 0],
   ['1F — Entrance', 0.4, 6.4, 0.95, -0.02, 0],
   ['1F — Stair hall', 7.1, 2.8, 1.85, 0.12, 0],
   ['1F — Bath + tubs', -1.7, -3.6, 1.35, -0.10, 0],
-  ['1F — Wash room', -2.4, 3.2, -0.6, -0.05, 0],
+  ['1F — Wash room', -2.3, 2.7, -0.6, -0.05, 0],
   ['2F — Living, looking west to the bedrooms', 7.3, 2.65, 1.80, 0.24, 1],
   ['2F — Dining, looking east (roof rises)', -1.6, 3.4, -1.45, 0.18, 1],
   ['2F — Kitchen + dining', 1.2, 2.7, 2.35, 0.02, 1],
-  ['2F — Top of the stairs', 4.2, 6.2, 1.57, -0.30, 1],
-  ['2F — Bedroom 1 (lowest ceiling)', -7.35, -4.55, -0.75, 0.16, 1],
-  ['2F — Bedroom 2', 0.65, -3.45, 0.75, 0.18, 1],
-  ['2F — Bedroom 3', -2.5, -1.4, -2.30, 0.06, 1],
-  ['2F — Bedroom 4', -4.45, 4.15, 2.45, 0.14, 1],
+  ['2F — Top of the stairs', 3.75, 5.85, 1.57, -0.30, 1],
+  ['2F — Door out to the stair landing', -0.45, 4.9, 3.14, -0.04, 1],
+  ['2F — Bedroom 1 (lowest ceiling)', -7.35, -5.9, -1.25, 0.1, 1],
+  ['2F — Bedroom 2', 0.5, -4.2, 0.75, 0.18, 1],
+  ['2F — Bedroom 3', -2.5, 0.5, -0.9, 0.05, 1],
+  ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
 ];
 const VIEWS = HOUSE === 2 ? VIEWS2 : VIEWS1;
 
@@ -1952,6 +2120,11 @@ function stairHeights(x, z) {
         const diff = ((th - thc) % TAU + TAU * 1.5) % TAU - Math.PI;
         if (Math.abs(diff) <= d / 2 + 1e-6) out.push(base + i * H / n);
       }
+    } else if (s.name === 'landing') {
+      const ca = Math.cos(s.a), sa = Math.sin(s.a), dx = x - s.x, dz = z - s.y;
+      const lx = dx * ca + dz * sa, ly = -dx * sa + dz * ca;
+      if (Math.abs(lx) > s.w / 2 + 0.05 || Math.abs(ly) > s.d / 2 + 0.05) continue;
+      out.push(landingTop(s));
     } else {
       const ca = Math.cos(s.a), sa = Math.sin(s.a), dx = x - s.x, dz = z - s.y;
       const lx = dx * ca + dz * sa, ly = -dx * sa + dz * ca;
@@ -2283,7 +2456,7 @@ const MARKS = window.__marks = {};
 const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
 if (HOUSE === 2) document.title = 'Kutchan house 2 — 3D walkthrough';
-fetch(HOUSE === 2 ? 'plan2.json' : 'plan.json').then(r => r.json()).then(async (plan) => {
+fetch(HOUSE === 2 ? 'plan2.json?v=5' : 'plan.json').then(r => r.json()).then(async (plan) => {
   let t = performance.now();
   buildMaterials(); t = mark('materials', t);
   setupLights();
