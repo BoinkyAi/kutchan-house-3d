@@ -17,9 +17,11 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { toPlan, loadModel } from './refplan.js?v=2';
 
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
+const floorName = (i) => (H3 && i === 2) ? T('loft') : FLOOR_NAMES[i];
 const EYE = 1.62;
 /* Lens. st.fov is the field of view across the WIDER screen axis (horizontal
    on landscape, vertical on portrait); 72deg ~ a 24 mm archviz lens. */
@@ -36,15 +38,22 @@ const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
    1F 3.5 m, 2F under one mono-pitch roof: plan2.json, re-centred on itself).
    ?house=2 opens house 2; the switcher reloads with it, so each house is
    built from a clean start (house 1 renders exactly as it did before). */
-const HOUSE = new URLSearchParams(location.search).get('house') === '2' ? 2 : 1;
+const _qHouse = new URLSearchParams(location.search).get('house');
+const HOUSE = _qHouse === '2' ? 2 : _qHouse === '3' ? 3 : 1;
+/* house 3 = Tsuchiya Kensetsu's reference house plan: built
+   from the editable model (ref-model.json, or the plan editor's saved copy /
+   a shared #m= link) through refplan.js */
+const H3 = HOUSE === 3;
 /* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
    ?lang=en|ja overrides; the choice is remembered in localStorage. */
 const _qLang = new URLSearchParams(location.search).get('lang');
 let LANG = (_qLang === 'en' || _qLang === 'ja') ? _qLang : (localStorage.getItem('h3dLang') === 'en' ? 'en' : 'ja');
 const TXT = {
   ja: {
-    title: '倶知安 住宅計画', h1: 'プランA', h2: 'プランB',
-    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', hsegt: '同じ図面に描かれた2つのプラン',
+    title: '倶知安 住宅計画', h1: 'プランA', h2: 'プランB', h3: '土屋 参考プラン',
+    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', hsegt: 'プランA・B（倶知安の計画）と土屋建設の参考プラン',
+    edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
+    srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: '土屋建設の元の図面を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
     floors: '全フロア', upto: (f) => f + 'まで', floorst: '上の階から順に切断表示', roof: '屋根', rooft: '屋根を外す（C）',
     labels: '部屋名', labelst: '部屋名の表示（T）', mouse: 'マウス視点', mouset: 'マウスを固定してFPSのように視点を操作',
@@ -59,7 +68,8 @@ const TXT = {
     fov: '画角', fovt: '画面の長辺方向の角度', speed: '速度', wide: '広角', narrow: '望遠', widet: '広角（90°）', narrowt: '望遠（50°）',
     hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
     loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
-    doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー',
+    doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー', doc3: '土屋建設 参考プラン — 3Dウォークスルー',
+    geo3: '土屋建設の参考住宅プラン（図面PDFのCAD寸法どおり）：2階建て＋ロフト、片流れ屋根1枚（4/10勾配・北側が高い）、リビングは吹抜け、窓・扉・階段は図面どおり。仕上げはパンフレットのイメージ（赤松の床・白い壁・梁）に近づけていますが、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
     help: '<h3>操作方法</h3>'
       + '<b>キー</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 前・左・後ろ・右へ移動 ・ <kbd>E</kbd>/<kbd>Q</kbd> 上の階・下の階へ（飛行モードでは上昇・下降） ・ <kbd>Shift</kbd> 走る<br>'
       + '<b>視点の向き</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>（または <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>）で左右・上下を見る<br>'
@@ -73,8 +83,10 @@ const TXT = {
     close: '閉じる',
   },
   en: {
-    title: 'Kutchan house', h1: 'Plan A', h2: 'Plan B',
-    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', hsegt: 'Two plans drawn in the same plan file',
+    title: 'Kutchan house', h1: 'Plan A', h2: 'Plan B', h3: 'Tsuchiya ref.',
+    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", hsegt: 'Plans A + B (the Kutchan house) and the Tsuchiya Kensetsu reference house',
+    edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
+    srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: "Show Tsuchiya Kensetsu's original drawings (your edits stay saved)", loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
     floors: 'All floors', upto: (f) => 'Up to ' + f, floorst: 'Cut the house away floor by floor', roof: 'Roof', rooft: 'Take the roof off (C)',
     labels: 'Labels', labelst: 'Room labels (T)', mouse: 'Mouse look', mouset: 'Lock the mouse for FPS-style looking',
@@ -89,7 +101,8 @@ const TXT = {
     fov: 'FIELD OF VIEW', fovt: "Measured across the screen's long side", speed: 'SPEED', wide: 'Wide', narrow: 'Narrow', widet: 'Wide angle (90°)', narrowt: 'Narrow / zoom (50°)',
     hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
     loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
-    doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough',
+    doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough', doc3: 'Tsuchiya Kensetsu reference house — 3D walkthrough',
+    geo3: "Tsuchiya Kensetsu's reference house, built from the CAD dimensions in their drawings: 2 floors + a loft under one sloped roof (4/10 pitch, high on the north), double-height living room, every window, door and stair as drawn. Finishes follow their brochure loosely (red pine floors, white walls, timber beams) and are indicative only. 'Edit plan' lets you move the walls.",
     help: '<h3>How to move</h3>'
       + '<b>Keys</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk forward / left / back / right · <kbd>E</kbd>/<kbd>Q</kbd> up / down a floor (in Fly: rise / sink) · <kbd>Shift</kbd> run<br>'
       + '<b>Pan the view</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> (or <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>) look left / right / up / down<br>'
@@ -124,6 +137,11 @@ const JA_NAMES = {
   'Powder': 'パウダールーム', 'Void over entrance': '玄関の吹抜け', 'Bedroom 1': '寝室1', 'Bedroom 2': '寝室2', 'Bedroom 3': '寝室3', 'Bedroom 4': '寝室4',
   'Bathroom': 'バスルーム', 'Bathroom 2': 'バスルーム2', 'Void over living': 'リビングの吹抜け', 'Gym': 'トレーニングルーム', 'Stair hall · north door': '階段ホール・北側出入口',
   'WC': 'トイレ', 'Laundry': '洗濯室', 'Plant room': '機械室', 'Hall': '廊下', 'Carport': 'カーポート', 'Outside stair · 2F door': '外部階段・2F出入口',
+  'Outside — south-east': '外観 — 南東', 'Outside — north-west (roof high side)': '外観 — 北西（屋根の高い側）', 'Outside — east (carport, porch)': '外観 — 東（カーポート・風除室）',
+  'Outside — south': '外観 — 南', '1F — Entrance (stairs above)': '1F — 玄関（上に階段）', '1F — Hall': '1F — ホール', '1F — Bedroom 1': '1F — 寝室1',
+  '1F — Wash room + bath': '1F — 洗面所・浴室', '1F — Porch': '1F — 風除室', '2F — Living, stove corner': '2F — リビング（薪ストーブ側）',
+  '2F — Kitchen + dining': '2F — キッチン・ダイニング', '2F — From the dining table': '2F — ダイニングから', '2F — Veranda room': '2F — 広縁',
+  '2F — Hall, ensuite door': '2F — ホール・専用バスルーム', '2F — Top of the stairs': '2F — 階段の上', 'Loft': 'ロフト', 'Loft — over the void': 'ロフト — 吹抜けを見下ろす',
 };
 const NM = (en) => (LANG === 'ja' && JA_NAMES[en]) ? JA_NAMES[en] : en;
 
@@ -400,6 +418,25 @@ function buildMaterials() {
   MAT.lampGlow = new THREE.MeshBasicMaterial({ color: 0xfff1d8 });
   MAT.heater = std({ color: 0x2b2b2b, roughness: 0.7, metalness: 0.3 });
   MAT.stones = std({ color: 0x55524e, roughness: 0.95, envMapIntensity: 0.5 });
+  if (H3) {
+    /* house 3 (Tsuchiya reference house): the brochure's finishes, loosely --
+       pale knotty red pine floors, walnut-stained pine joinery, warm exposed
+       timber, a black kitchen, grey stone-look porcelain in the wet rooms */
+    MAT.pine = pbr('wood_floor', 1.69, { env: IN, rough: 0.8, color: [2.3, 2.12, 1.8],
+      macro: { cells: [9, 0], tint: 0.07, albedo: 0.12, rough: 0.12, scale: 6 } });
+    MAT.walnut = pbr('silver_oak_veneer_02', 1.0, { env: IN, rough: 0.72, color: [0.36, 0.27, 0.21], grain: true,
+      macro: { albedo: 0.06, rough: 0.1, scale: 3 } });
+    MAT.timber = pbr('silver_oak_veneer_02', 1.6, { env: IN, rough: 0.85, color: [1.0, 0.84, 0.66], grain: true,
+      macro: { albedo: 0.08, rough: 0.1, scale: 3 } });
+    MAT.doorWood = pbr('silver_oak_veneer_02', 1.0, { env: IN, rough: 0.7, color: [1.15, 0.95, 0.72], grain: true });
+    MAT.kitchenBlack = std({ color: 0x242527, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.5 });
+    MAT.greyTile = pbr('granite_tile', 1.2, { env: IN, rough: 0.62, color: [1.45, 1.45, 1.5], macro: { albedo: 0.06, rough: 0.1, scale: 5 } });
+    MAT.roofMetal = std({ color: 0x3b3f44, roughness: 0.42, metalness: 0.65, envMapIntensity: 0.9 });
+    MAT.found = pbr('concrete_floor_worn_001', 3.0, { env: 0.8, color: [1.7, 1.7, 1.75], rough: 0.95, nScale: 0.6 });
+    MAT.siding = pbr('charred_cedar', 1.13, { env: 0.85, rough: 1.0, color: [0.5, 0.5, 0.5], maps: { nor: 'japanese_cedar_planks' }, nScale: 1.6,
+      macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
+    MAT.clad = MAT.siding;                         /* lighter, horizontal siding (the elevations) */
+  }
 }
 
 /* ------------------------------------------------------------ environment */
@@ -418,7 +455,7 @@ function setupEnv() {
 function setupLights() {
   scene.add(new THREE.HemisphereLight(0xcfe0f2, 0xf2f2f4, 0.25));
   sun = new THREE.DirectionalLight(0xfff1dd, 3.2);
-  if (HOUSE === 2) sun.target.position.set(0, 3, 0); else sun.target.position.set(-4, 3, -5);
+  if (HOUSE === 2 || H3) sun.target.position.set(0, 3, 0); else sun.target.position.set(-4, 3, -5);
   sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 60);
   sun.castShadow = true;
   const big = Math.min(screen.width, screen.height) >= 700 && (navigator.hardwareConcurrency || 4) > 4;
@@ -560,7 +597,11 @@ function addCollBox(cx, cz, w, d, ang, y0, y1) {
 const CLAD_U = 1.82, CLAD_V = 1.3;
 function cladUV(geo, i0, i1, s0, y0, base, dir) {
   const uv = geo.attributes.uv, t = tileOf(MAT.clad);
-  for (let i = i0; i < i1; i++) uv.setXY(i, (base + dir * (uv.getX(i) * t + s0)) / CLAD_U, (uv.getY(i) * t + y0) / CLAD_V);
+  for (let i = i0; i < i1; i++) {
+    const a = (base + dir * (uv.getX(i) * t + s0)), h = (uv.getY(i) * t + y0);
+    if (H3) uv.setXY(i, h / CLAD_U, a / CLAD_V);      /* boards run along the facade */
+    else uv.setXY(i, a / CLAD_U, h / CLAD_V);
+  }
 }
 /* A wall run along a->b. The wall occupies [n0, n1] along the unit normal n
    (n0 < n1) and y in [y0, y1]. Openings cut full-height slots; sills / heads
@@ -575,23 +616,32 @@ function wallRun(G, w, lvl, L) {
   const ext = w.kind === 'ext';
   /* Each corner is filled by exactly ONE wall (the one ending there); if both
      ran on, the end face of one sits in the other's outer face and z-fights. */
-  const e0 = ext && w.pre ? w.pre : 0, e1 = ext ? w.ext1 : 0;   /* w.pre: house 2 inside corners (parse_plan.py) */
+  const e0 = ext && w.pre ? w.pre : 0, e1 = ext ? (w.ext1 || 0) : 0;   /* w.pre: house 2 inside corners (parse_plan.py) */
   const isTop = lvl === LV.length - 1;
-  const yB = L.base - (lvl === 0 && ext ? 0.25 : 0);
-  const yT = L.base + L.h + (ext ? (isTop ? 0 : L.ct) : 0);
-  const hIn = L.h;                                   /* interior clear height */
+  /* house 3: 1F outside walls go down to the ground (foundation band in front),
+     walls beside a sunken floor (entrance, porch) start at that floor */
+  const yB = H3 ? (lvl === 0 && ext ? PLAN.ground : L.base + (w.dz0 || 0)) : L.base - (lvl === 0 && ext ? 0.25 : 0);
+  const yT = H3 ? L.base + (w.top || L.h) : L.base + L.h + (ext ? (isTop ? 0 : L.ct) : 0);
+  const hIn = H3 ? (w.top || L.h) : L.h;               /* interior clear height (house 3: openings may run up the whole outside wall) */
   const th = Math.atan2(-uz, ux);                    /* local x -> u, local z -> n */
   const SKIN = 0.025;
   /* house 2 2F: every piece that reaches the wall top gets its top face put
-     on the sloped ceiling plane (per vertex), see roofTop() */
-  const roof = isTop ? ROOF : null;
+     on the sloped ceiling plane (per vertex), see roofTop(). House 3: any
+     level a roof covers is clipped DOWN to it (roofFor) */
+  const roof = H3 ? roofFor(w, lvl) : (isTop ? ROOF : null);
   /* piece: s in [s0,s1], y in [y0,y1] (absolute), across n in [q0,q1] */
   const piece = (s0, s1, y0, y1, q0, q1, mat, coll) => {
     if (s1 - s0 < 0.004 || y1 - y0 < 0.004 || q1 - q0 < 0.002) return;
-    const geo = B(s1 - s0, y1 - y0, q1 - q0, mat);
     const cs = (s0 + s1) / 2, cq = (q0 + q1) / 2;
     const px = ax + ux * cs + nx * cq, py = (y0 + y1) / 2, pz = az + uz * cs + nz * cq;
-    if (roof && y1 >= yT - 1e-6) roofTop(geo, px, py, pz, th);
+    let clip = !H3 && roof && y1 >= yT - 1e-6;
+    if (H3 && roof) {
+      const ys = [[s0, q0], [s0, q1], [s1, q0], [s1, q1]].map(([ss, qq]) => roof.y(ax + ux * ss + nx * qq, az + uz * ss + nz * qq));
+      if (Math.max(...ys) <= y0 + 0.004) return;       /* wholly above the roof */
+      clip = Math.min(...ys) < y1;
+    }
+    const geo = B(s1 - s0, y1 - y0, q1 - q0, mat);
+    if (clip) roofTop(geo, px, py, pz, th, roof, H3);
     if (mat === MAT.clad) cladUV(geo, 16, 20, s0, y0, Math.abs(ux) > 0.5 ? ax : az, Math.sign(Math.abs(ux) > 0.5 ? ux : uz));  /* outer (+z) face */
     const m = new THREE.Mesh(geo, mat);
     m.position.set(px, py, pz);
@@ -625,9 +675,9 @@ function wallRun(G, w, lvl, L) {
     const faces = ext ? [n0 - 0.006] : [n0 - 0.006, n1 + 0.006];
     for (const q of faces) piece(s0, s1, L.base, L.base + 0.07, q - 0.006, q + 0.006, MAT.white, false);
   };
-  const ops = (roof ? underRoof(w, L, ax, az, ux, uz, nx, nz, n0, n1) : w.doors.slice()).sort((p, q) => p.off - q.off);
+  const ops = (roof && !H3 ? underRoof(w, L, ax, az, ux, uz, nx, nz, n0, n1) : w.doors.slice()).sort((p, q) => p.off - q.off);
   /* lowest point of the ceiling plane over [s0, s1] of this wall (plane: the minimum is at a corner) */
-  const roofMin = (s0, s1) => Math.min(...[s0, s1].flatMap(s => [n0, n1].map(q => ROOF.y(ax + ux * s + nx * q, az + uz * s + nz * q))));
+  const roofMin = (s0, s1) => Math.min(...[s0, s1].flatMap(s => [n0, n1].map(q => roof.y(ax + ux * s + nx * q, az + uz * s + nz * q))));
   const own = { c0: COLL.length, c1: COLL.length };  /* this run's COLL boxes */
   let cur = -e0;
   const runEnd = len + e1;
@@ -638,7 +688,7 @@ function wallRun(G, w, lvl, L) {
     const bot = L.base + Math.min(o.bottom, hIn);
     /* under house 2's roof: an FPC style-2 hole is open to the ceiling; any
        other opening keeps its drawn head unless the roof comes down past it */
-    const top = !roof ? L.base + Math.min(o.top, hIn) : (o.full ? Infinity : Math.min(L.base + o.top, roofMin(s, e) - ROOF_HEAD));
+    const top = !roof ? L.base + Math.min(o.top, hIn) : (o.full ? Infinity : Math.min(L.base + (H3 ? Math.min(o.top, hIn) : o.top), roofMin(s, e) - ROOF_HEAD));
     if (bot > L.base + 0.01) { solid(s, e, yB, bot); skirt(s, e); }
     if (top < yT - 0.01) solid(s, e, top, yT);
     opening(G, o, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot, top, ext, own });
@@ -650,7 +700,18 @@ function wallRun(G, w, lvl, L) {
   }
   if (cur < runEnd) { solid(cur, runEnd, yB, yT); skirt(Math.max(cur, 0), len); }
   own.c1 = COLL.length;
-  if (ext && e1 > 0 && w.cap !== 0) {                /* clad the exposed corner end (house 2: not where it butts into the next wall) */
+  if (H3 && ext) {                                   /* house 3: clad the exposed corner ends (refplan.js joins) */
+    for (const [on, sc] of [[w.cap, len + 0.005], [w.capA, -0.005]]) {
+      if (!on) continue;
+      const cg = B(0.01, yT - yB, n1 - n0, MAT.clad);
+      const cx = ax + ux * sc + nx * (n0 + n1) / 2, cy = (yB + yT) / 2, cz = az + uz * sc + nz * (n0 + n1) / 2;
+      if (roof) roofTop(cg, cx, cy, cz, th, roof, true);
+      cladUV(cg, 0, 8, 0, yB, 0, 1);
+      const m = new THREE.Mesh(cg, MAT.clad);
+      m.position.set(cx, cy, cz); m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
+    }
+  }
+  if (!H3 && ext && e1 > 0 && w.cap !== 0) {                /* clad the exposed corner end (house 2: not where it butts into the next wall) */
     const cg = B(0.01, yT - yB, n1 - n0, MAT.clad);
     const cx = ax + ux * (runEnd + 0.005) + nx * (n0 + n1) / 2, cy = (yB + yT) / 2, cz = az + uz * (runEnd + 0.005) + nz * (n0 + n1) / 2;
     if (roof) roofTop(cg, cx, cy, cz, th);
@@ -664,15 +725,16 @@ function wallRun(G, w, lvl, L) {
 /* house 2: put a wall box's top face on the 2F ceiling plane, vertex by
    vertex (the box is built up to the nominal level height first). The side
    faces' v stays in metres / tile, so plaster and cladding keep their scale. */
-function roofTop(geo, px, py, pz, th) {
+function roofTop(geo, px, py, pz, th, rf, clamp) {
   const P = geo.attributes.position, uv = geo.attributes.uv;
-  const c = Math.cos(th), s = Math.sin(th);
+  const c = Math.cos(th), s = Math.sin(th), R = rf || ROOF;
   let hy = -Infinity;
   for (let i = 0; i < P.count; i++) hy = Math.max(hy, P.getY(i));
   for (let i = 0; i < P.count; i++) {
     if (P.getY(i) < hy - 1e-6) continue;
     const lx = P.getX(i), lz = P.getZ(i);
-    const ny = ROOF.y(px + lx * c + lz * s, pz - lx * s + lz * c) - py;   /* mesh turned by th about y */
+    let ny = R.y(px + lx * c + lz * s, pz - lx * s + lz * c) - py;   /* mesh turned by th about y */
+    if (clamp) ny = Math.max(-hy + 0.001, Math.min(hy, ny));          /* house 3: only ever cut down, never below the bottom */
     if (uv && (i < 8 || i >= 16)) uv.setY(i, uv.getY(i) * (ny + hy) / (2 * hy));   /* +-x / +-z faces; v from the bottom */
     P.setY(i, ny);
   }
@@ -717,7 +779,7 @@ function opening(G, o, w, lvl, L, c) {
     m.castShadow = !!shadow; m.receiveShadow = true;
     G.walls.add(m); return m;
   };
-  const glazed = o.kind === 'WINDOW' || (ext && !MAIN_ENTRANCE.has(o.id) && (o.kind === 'DOUBLE_DOOR' || o.kind === 'DOOR'));
+  const glazed = o.kind === 'WINDOW' || (ext && !MAIN_ENTRANCE.has(o.id) && !o.solid && (o.kind === 'DOUBLE_DOOR' || o.kind === 'DOOR'));
   if (glazed) {
     /* aluminium frame near the outside face, glass in the middle of it */
     const q = ext ? n1 - 0.11 : 0, fd = 0.07, fw = 0.05;
@@ -749,15 +811,16 @@ function opening(G, o, w, lvl, L, c) {
   const q = ext ? n1 - 0.12 : 0;
   const casing = (s0, s1, y0, y1) => put(B(s1 - s0, y1 - y0, (n1 - n0) + 0.02, MAT.white), MAT.white, (s0 + s1) / 2, (n0 + n1) / 2, (y0 + y1) / 2, true);
   if (!ext) { casing(s - 0.04, s, bot, top + 0.04); casing(e, e + 0.04, bot, top + 0.04); casing(s - 0.04, e + 0.04, top, top + 0.04); }
-  const nLeaf = o.kind === 'DOUBLE_DOOR' ? 2 : 1, lw = W / nLeaf;
+  const nLeaf = o.leaves ? o.leaves : (o.kind === 'DOUBLE_DOOR' ? 2 : 1), lw = W / nLeaf;
   if (!ext) {
     /* Interior doors (Toby 2026-10-05): shown CLOSED in their own openings as
        see-through leaves with a handle -- no swing or parked sliding leaf can
-       end up through a wall, and you can still see into the room. */
+       end up through a wall, and you can still see into the room. House 3
+       cupboard doors (o.solid) are plain wood. */
     for (let i = 0; i < nLeaf; i++) {
       const lc = s + lw * (i + 0.5);
-      const leaf = put(B(lw - 0.012, H - 0.012, 0.035), MAT.doorGhost, lc, 0, bot + H / 2, false);
-      leaf.renderOrder = 2;
+      const leaf = put(B(lw - 0.012, H - 0.012, 0.035, o.solid ? MAT.doorWood : null), o.solid ? MAT.doorWood : MAT.doorGhost, lc, 0, bot + H / 2, false);
+      if (!o.solid) leaf.renderOrder = 2;
       put(B(0.02, 0.24, 0.06), MAT.blackSteel, lc + (i === 0 ? 1 : -1) * (lw / 2 - 0.09), 0, bot + 1.0, false);
     }
     return;
@@ -1103,6 +1166,7 @@ function placeModel(parent, key, x, y, z, ry, scale, faceFix) {
 /* FPC furniture: x/y centre, w along local x, d along local y, angle a. In
    three: group at (x, base, y), rotation.y = -a; local +z = FPC local +y. */
 function makeProp(s, lvl) {
+  if (H3) { const r3 = makeProp3(s, lvl); if (r3 !== undefined) return r3; }
   const g = new THREE.Group();
   const n = s.name, w = s.w, d = s.d, top = s.top, bot = s.bottom;
   const h = Math.max(0.02, top - bot);
@@ -1529,7 +1593,7 @@ function buildLabels(i) {
   const gl = G.labels[i], L = LV[i];
   for (const sp of gl.children.slice()) { sp.material.map.dispose(); sp.material.dispose(); gl.remove(sp); }
   for (const l of LABELS) if (l[0] === i) {
-    const sp = labelSprite(NM(l[3])); sp.position.set(l[1], L.base + 2.1, l[2]); gl.add(sp);
+    const sp = labelSprite(l[4] && LANG === 'ja' ? l[4] : NM(l[3])); sp.position.set(l[1], L.base + (H3 ? 1.9 : 2.1), l[2]); gl.add(sp);
   }
 }
 function labelSprite(text) {
@@ -1608,7 +1672,8 @@ const DOWN2 = {
 };
 const ROOF_LIGHTS2 = [[-2.6, 4.6, 1], [-6.0, -5.6, 1], [-0.65, -5.2, 1], [-0.95, -0.4, 0], [-6.2, 5.3, 1], [-3.53, -0.8, 0],
   [-6.0, 1.1, 0], [-6.0, -0.55, 0], [-0.95, -2.62, 0], [-0.45, 1.48, 0], [5.6, 4.6, 0], [3.3, 4.6, 0]];
-const ZONES = HOUSE === 2 ? ZONES2 : ZONES1, LABELS = HOUSE === 2 ? LABELS2 : LABELS1, DOWN = HOUSE === 2 ? DOWN2 : DOWN1;
+const LABELS3 = [];   /* house 3: filled from the model's rooms (setupLabels3) */
+const ZONES = HOUSE === 2 ? ZONES2 : ZONES1, LABELS = H3 ? LABELS3 : HOUSE === 2 ? LABELS2 : LABELS1, DOWN = HOUSE === 2 ? DOWN2 : DOWN1;
 
 /* ------------------------------------------------------------ build it all */
 const G = { floor: [], walls: [], furn: [], ceil: [], labels: [], ext: new THREE.Group(), roof: new THREE.Group() };
@@ -1989,10 +2054,10 @@ function buildShedRoof() {
   slopedSlab(G.roof, unionRects(snowP), 0.32, 0.30, MAT.roofSnow, MAT.roofSnow, null);
 }
 /* slabRects on the roof plane: bottom face = plane + off, top = bottom + th */
-function slopedSlab(parent, rects, off, th, topMat, edgeMat, botPick) {
-  const T = Quads(topMat), E = Quads(edgeMat), Bm = new Map();
-  const n = ROOF.n, up = [n.x, n.y, n.z], dn = [-n.x, -n.y, -n.z];
-  const yb = (x, z) => ROOF.y(x, z) + off, yt = (x, z) => ROOF.y(x, z) + off + th;
+function slopedSlab(parent, rects, off, th, topMat, edgeMat, botPick, rf) {
+  const T = Quads(topMat), E = Quads(edgeMat), Bm = new Map(), R = rf || ROOF;
+  const n = R.n, up = [n.x, n.y, n.z], dn = [-n.x, -n.y, -n.z];
+  const yb = (x, z) => R.y(x, z) + off, yt = (x, z) => R.y(x, z) + off + th;
   const plan = (v) => [v[0], -v[2]];
   for (const r of rects) {
     const [x0, z0, x1, z1] = r;
@@ -2085,6 +2150,414 @@ function buildSite2() {
   }
 }
 
+/* ================================================================ house 3 */
+/* Tsuchiya Kensetsu's reference house. Everything comes out of the editable
+   model via refplan.js toPlan(): rooms are the faces the walls close, walls
+   come pre-joined (exterior runs: a-b on the inner face, n out; caps at the
+   corners they own), stairs are tread polygons, roofs are planes. */
+let ROOFS3 = [];
+const FLOORMAT3 = () => ({ oak: MAT.pine, tile: MAT.greyTile, stone: MAT.entranceStone, concrete: MAT.concrete });
+function mkRoof3(r) {
+  /* underside (ceiling) plane: h0 at plan y = y0 (the low edge), rising k per
+     metre away from it (low on the south: y grows to the south) */
+  const R = Object.assign({}, r);
+  const sgn = r.low === 'n' ? -1 : 1;
+  R.y = (x, z) => r.h0 + r.k * sgn * (r.y0 - z);
+  R.n = new V(0, 1, sgn * r.k).normalize();
+  return R;
+}
+function roofFor(w, lvl) {
+  const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2;
+  return ROOFS3.find(r => r.levels.includes(lvl) && mx > r.rect[0] - 0.01 && mx < r.rect[2] + 0.01 && mz > r.rect[1] - 0.01 && mz < r.rect[3] + 0.01) || null;
+}
+/* the ceiling over a point on a level: the floor above (flat) or a roof */
+function ceilAt3(x, z, lvl) {
+  const L = LV[lvl], U = LV[lvl + 1];
+  if (U && onRects(FLOOR_RECTS[lvl + 1], x, z, 0)) return L.base + L.h;
+  let y = Infinity;
+  for (const r of ROOFS3) if (x > r.rect[0] - 0.01 && x < r.rect[2] + 0.01 && z > r.rect[1] - 0.01 && z < r.rect[3] + 0.01) y = Math.min(y, r.y(x, z));
+  return y === Infinity ? L.base + L.h : y;
+}
+
+/* props drawn for house 3 only (undefined = use the shared makeProp code) */
+function makeProp3(s, lvl) {
+  const g = new THREE.Group(), w = s.w, d = s.d, top = s.top;
+  const L = LV[lvl];
+  switch (s.name) {
+    case 'closet': case 'wardrobe': {                 /* built-in storage, walnut-stained pine, doors at local +y */
+      mk(g, B(w, top, d, MAT.walnut, 'y'), MAT.walnut, 0, top / 2, 0);
+      const nd = Math.max(2, Math.round(w / 0.45));
+      for (let i = 1; i < nd; i++) mk(g, B(0.004, top - 0.06, 0.004), MAT.black, -w / 2 + w * i / nd, top / 2, d / 2 + 0.002);
+      for (let i = 0; i < nd; i++) {
+        const hx = -w / 2 + w * (i + 0.5) / nd + (i % 2 ? -1 : 1) * (w / nd / 2 - 0.05);
+        mk(g, B(0.015, 0.26, 0.02), MAT.blackSteel, hx, 1.0, d / 2 + 0.012);
+      }
+      break;
+    }
+    case 'ub': {                                       /* unit bath: tub along local -y, walnut accent panel behind it */
+      const tw = Math.min(w - 0.12, 1.6), td = 0.78, tz = -d / 2 + td / 2 + 0.04;
+      mk(g, RB(tw, 0.56, td, 0.07, MAT.porcelain), MAT.porcelain, 0, 0.28, tz);
+      const wt = new THREE.Mesh(new THREE.PlaneGeometry(tw - 0.18, td - 0.18), MAT.water);
+      wt.rotation.x = -Math.PI / 2; wt.position.set(0, 0.5, tz); g.add(wt);
+      mk(g, B(w - 0.06, 1.55, 0.015, MAT.walnut), MAT.walnut, 0, 0.56 + 0.775, -d / 2 + 0.075);
+      mk(g, B(w - 0.06, 0.03, 0.2), MAT.white, 0, 0.9, d / 2 - 0.6);                       /* counter shelf */
+      mk(g, CY(0.012, 1.0, 10), MAT.steel, w / 2 - 0.08, 1.35, 0.25);                        /* shower rail + head */
+      const hd = mk(g, CY(0.07, 0.02, 20), MAT.steel, w / 2 - 0.1, 1.9, 0.25); hd.rotation.z = Math.PI / 2;
+      mk(g, B(0.05, 0.08, 0.22), MAT.steel, w / 2 - 0.06, 0.95, 0.25);                       /* mixer */
+      mk(g, B(0.01, 0.7, 0.45), std({ color: 0xe8eef2, roughness: 0.02, metalness: 1, envMapIntensity: 1.2 }), w / 2 - 0.035, 1.45, -0.25);
+      break;
+    }
+    case 'vanity': {                                   /* washstand: walnut cabinet, white top + basin, mirror cabinet */
+      const vt = 0.82;
+      mk(g, B(w, vt - 0.1, d - 0.02, MAT.walnut, 'x'), MAT.walnut, 0, 0.1 + (vt - 0.1) / 2, 0);
+      mk(g, B(w, 0.1, d - 0.08), MAT.black, 0, 0.05, -0.03);
+      mk(g, B(w + 0.01, 0.04, d + 0.01), MAT.porcelain, 0, vt + 0.02, 0);
+      mk(g, RB(Math.min(0.46, w * 0.7), 0.12, d * 0.6, 0.05, MAT.porcelain), MAT.porcelain, 0, vt + 0.07, 0.03);
+      mk(g, CY(0.012, 0.22, 10), MAT.steel, 0, vt + 0.15, -d * 0.34);
+      mk(g, B(w, 0.75, 0.13, MAT.white), MAT.white, 0, 1.55, -d / 2 + 0.065);
+      mk(g, B(w - 0.04, 0.68, 0.01), std({ color: 0xe8eef2, roughness: 0.02, metalness: 1, envMapIntensity: 1.2 }), 0, 1.55, -d / 2 + 0.135);
+      break;
+    }
+    case 'washer': {
+      mk(g, RB(w - 0.04, 0.9, d - 0.04, 0.03, MAT.white), MAT.white, 0, 0.45, 0);
+      mk(g, B(w - 0.1, 0.012, d - 0.12), MAT.screen, 0, 0.905, 0.02);
+      break;
+    }
+    case 'dryer': {                                    /* gas dryer on a steel stand */
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.03, 1.0, 0.03), MAT.steel, sx * (w / 2 - 0.03), 0.5, sz * (d / 2 - 0.03));
+      mk(g, B(w, 0.03, d), MAT.steel, 0, 1.0, 0);
+      mk(g, RB(w - 0.02, 0.68, d - 0.06, 0.03, MAT.white), MAT.white, 0, 1.36, 0);
+      const port = mk(g, CY(w * 0.26, 0.02, 32), MAT.glass, 0, 1.38, d / 2 - 0.03); port.rotation.x = Math.PI / 2;
+      break;
+    }
+    case 'rail': {                                     /* drying pipe hung from the ceiling */
+      const y = top, c = ceilAt3(s.x, s.y, lvl) - L.base;
+      const r = mk(g, CY(0.014, w, 12), MAT.steel, 0, y, 0); r.rotation.z = Math.PI / 2;
+      for (const sx of [-1, 1]) mk(g, CY(0.008, Math.max(0.05, c - y), 8), MAT.steel, sx * (w / 2 - 0.1), (y + c) / 2, 0);
+      break;
+    }
+    case 'shelves': {                                  /* adjustable shelves under the stair (walnut-stained shina) */
+      for (const y of [0.35, 0.75, 1.15]) mk(g, B(w, 0.025, d, MAT.walnut), MAT.walnut, 0, y, 0);
+      break;
+    }
+    case 'sofa': {                                     /* straight sofa, back at local -y, optional chaise [x, width, depth] */
+      const SH = 0.42, BH = 0.8, back = 0.2;
+      mk(g, B(w - 0.06, 0.1, d - 0.06), MAT.black, 0, 0.05, 0);
+      mk(g, RS(w, SH - 0.1, d, 0.05, MAT.sofa, 0.07), MAT.sofa, 0, 0.1 + (SH - 0.1) / 2, 0);
+      mk(g, RS(w, BH - SH, back, 0.07, MAT.sofa, 0.07), MAT.sofa, 0, SH + (BH - SH) / 2, -d / 2 + back / 2);
+      for (const sx of [-1, 1]) mk(g, RS(0.18, 0.2, d - back, 0.07, MAT.sofa, 0.07), MAT.sofa, sx * (w / 2 - 0.09), SH + 0.1, back / 2);
+      for (let i = 0; i < 3; i++) mk(g, RB(0.5, 0.42, 0.14, 0.07, i === 1 ? MAT.linenDark : MAT.linenWhite, 0.06), i === 1 ? MAT.linenDark : MAT.linenWhite, -w / 2 + 0.55 + i * (w - 1.1) / 2, SH + 0.2, -d / 2 + back + 0.08);
+      if (s.chaise) {
+        const [cx, cw, cd] = s.chaise;
+        mk(g, B(cw - 0.06, 0.1, cd), MAT.black, cx, 0.05, d / 2 + cd / 2 - 0.03);
+        mk(g, RS(cw, SH - 0.1, cd + 0.04, 0.05, MAT.sofa, 0.07), MAT.sofa, cx, 0.1 + (SH - 0.1) / 2, d / 2 + cd / 2 - 0.02);
+      }
+      break;
+    }
+    case 'rugRound': {
+      const r = mk(g, new THREE.CylinderGeometry(w / 2, w / 2, 0.012, 64), MAT.rugWool, 0, 0.006, 0); r.castShadow = false;
+      break;
+    }
+    case 'stove': {                                    /* wood stove on a tiled hearth, flue up through the void */
+      const hs = s.hearth || 1.2;
+      const hz = mk(g, B(hs, 0.03, hs, MAT.greyTile), MAT.greyTile, -0.18, 0.015, -0.18); hz.castShadow = false;
+      mk(g, B(w, 0.5, d), MAT.heater, 0, 0.42, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.04, 0.17, 0.04), MAT.heater, sx * (w / 2 - 0.05), 0.085, sz * (d / 2 - 0.05));
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.6, 0.28), new THREE.MeshBasicMaterial({ color: 0xff8a3a }));
+      win.position.set(0, 0.44, d / 2 + 0.002); g.add(win);
+      const fire = new THREE.PointLight(0xff9a50, 1.6, 4, 2); fire.position.set(0, 0.5, d / 2 + 0.3); g.add(fire);
+      const c = ceilAt3(s.x, s.y, lvl) - L.base, fy = 0.67;
+      mk(g, CY(0.076, c - fy + 0.05, 20), MAT.heater, 0, (fy + c) / 2, -0.02);
+      break;
+    }
+    case 'table': {                                    /* dining table, walnut */
+      mk(g, B(w, 0.04, d, MAT.walnut), MAT.walnut, 0, top - 0.02, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.06, top - 0.04, 0.06, MAT.walnut), MAT.walnut, sx * (w / 2 - 0.1), (top - 0.04) / 2, sz * (d / 2 - 0.08));
+      break;
+    }
+    case 'bench': {
+      mk(g, B(w, 0.04, d, MAT.walnut), MAT.walnut, 0, top - 0.02, 0);
+      for (const sx of [-1, 1]) mk(g, B(0.05, top - 0.04, d - 0.06, MAT.walnut), MAT.walnut, sx * (w / 2 - 0.12), (top - 0.04) / 2, 0);
+      break;
+    }
+    case 'island': {                                   /* kitchen island: black, sink at local -x, hob at +x */
+      mk(g, B(w, 0.1, d - 0.08), MAT.black, 0, 0.05, 0);
+      mk(g, B(w - 0.01, top - 0.14, d - 0.02), MAT.kitchenBlack, 0, 0.1 + (top - 0.14) / 2, 0);
+      mk(g, B(w + 0.02, 0.04, d + 0.02), MAT.stoneTop, 0, top - 0.02, 0);
+      mk(g, B(0.6, 0.012, 0.42), MAT.steel, -w / 2 + 0.6, top + 0.001, 0.05);
+      mk(g, CY(0.014, 0.3, 10), MAT.steel, -w / 2 + 0.6, top + 0.15, -d / 2 + 0.18);
+      mk(g, B(0.75, 0.008, 0.5), MAT.screen, w / 2 - 0.62, top + 0.004, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1]]) mk(g, CY(0.07, 0.003, 24), MAT.black, w / 2 - 0.62 + sx * 0.18, top + 0.009, sz * 0.12);
+      for (let i = 1; i < Math.round(w / 0.6); i++) mk(g, B(0.004, top - 0.2, 0.004), MAT.black, -w / 2 + w * i / Math.round(w / 0.6), 0.1 + (top - 0.14) / 2, d / 2 + 0.001);
+      break;
+    }
+    case 'tall': {                                     /* tall kitchen units, black, doors at local +y */
+      mk(g, B(w, top, d, MAT.kitchenBlack), MAT.kitchenBlack, 0, top / 2, 0);
+      const nd = Math.max(2, Math.round(w / 0.6));
+      for (let i = 1; i < nd; i++) mk(g, B(0.004, top - 0.04, 0.004), MAT.black, -w / 2 + w * i / nd, top / 2, d / 2 + 0.002);
+      mk(g, B(w, 0.004, 0.004), MAT.black, 0, 0.9, d / 2 + 0.002);
+      break;
+    }
+    case 'post': {                                     /* exposed timber post, floor to roof */
+      const c = (s.topMode === 'roof' ? ceilAt3(s.x, s.y, lvl) : L.base + top) - L.base;
+      mk(g, B(w, c, d, MAT.timber, 'y'), MAT.timber, 0, c / 2, 0);
+      addCollBox(s.x, s.y, w, d, s.a, L.base, L.base + c);
+      break;
+    }
+    case 'beam': {                                     /* exposed timber beam (top at `top` above the floor) */
+      const dp = s.depth || 0.24;
+      mk(g, B(w, dp, d, MAT.timber, 'x'), MAT.timber, 0, top - dp / 2, 0);
+      break;
+    }
+    case 'shower': {                                   /* unit shower: white tray, rail + head */
+      mk(g, B(w - 0.02, 0.06, d - 0.02, MAT.porcelain), MAT.porcelain, 0, 0.03, 0);
+      mk(g, CY(0.012, 1.0, 10), MAT.steel, 0, 1.35, -d / 2 + 0.06);
+      const hd = mk(g, CY(0.08, 0.02, 20), MAT.steel, 0, 1.92, -d / 2 + 0.15); hd.rotation.x = Math.PI / 2;
+      break;
+    }
+    default: return undefined;
+  }
+  g.position.set(s.x, 0, s.y);
+  g.rotation.y = -s.a;
+  return g;
+}
+
+/* stairs: winders on the floor are solid; a flight with open space under it
+   (the one over the entrance) is one closed solid with a smooth sloped soffit */
+function buildStairs3(list) {
+  for (const s of list) {
+    const L = LV[s.level], g = new THREE.Group(), y0 = L.base;
+    const rise = s.rise / s.n;
+    s.treads.forEach((t, k) => {
+      if (k < s.solid) {
+        g.add(slab(t.poly, [], y0 + t.top - 0.03, t.top - 0.03 + 0.05, MAT.white, MAT.white));
+      }
+      const top = slab(t.poly, [], y0 + t.top, 0.03, MAT.pine, MAT.timber);   /* tread board */
+      g.add(top);
+    });
+    /* the open flight: rectangles in a row after the solid ones */
+    const open = s.treads.slice(s.solid);
+    if (open.length) {
+      const c = (t) => t.poly.reduce((a, p) => [a[0] + p[0] / t.poly.length, a[1] + p[1] / t.poly.length], [0, 0]);
+      const c0 = c(open[0]), c1 = c(open[open.length - 1]);
+      const dir = [c1[0] - c0[0], c1[1] - c0[1]], dl = Math.hypot(dir[0], dir[1]) || 1, u = [dir[0] / dl, dir[1] / dl], nrm = [-u[1], u[0]];
+      const proj = (p) => [(p[0] - c0[0]) * u[0] + (p[1] - c0[1]) * u[1], (p[0] - c0[0]) * nrm[0] + (p[1] - c0[1]) * nrm[1]];
+      const P = open.flatMap(t => t.poly.map(proj));
+      const s0 = Math.min(...P.map(p => p[0])), s1 = Math.max(...P.map(p => p[0]));
+      const q0 = Math.min(...P.map(p => p[1])), q1 = Math.max(...P.map(p => p[1]));
+      const n = open.length, go = (s1 - s0) / n, thick = 0.16;
+      const sh = new THREE.Shape();
+      sh.moveTo(s0, open[0].top - rise - thick);
+      sh.lineTo(s0, open[0].top);
+      for (let k = 0; k < n; k++) { sh.lineTo(s0 + go * (k + 1), open[k].top); if (k + 1 < n) sh.lineTo(s0 + go * (k + 1), open[k + 1].top); }
+      sh.lineTo(s1, open[n - 1].top - thick);
+      sh.lineTo(s0, open[0].top - rise - thick);
+      if (THREE.ShapeUtils.isClockWise(sh.getPoints())) { const pts = sh.getPoints().reverse(); sh.curves = []; sh.setFromPoints(pts); }
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: q1 - q0, bevelEnabled: false });
+      geo.translate(0, 0, q0);
+      /* shape (s, y, q) -> world: x = c0 + s*u + q*nrm, y, z likewise */
+      const M = new THREE.Matrix4().set(u[0], 0, nrm[0], c0[0], 0, 1, 0, y0, u[1], 0, nrm[1], c0[1], 0, 0, 0, 1);
+      geo.applyMatrix4(M);
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, MAT.plaster); m.castShadow = true; m.receiveShadow = true; g.add(m);
+    }
+    G.furn[s.level].add(g);
+  }
+}
+function floorAt3(x, z, lvl) {
+  let h = null;
+  for (const r of FLOOR_RECTS[lvl] || []) if (x > r[0] && x < r[2] && z > r[1] && z < r[3]) h = h === null ? (r[4] || 0) : Math.max(h, r[4] || 0);
+  return LV[lvl].base + (h === null ? (lvl === 0 ? PLAN.ground : 0) : h);
+}
+function stairHeights3(x, z) {
+  const out = [];
+  for (const s of (PLAN.stairs3 || [])) {
+    const b = LV[s.level].base;
+    for (const t of s.treads) if (inside(t.poly, x, z)) out.push(b + t.top);
+  }
+  return out;
+}
+
+/* roofs: underside = ceiling inside the walls, cedar soffit outside them,
+   standing-seam metal on top, a layer of snow */
+function buildRoofs3() {
+  for (const r of ROOFS3) {
+    const o = r.over || { n: 0, s: 0, e: 0, w: 0 };
+    const X0 = r.rect[0] - (o.w || 0), X1 = r.rect[2] + (o.e || 0), Z0 = r.rect[1] - (o.n || 0), Z1 = r.rect[3] + (o.s || 0);
+    /* inside = the rooms under it (the lowest level it covers), out to the walls' outside faces */
+    const lv = Math.min(...r.levels), faces = LV[lv].rooms.filter(f => { const c = f.poly.reduce((a, p) => [a[0] + p[0] / f.poly.length, a[1] + p[1] / f.poly.length], [0, 0]); return c[0] > r.rect[0] && c[0] < r.rect[2] && c[1] > r.rect[1] && c[1] < r.rect[3]; });
+    let inner = null;
+    if (faces.length) {
+      const bb = bbox(faces.flatMap(f => f.poly));
+      inner = [Math.max(X0, bb[0] - 0.114), Math.max(Z0, bb[1] - 0.114), Math.min(X1, bb[2] + 0.114), Math.min(Z1, bb[3] + 0.114)];
+    }
+    const xs = [X0, X1], zs = [Z0, Z1];
+    if (inner) { xs.push(inner[0], inner[2]); zs.push(inner[1], inner[3]); }
+    const isIn = (x, z) => inner && x > inner[0] && x < inner[2] && z > inner[1] && z < inner[3];
+    const all = gridRects(xs, zs, () => true);
+    const th = r.th || 0.3;
+    slopedSlab(G.roof, all, 0, th, MAT.roofMetal, MAT.blackSteel, (q) => isIn((q[0] + q[2]) / 2, (q[1] + q[3]) / 2) ? MAT.ceiling : MAT.cedar, r);
+    /* snow load, held back from the edges */
+    slopedSlab(G.roof, [[X0 + 0.08, Z0 + 0.08, X1 - 0.08, Z1 - 0.15]], th, 0.22, MAT.roofSnow, MAT.roofSnow, null, r);
+    /* carport posts + a beam under the eaves */
+    if (r.posts && r.posts.length) {
+      for (const [px, pz] of r.posts) {
+        const H = r.y(px, pz) - PLAN.ground;
+        mk(G.ext, B(0.12, H, 0.12, MAT.timber, 'y'), MAT.timber, px, PLAN.ground + H / 2, pz);
+        addCollBox(px, pz, 0.12, 0.12, 0, PLAN.ground, PLAN.ground + H);
+      }
+      const zA = Math.min(...r.posts.map(p => p[1])) - 0.3, zB = Math.max(...r.posts.map(p => p[1])) + 0.3, px = r.posts[0][0];
+      const yA = r.y(px, zA), yB = r.y(px, zB), Lb = zB - zA;
+      const bm = mk(G.ext, B(0.12, 0.24, Math.hypot(Lb, yB - yA), MAT.timber, 'z'), MAT.timber, px, (yA + yB) / 2 - 0.12, (zA + zB) / 2);
+      bm.rotation.x = Math.atan2(yA - yB, Lb);
+    }
+  }
+}
+function buildChimney3() {
+  const c = PLAN.chimney, r = ROOFS3[0];
+  if (!c || !r) return;
+  const yLo = r.y(c.x, c.y + c.d / 2), yHi = r.y(c.x, c.y - c.d / 2) + (r.th || 0.3);
+  const top = yHi + 0.9, H = top - yLo;
+  mk(G.roof, B(c.w, H, c.d, MAT.siding), MAT.siding, c.x, yLo + H / 2, c.y);
+  mk(G.roof, B(c.w + 0.06, 0.05, c.d + 0.06), MAT.blackSteel, c.x, top + 0.025, c.y);
+  mk(G.roof, CY(0.08, 0.7, 16), MAT.heater, c.x, top + 0.4, c.y);
+  mk(G.roof, CY(0.16, 0.05, 16), MAT.heater, c.x, top + 0.78, c.y);
+  mk(G.roof, CY(0.1, 0.12, 16), MAT.heater, c.x, top + 0.86, c.y);
+}
+
+/* snow field at the design ground level, concrete foundation band, carport
+   slab, ploughed drive */
+function buildSite3() {
+  const E = G.ext, R = 480, gy = PLAN.ground;
+  const geo = new THREE.CircleGeometry(R, 96, 0, Math.PI * 2);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), d = Math.hypot(x, y);
+    const k = Math.min(1, Math.max(0, (d - 30) / 120));
+    p.setZ(i, (Math.sin(x * 0.05) * Math.cos(y * 0.043) * 0.6 + Math.sin(x * 0.013 + 1) * Math.cos(y * 0.011) * 2.2) * k);
+  }
+  geo.computeVertexNormals();
+  scaleUV(geo, R * 2 / tileOf(MAT.snow));
+  const gnd = new THREE.Mesh(geo, MAT.snow);
+  gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, gy - 0.02, 0); gnd.receiveShadow = true;
+  E.add(gnd);
+  /* foundation: concrete band 4 cm proud of the 1F outside walls, ground to 20 cm under the floor */
+  for (const w of LV[0].walls) {
+    if (w.kind !== 'ext') continue;
+    const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az);
+    if (len < 0.05) continue;
+    const ux = (bx - ax) / len, uz = (bz - az) / len, q = w.t + 0.02, top = -0.2;
+    const s0 = -(w.capA ? 0.04 : 0), s1 = len + (w.cap ? 0.04 : 0), H = top - gy;
+    const m = mk(E, B(s1 - s0, H, 0.04, MAT.found), MAT.found, ax + ux * (s0 + s1) / 2 + w.n[0] * q, gy + H / 2, az + uz * (s0 + s1) / 2 + w.n[1] * q, Math.atan2(-uz, ux));
+    m.castShadow = false;
+  }
+  const flatOn = (m) => { m.castShadow = false; return m; };
+  const car = ROOFS3.find(r => r.posts && r.posts.length);
+  if (car) {
+    const x0 = Math.max(...LV[0].rooms.flatMap(f => f.poly.map(q => q[0]))) + 0.12, x1 = car.rect[2] - 0.2, z0 = car.rect[1] + 0.3, z1 = car.rect[3] - 0.1;
+    flatOn(mk(E, B(x1 - x0, 0.05, z1 - z0, MAT.pad), MAT.pad, (x0 + x1) / 2, gy + 0.005, (z0 + z1) / 2));
+    flatOn(mk(E, B(x1 - x0 + 1.0, 0.04, 9.0, MAT.packed), MAT.packed, (x0 + x1) / 2, gy, z1 + 4.5));      /* drive out to the south */
+  }
+}
+
+/* room labels + ceiling lights from the model's rooms */
+function setupLabels3() {
+  LABELS3.length = 0;
+  LV.forEach((L, i) => { for (const f of L.faces) if (f.anchored && f.name && f.floor !== 'void') LABELS3.push([i, f.label[0], f.label[1], f.name, f.ja]); });
+}
+const LIT3 = /bedroom|living|loft|veranda|hall|entrance|porch/i;
+function lights3() {
+  LV.forEach((L, i) => {
+    for (const f of L.faces) {
+      if (f.floor === 'void' || !f.anchored || f.area < 1.0) continue;
+      const [x, z] = f.label, y = ceilAt3(x, z, i);
+      const lit = LIT3.test(f.name) && f.area > 3;
+      const sloped = !(LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0)) && y !== L.base + L.h;
+      const q = new THREE.Quaternion();
+      const r = ROOFS3.find(rr => x > rr.rect[0] && x < rr.rect[2] && z > rr.rect[1] && z < rr.rect[3]);
+      if (sloped && r) q.setFromUnitVectors(new V(0, 0, 1), r.n.clone().negate()); else q.setFromUnitVectors(new V(0, 0, 1), new V(0, -1, 0));
+      if (lit) { const pl = new THREE.PointLight(0xffdcb0, f.area > 20 ? 8 : 5, 9, 1.5); pl.position.set(x, y - 0.3, z); G.furn[i].add(pl); }
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow); lens.quaternion.copy(q); lens.position.set(x, y - 0.004, z); G.furn[i].add(lens);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white); ring.quaternion.copy(q); ring.position.set(x, y - 0.003, z); G.furn[i].add(ring);
+    }
+  });
+  /* pendants over the island and the dining table */
+  for (let i = 0; i < LV.length; i++) for (const f of LV[i].furniture) {
+    if (f.name !== 'table' && f.name !== 'island') continue;
+    const along = f.name === 'table' ? [-0.5, 0.5] : [-0.6, 0.6];
+    for (const dx of along) {
+      const px = f.x + dx * Math.cos(f.a), pz = f.y + dx * Math.sin(f.a);
+      const lamp = placeModel(G.furn[i], 'pendant', px, LV[i].base + 1.6, pz, 0, 1);
+      if (!lamp) continue;
+      const yc = ceilAt3(px, pz, i), y1 = lamp.position.y + GLTF.pendant.size.y;
+      mk(G.furn[i], CY(0.004, Math.max(0.05, yc - y1), 6), MAT.black, px, (yc + y1) / 2, pz);
+      const pl = new THREE.PointLight(0xffd6a0, 3.0, 5, 1.8); pl.position.set(px, lamp.position.y + 0.05, pz); G.furn[i].add(pl);
+    }
+  }
+}
+function decorate3() {
+  const li = 1, L = LV[li];
+  if (!L) return;
+  const sofa = L.furniture.find(f => f.name === 'sofa');
+  if (sofa) placeModel(G.furn[li], 'coffee', sofa.x, L.base, sofa.y - 0.95, 0, 1);
+  placeModel(G.furn[li], 'plant', -4.15, L.base, 1.3, 0.4, 1.2);
+  placeModel(G.furn[0], 'plant', 3.8, LV[0].base, -0.6, 1.1, 1.0);
+}
+
+function buildHouse3(plan) {
+  PLAN = plan; LV = plan.levels; STAIRS = [];
+  ROOFS3 = (plan.roofs || []).map(mkRoof3);
+  root.add(G.ext); root.add(G.roof);
+  const FM = FLOORMAT3();
+  LV.forEach((L, i) => {
+    const gf = new THREE.Group(), gw = new THREE.Group(), gu = new THREE.Group(), gc = new THREE.Group(), gl = new THREE.Group();
+    G.floor[i] = gf; G.walls[i] = gw; G.furn[i] = gu; G.ceil[i] = gc; G.labels[i] = gl;
+    root.add(gf, gw, gu, gc, gl);
+    const th = i === 0 ? 0.3 : LV[i - 1].ct;
+    const rects = [];
+    for (const f of L.floors) {
+      const rs = rectsOf(f.poly, f.holes);
+      if (!rs.length) continue;
+      rects.push(...rs.map(r => r.concat([f.dz || 0])));
+      slabRects(gf, rs, L.base + (f.dz || 0), th, FM[f.mat] || MAT.pine, i > 0 ? MAT.ceiling : null, MAT.timber);
+    }
+    FLOOR_RECTS[i] = rects;
+  });
+  LV.forEach((L, i) => {
+    const GL = { walls: G.walls[i], furn: G.furn[i] };
+    for (const w of L.walls) wallRun(GL, w, i, L);
+    for (const f of L.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base; G.furn[i].add(p); } }
+  });
+  setupLabels3();
+  LV.forEach((L, i) => buildLabels(i));
+  buildStairs3(plan.stairs3 || []);
+  buildRoofs3(); buildChimney3(); buildSite3(); lights3(); decorate3();
+  parkSliders();
+  for (let i = 0; i < LV.length; i++) { mergeStatic(G.walls[i]); mergeStatic(G.furn[i]); mergeStatic(G.floor[i]); mergeStatic(G.ceil[i]); }
+  mergeStatic(G.ext); mergeStatic(G.roof);
+}
+
+/* house 3 presets (model coordinates: x east, z south, the main block centred) */
+const VIEWS3 = [
+  ['Outside — south-east', 10.5, 14.0, 0.62, 0.04, null, 2.0],
+  ['Outside — north-west (roof high side)', -11.5, -14.5, -2.47, 0.08, null, 2.2],
+  ['Outside — east (carport, porch)', 16.0, 1.5, 1.45, 0.04, null, 1.1],
+  ['Outside — south', 0.8, 16.5, 0.0, 0.08, null, 1.6],
+  ['Doll-house from above', 0.8, 12.0, 0.0, -0.95, null, 17.0],
+  ['1F — Entrance (stairs above)', 4.09, -0.75, 3.14, -0.05, 0],
+  ['1F — Hall', 3.45, -0.6, 2.36, -0.05, 0],
+  ['1F — Bedroom 1', -1.55, -0.4, 0.75, -0.06, 0],
+  ['1F — Wash room + bath', 0.23, -1.15, 0.0, -0.1, 0],
+  ['1F — Porch', 6.05, -0.15, 1.45, 0.0, 0],
+  ['2F — Living, stove corner', 0.6, 2.4, 0.78, 0.16, 1],
+  ['2F — Kitchen + dining', -3.7, -1.1, -2.3, 0.02, 1],
+  ['2F — From the dining table', -3.0, 2.7, -0.95, 0.12, 1],
+  ['2F — Veranda room', 2.4, -2.5, 1.5, 0.02, 1],
+  ['2F — Hall, ensuite door', 1.6, -0.45, -1.57, -0.02, 1],
+  ['2F — Top of the stairs', 4.09, -0.8, 3.14, -0.3, 1],
+  ['Loft', -0.4, -3.0, -2.25, -0.05, 2],
+  ['Loft — over the void', -0.35, -1.6, 2.1, -0.42, 2],
+];
 /* Collapse single-material static meshes into one mesh per material. */
 function mergeStatic(group) {
   const buckets = new Map(), victims = [];
@@ -2167,7 +2640,7 @@ const VIEWS2 = [
   ['2F — Bedroom 3', -2.5, 0.5, -0.9, 0.05, 1],
   ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
 ];
-const VIEWS = HOUSE === 2 ? VIEWS2 : VIEWS1;
+const VIEWS = H3 ? VIEWS3 : HOUSE === 2 ? VIEWS2 : VIEWS1;
 
 /* ---------------------------------------------------------------- controls */
 const st = {
@@ -2175,7 +2648,7 @@ const st = {
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
-const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : new V(-4, 3, -5);
+const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : H3 ? new V(1.0, 3.5, 0.5) : new V(-4, 3, -5);
 const act = new Set();
 const KEYMAP = {
   KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',
@@ -2188,9 +2661,10 @@ function goView(v) {
   const fl = v[5];
   st.floor = fl === null ? 0 : fl;
   st.fly = fl === null;
-  const y = v[6] !== undefined ? v[6] : (fl === null ? 2.2 : LV[fl].base + EYE);
+  const fh = fl === null ? null : (H3 ? floorAt3(v[1], v[2], fl) : LV[fl].base);   /* house 3: sunken entrance / porch */
+  const y = v[6] !== undefined ? v[6] : (fl === null ? 2.2 : fh + EYE);
   camera.position.set(v[1], y, v[2]);
-  st.h = fl === null ? null : LV[fl].base;
+  st.h = fh;
   st.yaw = v[3]; st.pitch = v[4];
   st.roof = v[0].indexOf('Doll') !== 0;
   st.orbit = false; syncUI();
@@ -2249,9 +2723,21 @@ function stairHeights(x, z) {
 }
 /* what would you be standing on at (x,z), given you're at height cur now */
 function supportAt(x, z, cur) {
-  const c = [0];                                     /* the ground / 1F is everywhere */
-  for (let i = 1; i < LV.length; i++) if (onRects(FLOOR_RECTS[i], x, z, 0.06)) c.push(LV[i].base);
-  c.push(...stairHeights(x, z));
+  const c = [];
+  if (H3) {
+    /* house 3: each floor rect carries its own level (sunken entrance + porch); outside = the ground */
+    for (let i = 0; i < LV.length; i++) {
+      let h = null;
+      for (const r of FLOOR_RECTS[i] || []) if (x > r[0] - 0.06 && x < r[2] + 0.06 && z > r[1] - 0.06 && z < r[3] + 0.06) h = h === null ? (r[4] || 0) : Math.max(h, r[4] || 0);
+      if (h !== null) c.push(LV[i].base + h);
+    }
+    c.push(PLAN.ground);
+    c.push(...stairHeights3(x, z));
+  } else {
+    c.push(0);                                       /* the ground / 1F is everywhere */
+    for (let i = 1; i < LV.length; i++) if (onRects(FLOOR_RECTS[i], x, z, 0.06)) c.push(LV[i].base);
+    c.push(...stairHeights(x, z));
+  }
   /* highest thing within a step of where you are: walking into a flight from
      its foot climbs it; walking off the top of one lands on the floor */
   let best = null;
@@ -2347,7 +2833,7 @@ const fovEl = $('fov'), fovv = $('fovv'), hud = $('hud');
 function syncUI() {
   $('bWalk').textContent = st.fly ? T('fly') : T('walk');
   $('bWalk').classList.toggle('on', st.fly);
-  $('bFloors').textContent = st.fmode === 'all' ? T('floors') : T('upto')(FLOOR_NAMES[st.fmode]);
+  $('bFloors').textContent = st.fmode === 'all' ? T('floors') : T('upto')(floorName(st.fmode));
   $('bFloors').classList.toggle('on', st.fmode !== 'all');
   $('bCeil').classList.toggle('on', !st.roof);
   $('bLbl').classList.toggle('on', st.labels);
@@ -2404,11 +2890,15 @@ function bindUI() {
   $('spd').oninput = (e) => { st.speed = +e.target.value * 0.75; };
   $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
   /* house switcher: each house is its own page load (?house=2) */
-  for (const h of [1, 2]) {
+  for (const h of [1, 2, 3]) {
     const b = $('bH' + h); if (!b) continue;
     b.classList.toggle('on', h === HOUSE);
-    b.onclick = () => { if (h !== HOUSE) location.href = location.pathname + (h === 2 ? '?house=2' : ''); };
+    b.onclick = () => { if (h !== HOUSE) location.href = location.pathname + (h > 1 ? '?house=' + h : ''); };
   }
+  const be = $('bEdit');
+  if (be) { be.hidden = !H3; be.onclick = () => { location.href = 'edit.html' + (location.hash || ''); }; }
+  const bo = $('bOrig');
+  if (bo) { bo.hidden = !(H3 && MODEL_SRC !== 'original'); bo.onclick = () => { location.href = location.pathname + '?house=3&orig=1'; }; }
   if (HOUSE === 2) bindRoof();
 
   /* drag = grab the view and pull it (drag right -> the scene follows right) */
@@ -2482,8 +2972,9 @@ function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(e => { const v = T(e.dataset.i18n); if (typeof v === 'string') e.textContent = v; });
   document.querySelectorAll('[data-i18n-title]').forEach(e => { const v = T(e.dataset.i18nTitle); if (typeof v === 'string') e.title = v; });
   const hb = $('helpBody'); if (hb) hb.innerHTML = T('help');
-  const geo = $('helpGeo'); if (geo) geo.textContent = T(HOUSE === 2 ? 'geo2' : 'geo1');
-  document.title = T(HOUSE === 2 ? 'doc2' : 'doc1');
+  const geo = $('helpGeo'); if (geo) geo.textContent = T(H3 ? 'geo3' : HOUSE === 2 ? 'geo2' : 'geo1');
+  document.title = T(H3 ? 'doc3' : HOUSE === 2 ? 'doc2' : 'doc1');
+  const sb = $('srcBadge'); if (sb) { sb.hidden = !(H3 && MODEL_SRC !== 'original'); sb.textContent = MODEL_SRC === 'link' ? T('srcLink') : T('srcEdited'); }
   if (LV.length) {
     fillJump();
     for (let i = 0; i < LV.length; i++) if (G.labels[i]) buildLabels(i);
@@ -2583,35 +3074,41 @@ function frame(dt) {
   }
   applyVis(); fadeLabels();
   const p = camera.position;
-  hud.textContent = (st.orbit ? T('hudOrbit') : (st.fly ? T('hudFly') : T('hudWalk') + ' · ' + FLOOR_NAMES[st.floor]))
+  hud.textContent = (st.orbit ? T('hudOrbit') : (st.fly ? T('hudFly') : T('hudWalk') + ' · ' + floorName(st.floor)))
     + '  ·  ' + Math.round(st.fov) + '°';
   if (st.quality && composer) composer.render(dt); else renderer.render(scene, camera);
 }
 
 /* -------------------------------------------------------------------- init */
+let MODEL_SRC = 'original';     /* house 3: original | edited | link (refplan.js loadModel) */
 const MARKS = window.__marks = {};
 const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
 applyLang();   /* static UI text + titles before the house loads */
 loadMsg(T('loading'));
-fetch(HOUSE === 2 ? 'plan2.json?v=7' : 'plan.json').then(r => r.json()).then(async (plan) => {
+const planReady = H3
+  ? loadModel('ref-model.json?v=1').then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
+  : fetch(HOUSE === 2 ? 'plan2.json?v=7' : 'plan.json').then(r => r.json());
+planReady.then(async (plan) => {
   let t = performance.now();
   buildMaterials(); t = mark('materials', t);
   setupLights();
   await Promise.all([setupEnv(), loadModels()]); t = mark('env+models', t);
-  buildHouse(plan); t = mark('house', t); _built = true;
+  if (H3) buildHouse3(plan); else buildHouse(plan);
+  t = mark('house', t); _built = true;
   setupComposer(); t = mark('composer', t);
   await Promise.race([texturesReady, new Promise(r => setTimeout(r, 20000))]); t = mark('textures', t);
   console.log('build ms', JSON.stringify(MARKS));
   const a = plan.levels.map(L => L.rooms.reduce((s, r) => s + r.area, 0));
-  $('areaInfo').textContent = a.map((v, i) => FLOOR_NAMES[i] + ' ' + v.toFixed(0) + 'm²').join(' · ');
+  const a3 = H3 ? plan.levels.map(L => L.faces.filter(f => f.floor !== 'void').reduce((s, f) => s + f.area, 0)) : a;
+  $('areaInfo').textContent = a3.map((v, i) => floorName(i) + ' ' + v.toFixed(H3 ? 1 : 0) + 'm²').join(' · ');
   if ((navigator.hardwareConcurrency || 8) <= 4 || Math.min(screen.width, screen.height) < 500) st.quality = 0;
   bindPad(); bindUI(); applyLang(); resize();
   addEventListener('resize', resize);
   goView(VIEWS[0]);
   setFov(FOV.def);
   Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, SLIDERS, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
-  Object.assign(window, { __house: HOUSE, ROOF, rebuildRoof, roofReadout });
+  Object.assign(window, { __house: HOUSE, ROOF, rebuildRoof, roofReadout, PLAN, ROOFS3, MODEL_SRC });
   window.__roofInfo = () => ROOF && { axis: ROOF.axis ? 'z' : 'x', living: ROOF.living, bedrooms: ROOF.bedrooms, delta: ROOF.delta, sBed: ROOF.sBed, sLiv: ROOF.sLiv, hBed: ROOF.hBed, hLiv: ROOF.hLiv, pitch: +ROOF.pitch.toFixed(2), ms: ROOF.ms };
   $('load').style.display = 'none';
   window.__ready = true;

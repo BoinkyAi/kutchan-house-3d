@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Plan editor — Tsuchiya Kensetsu reference house</title>
+<style>
+  :root{ --ui:#11161c; --ui2:#1b2430; --fg:#e8eef5; --ac:#5ac8fa; --bd:#2c3a4a; --warn:#f5b84a; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#f4f2ee;color:var(--fg);
+    font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  #cv{position:fixed;inset:0;display:block;touch-action:none}
+  .panel{position:fixed;background:rgba(17,22,28,.92);backdrop-filter:blur(8px);border:1px solid var(--bd);border-radius:12px;padding:6px}
+  #top{top:8px;left:8px;right:8px;display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+  #top .t{font-weight:700;margin:0 4px;white-space:nowrap}
+  #top .sub{opacity:.6;font-size:11px;white-space:nowrap}
+  button,select,input{font:inherit}
+  button{background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px 9px;cursor:pointer;white-space:nowrap}
+  button:hover{border-color:var(--ac)}
+  button.on{background:var(--ac);color:#04121c;border-color:var(--ac);font-weight:700}
+  button.go{border-color:var(--warn);color:#ffd58a}
+  button:disabled{opacity:.35;cursor:default}
+  .seg{display:inline-flex}
+  .seg button{border-radius:0;margin-left:-1px}
+  .seg button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+  .seg button:last-child{border-radius:0 8px 8px 0}
+  #tools{left:8px;top:64px;display:flex;flex-direction:column;gap:4px;width:auto}
+  #tools button{text-align:left}
+  #tools .h{font-size:10px;opacity:.55;letter-spacing:.05em;margin:4px 2px 0}
+  #props{right:8px;top:64px;width:270px;max-height:calc(100vh - 80px);overflow:auto;display:none;flex-direction:column;gap:6px;padding:10px}
+  #props.show{display:flex}
+  #props .h{font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+  #props .h .x{padding:2px 8px}
+  #props label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px}
+  #props label > span{opacity:.75}
+  #props input[type=number],#props input[type=text],#props select{width:132px;background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:7px;padding:5px 7px}
+  #props .row{display:flex;gap:5px;flex-wrap:wrap}
+  #props .note{font-size:11px;opacity:.6;line-height:1.45}
+  #props .area{font-size:12px;opacity:.85}
+  #hint{position:fixed;left:50%;transform:translateX(-50%);bottom:10px;background:rgba(17,22,28,.86);color:var(--fg);padding:7px 12px;border-radius:10px;font-size:12px;pointer-events:none;max-width:92vw;text-align:center}
+  #toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:#0f3b24;color:#c8f7da;border:1px solid #2a7a4c;padding:8px 14px;border-radius:10px;display:none;z-index:40;max-width:92vw}
+  #help,#share{position:fixed;inset:0;background:rgba(6,9,12,.86);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+  #help.show,#share.show{display:flex}
+  .box{max-width:600px;background:var(--ui);border:1px solid var(--bd);border-radius:14px;padding:16px 18px;line-height:1.65;max-height:88vh;overflow:auto}
+  .box h3{margin:0 0 8px}
+  #shareUrl{width:100%;height:90px;background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;font:11px monospace;-webkit-user-select:text;user-select:text}
+  kbd{background:var(--ui2);border:1px solid var(--bd);border-radius:5px;padding:1px 6px;font:12px monospace}
+  @media (max-width:640px){
+    #top{gap:3px;padding:5px} #top .sub{display:none}
+    #tools{top:auto;bottom:8px;left:8px;right:8px;flex-direction:row;flex-wrap:wrap;justify-content:center}
+    #tools .h{display:none}
+    #props{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:48vh}
+    body.has-props #tools{display:none}
+    #hint{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="top" class="panel">
+  <span class="t" data-i="title">Plan editor</span>
+  <span class="seg" id="floors"></span>
+  <button id="bUndo" data-i="undo" title="Ctrl+Z">Undo</button>
+  <button id="bRedo" data-i="redo" title="Ctrl+Shift+Z">Redo</button>
+  <button id="b3d" class="go" data-i="view3d">View in 3D</button>
+  <button id="bShare" data-i="share">Share link</button>
+  <button id="bReset" data-i="reset">Reset</button>
+  <span class="sub" id="areas"></span>
+  <button id="bLang">日本語</button>
+  <button id="bHelp">?</button>
+</div>
+
+<div id="tools" class="panel">
+  <div class="h" data-i="toolsH">TOOLS</div>
+  <button data-tool="select" data-i="tSelect">Select / move</button>
+  <button data-tool="wall" data-i="tWall">Draw wall</button>
+  <button data-tool="door" data-i="tDoor">Add door</button>
+  <button data-tool="window" data-i="tWindow">Add window</button>
+  <button data-tool="item" data-i="tItem">Add furniture</button>
+  <button data-tool="room" data-i="tRoom">Name a room</button>
+  <div class="h" data-i="optH">OPTIONS</div>
+  <button id="bLink" class="on" data-i="link" data-it="linkT">Outside walls: all floors</button>
+  <button id="bGrid" data-i="grid" data-it="gridT">Snap to 455 grid</button>
+</div>
+
+<div id="props" class="panel"></div>
+<div id="hint"></div>
+<div id="toast"></div>
+
+<div id="share"><div class="box">
+  <h3 data-i="shareH">Share this plan</h3>
+  <div class="note" data-i="shareNote" style="margin-bottom:8px">Anyone with this link sees your edited plan (in the editor and in 3D). Nothing is uploaded: the plan is inside the link.</div>
+  <textarea id="shareUrl" readonly></textarea>
+  <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+    <button id="bCopy" class="on" data-i="copy">Copy link</button>
+    <button id="bCopy3d" data-i="copy3d">Copy 3D link</button>
+    <button onclick="document.getElementById('share').classList.remove('show')" data-i="close">Close</button>
+  </div>
+</div></div>
+
+<div id="help"><div class="box">
+  <div id="helpBody"></div>
+  <div style="margin-top:12px"><button onclick="document.getElementById('help').classList.remove('show')" data-i="close">Close</button></div>
+</div></div>
+
+<script type="module" src="edit.js?v=1"></script>
+</body>
+</html>

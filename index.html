@@ -21,6 +21,9 @@
     padding:6px 9px;font:inherit;cursor:pointer;white-space:nowrap}
   button:hover{border-color:var(--ac)}
   button.on{background:var(--ac);color:#04121c;border-color:var(--ac);font-weight:700}
+  button.ac{border-color:#f5b84a;color:#ffd58a}
+  button[hidden],.badge[hidden]{display:none}
+  .badge{font-size:11px;padding:3px 7px;border-radius:7px;background:#3a2c10;color:#ffd58a;border:1px solid #6b4f1c;white-space:nowrap}
   select{background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px 8px;font:inherit}
   #move{left:8px;bottom:8px;display:grid;grid-template-columns:repeat(3,44px);gap:5px}
   #look{right:8px;bottom:8px;display:grid;grid-template-columns:repeat(3,44px);gap:5px}
@@ -60,7 +63,10 @@
 
 <div id="top" class="panel">
   <span class="t" data-i18n="title">倶知安 住宅計画</span>
-  <span class="seg" data-i18n-title="hsegt"><button id="bH1" data-i18n="h1" data-i18n-title="h1t">プランA</button><button id="bH2" data-i18n="h2" data-i18n-title="h2t">プランB</button></span>
+  <span class="seg" data-i18n-title="hsegt"><button id="bH1" data-i18n="h1" data-i18n-title="h1t">プランA</button><button id="bH2" data-i18n="h2" data-i18n-title="h2t">プランB</button><button id="bH3" data-i18n="h3" data-i18n-title="h3t">土屋 参考プラン</button></span>
+  <button id="bEdit" class="ac" data-i18n="edit" data-i18n-title="editt" hidden>間取りを編集</button>
+  <span id="srcBadge" class="badge" hidden></span>
+  <button id="bOrig" data-i18n="origb" data-i18n-title="origt" hidden>元の図面を表示</button>
   <span class="sub" id="areaInfo"></span>
   <select id="jump" data-i18n-title="jumpt"></select>
   <button id="bWalk" data-i18n-title="walkt">歩行</button>
@@ -115,6 +121,6 @@
 <script type="importmap">
 {"imports":{"three":"./three.module.min.js","three/addons/":"./jsm/"}}
 </script>
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>
