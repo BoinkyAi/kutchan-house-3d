@@ -3,7 +3,8 @@
    furniture; the 3D walkthrough (index.html?house=3) builds from the same
    model, saved in this browser or carried in a share link (#m=...).
    ?plan=b = the revised plan (ref-model-b.json, 3D: index.html?house=4) and
-   ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5), each
+   ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5) and
+   ?plan=d = Plan C, L-shaped (ref-model-d.json, 3D: index.html?house=6), each
    saved under its own key; without ?plan everything is as before. */
 'use strict';
 import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=5';
@@ -11,13 +12,14 @@ import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY,
 /* the built-in plans: model file, saved copy (localStorage key), 3D page, editor page */
 const PLANS = {
   a: { url: 'ref-model.json?v=1', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' },
-  b: { url: 'ref-model-b.json?v=2', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
-  c: { url: 'ref-model-c.json?v=2', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
+  b: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
+  c: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
+  d: { url: 'ref-model-d.json?v=1', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
 };
 const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
 const PLAN = PLANS[_qPlan] ? _qPlan : 'a';
 const REF = PLANS[PLAN];
-const PB = PLAN !== 'a';            /* plans b + c: their own strings, gym / onsen pieces, no unit bath */
+const PB = PLAN !== 'a';            /* plans b, c + d: their own strings, gym / onsen pieces, no unit bath */
 
 /* ------------------------------------------------------------------ text */
 const TX = {
@@ -129,7 +131,18 @@ const TXC = {
       .replace('土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK・専用シャワー室付き寝室・オープンな書斎、ロフトに専用シャワー室付き寝室・書斎）。壁は910mmグリッドの芯です。',
         'プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。13.65×9.1mの総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（北側が高い）。1階ジム＋温泉、2階リビング・ダイニング、キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。') },
 };
-const TXP = { b: TXB, c: TXC };
+/* Plan C, L-shaped (?plan=d) */
+const TXD = {
+  en: { title: 'Plan editor · Plan C', resetQ: 'Throw away your changes and go back to Plan C as first drawn?',
+    fGranite: TXB.en.fGranite, fHinoki: TXB.en.fHinoki, fRubber: TXB.en.fRubber,
+    help: TXC.en.help.replace('<b>Reset</b> goes back to Plan B compact as first drawn.', '<b>Reset</b> goes back to Plan C as first drawn.')
+      .replace('Plan B compact: the compact, cheaper version of Plan B. One 13.65 x 9.1 m box (15 x 10 modules of 910 mm), its long side on the view, under one sloped roof (high on the north): gym + onsen on 1F; living + dining, kitchen, 2 ensuite bedrooms and 2 dens on 2F.', 'Plan C: the L-shaped version of Plan B compact, for more frontage and glass toward the view. A 12.74 x 8.19 m bar (14 x 9 modules of 910 mm) with a 5.46 x 4.55 m wing projecting north (the view) at its east end, under one sloped roof plane (high on the north): gym in the wing + onsen on 1F; living in the wing (glass on 3 sides), dining + kitchen, 2 ensuite bedrooms and 2 dens on 2F.') },
+  ja: { title: '間取り編集・プランC', resetQ: '変更をすべて破棄して、プランCの最初の間取りに戻しますか？',
+    fGranite: TXB.ja.fGranite, fHinoki: TXB.ja.fHinoki, fRubber: TXB.ja.fRubber,
+    help: TXC.ja.help.replace('<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。', '<b>元の図面に戻す</b>でプランCの最初の間取りに戻ります。')
+      .replace('プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。13.65×9.1mの総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（北側が高い）。1階ジム＋温泉、2階リビング・ダイニング、キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。', 'プランC：プランB 縮小版のL字版。眺望側の間口と窓を増やした案。12.74×8.19mの棟（910mmモジュールで14×9）の東端から、5.46×4.55mの翼が北（眺望側）へ張り出す総2階、片流れ屋根1面（北側が高い）。1階は翼にジム＋温泉、2階は翼にリビング（3面ガラス）、ダイニング・キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。') },
+};
+const TXP = { b: TXB, c: TXC, d: TXD };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
 if (!TX[LANG]) LANG = 'en';
 const T = (k) => (PB && TXP[PLAN][LANG][k] !== undefined) ? TXP[PLAN][LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
