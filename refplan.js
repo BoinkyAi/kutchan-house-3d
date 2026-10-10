@@ -16,6 +16,8 @@
    roofs[] { id, levels[], rect:[x0,y0,x1,y1], over{n,s,e,w}, y0, h0, k, th, low:'s', posts? }
    wallsUp? (opt-in): partitions with no floor above run up to the floor above / the roof;
      on the top floor (nothing above but the roof) every wall runs up to the roof
+   version? (int): bump it when a built-in plan is redrawn; loadModel then drops
+     editor copies saved from another version (share links still load as sent)
 
    Rooms are not stored as outlines: they are the faces of the planar graph of
    the walls' reference lines, so moving a wall reshapes every room it bounds. */
@@ -560,14 +562,25 @@ export async function unpackModel(s) {
 }
 export const STORE_KEY = 'h3dRefModel';
 /* the model to show: a shared link (#m=) wins, then the editor's saved copy
-   (localStorage[storeKey]: one per built-in plan), then the original */
+   (localStorage[storeKey]: one per built-in plan), then the original. A saved
+   copy whose "version" differs from the built-in file's was made from an
+   older drawing of the plan: it is discarded (same version: kept) */
 export async function loadModel(defaultUrl, storeKey) {
   const hash = location.hash.match(/[#&]m=([^&]+)/);
   if (hash) { try { return { model: await unpackModel(hash[1]), from: 'link' }; } catch (e) { console.warn('bad #m', e); } }
+  let orig = null;
+  try { const r = await fetch(defaultUrl); if (r.ok) orig = await r.json(); } catch (e) { console.warn('fetch', defaultUrl, e); }
   const q = new URLSearchParams(location.search);
   if (!q.has('orig')) {
-    try { const s = localStorage.getItem(storeKey || STORE_KEY); if (s) return { model: JSON.parse(s), from: 'edited' }; } catch (e) { /* private mode */ }
+    try {
+      const key = storeKey || STORE_KEY, s = localStorage.getItem(key);
+      if (s) {
+        const m = JSON.parse(s);
+        if (m && (!orig || m.version === orig.version)) return { model: m, from: 'edited' };
+        localStorage.removeItem(key);
+      }
+    } catch (e) { /* private mode */ }
   }
-  const r = await fetch(defaultUrl);
-  return { model: await r.json(), from: 'original' };
+  if (!orig) throw new Error('cannot load ' + defaultUrl);
+  return { model: orig, from: 'original' };
 }

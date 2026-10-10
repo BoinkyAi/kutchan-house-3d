@@ -6,13 +6,13 @@
    ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5), each
    saved under its own key; without ?plan everything is as before. */
 'use strict';
-import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=4';
+import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=5';
 
 /* the built-in plans: model file, saved copy (localStorage key), 3D page, editor page */
 const PLANS = {
   a: { url: 'ref-model.json?v=1', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' },
-  b: { url: 'ref-model-b.json?v=1', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
-  c: { url: 'ref-model-c.json?v=1', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
+  b: { url: 'ref-model-b.json?v=2', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
+  c: { url: 'ref-model-c.json?v=2', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
 };
 const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
 const PLAN = PLANS[_qPlan] ? _qPlan : 'a';
@@ -109,25 +109,25 @@ const TXB = {
   en: { title: 'Plan editor · Tsuchiya revised', resetQ: 'Throw away your changes and go back to the revised plan as first drawn?',
     fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)',
     help: TX.en.help.replace('<b>Reset</b> goes back to Tsuchiya Kensetsu’s original.', '<b>Reset</b> goes back to the revised plan as first drawn.')
-      .replace('Source: Tsuchiya Kensetsu reference house plan drawings. Sizes are from the CAD drawings; walls are on their 910 mm grid lines.', 'The revised plan (gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms), on the Tsuchiya Kensetsu reference house’s 910 mm grid.') },
+      .replace('Source: Tsuchiya Kensetsu reference house plan drawings. Sizes are from the CAD drawings; walls are on their 910 mm grid lines.', 'The revised plan (gym + onsen 1F; LDK, an ensuite bedroom and an open den 2F; an ensuite bedroom and a den in the loft), on the Tsuchiya Kensetsu reference house’s 910 mm grid.') },
   ja: { title: '間取り編集・土屋 改案', resetQ: '変更をすべて破棄して、改案の最初の間取りに戻しますか？',
     fGranite: '黒い石調タイル（浴室）', fHinoki: 'ひのき（サウナ）', fRubber: 'ゴム床（ジム）',
     help: TX.ja.help.replace('<b>元の図面に戻す</b>で土屋建設の元の図面に戻ります。', '<b>元の図面に戻す</b>で改案の最初の間取りに戻ります。')
-      .replace('出典：土屋建設 参考住宅プラン図面。寸法はCAD図面どおり、壁は910mmグリッドの芯です。', '土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2）。壁は910mmグリッドの芯です。') },
+      .replace('出典：土屋建設 参考住宅プラン図面。寸法はCAD図面どおり、壁は910mmグリッドの芯です。', '土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK・専用シャワー室付き寝室・オープンな書斎、ロフトに専用シャワー室付き寝室・書斎）。壁は910mmグリッドの芯です。') },
 };
 const TXC = {
   en: { title: 'Plan editor · Plan B compact', resetQ: 'Throw away your changes and go back to Plan B compact as first drawn?',
     fGranite: TXB.en.fGranite, fHinoki: TXB.en.fHinoki, fRubber: TXB.en.fRubber,
     help: TXB.en.help.replace('<b>Reset</b> goes back to the revised plan as first drawn.', '<b>Reset</b> goes back to Plan B compact as first drawn.')
       .replace('<b>Floors</b>: 1F / 2F / Loft tabs at the top.', '<b>Floors</b>: 1F / 2F tabs at the top.')
-      .replace('The revised plan (gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms), on the Tsuchiya Kensetsu reference house’s 910 mm grid.',
-        'Plan B compact: the compact, cheaper version of Plan B. One 8.19 x 13.65 m box (9 x 15 modules of 910 mm) under one sloped roof: gym + onsen on 1F, LDK + 3 bedrooms on 2F.') },
+      .replace('The revised plan (gym + onsen 1F; LDK, an ensuite bedroom and an open den 2F; an ensuite bedroom and a den in the loft), on the Tsuchiya Kensetsu reference house’s 910 mm grid.',
+        'Plan B compact: the compact, cheaper version of Plan B. One 13.65 x 9.1 m box (15 x 10 modules of 910 mm), its long side on the view, under one sloped roof (high on the north): gym + onsen on 1F; living + dining, kitchen, 2 ensuite bedrooms and 2 dens on 2F.') },
   ja: { title: '間取り編集・プランB 縮小版', resetQ: '変更をすべて破棄して、プランB 縮小版の最初の間取りに戻しますか？',
     fGranite: TXB.ja.fGranite, fHinoki: TXB.ja.fHinoki, fRubber: TXB.ja.fRubber,
     help: TXB.ja.help.replace('<b>元の図面に戻す</b>で改案の最初の間取りに戻ります。', '<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。')
       .replace('<b>フロア</b>：上部の1F / 2F / ロフトで切り替え。', '<b>フロア</b>：上部の1F / 2Fで切り替え。')
-      .replace('土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2）。壁は910mmグリッドの芯です。',
-        'プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。8.19×13.65mの総2階（910mmモジュールで9×15）、片流れ屋根1枚。1階ジム＋温泉、2階LDK＋寝室3。壁は910mmグリッドの芯です。') },
+      .replace('土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK・専用シャワー室付き寝室・オープンな書斎、ロフトに専用シャワー室付き寝室・書斎）。壁は910mmグリッドの芯です。',
+        'プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。13.65×9.1mの総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（北側が高い）。1階ジム＋温泉、2階リビング・ダイニング、キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。') },
 };
 const TXP = { b: TXB, c: TXC };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
@@ -1070,6 +1070,9 @@ async function copy(t) {
   const { model, from } = await loadModel(REF.url, REF.key);
   S.model = model; S.from = from;
   if (from === 'link') {
+    /* an opened link becomes this browser's saved copy: stamp it with the built-in
+       file's version so loadModel keeps it (a link from an older drawing included) */
+    if (S.orig && S.orig.version !== undefined) model.version = S.orig.version;
     try { localStorage.setItem(REF.key, JSON.stringify(model)); } catch (e) { /* */ }
     history.replaceState(null, '', location.pathname + location.search);
     setTimeout(() => toast(T('fromLink')), 300);
