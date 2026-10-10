@@ -12,9 +12,10 @@
      rooms[] { id, name, ja, at:[x,y], floor: oak|tile|stone|concrete|void, dz? }
         a room is the region the walls close round its `at` point
      items[] { id, kind, x, y, w, d, a, ... } }
-   stairs[] { id, from (level index), treads[] (polygons, bottom step first) }
+   stairs[] { id, from (level index), treads[] (polygons, bottom step first), hole?: 'void' }
    roofs[] { id, levels[], rect:[x0,y0,x1,y1], over{n,s,e,w}, y0, h0, k, th, low:'s', posts? }
-   wallsUp? (opt-in): partitions with no floor above run up to the floor above / the roof
+   wallsUp? (opt-in): partitions with no floor above run up to the floor above / the roof;
+     on the top floor (nothing above but the roof) every wall runs up to the roof
 
    Rooms are not stored as outlines: they are the faces of the planar graph of
    the walls' reference lines, so moving a wall reshapes every room it bounds. */
@@ -283,14 +284,31 @@ export function toPlan(model) {
   for (const r of out.roofs) if (r.attach) { const m = out.roofs.find(q => q.id === r.attach); if (m) r.rect[0] = m.rect[2]; }
   /* the chimney stands over the wood stove */
   for (const L of levels) for (const it of L.items || []) if (it.kind === 'stove' && out.chimney) { out.chimney.x = it.x; out.chimney.y = it.y; }
-  /* stair holes through the floor each flight arrives at */
+  /* stair holes through the floor each flight arrives at; a flight with
+     hole:'void' (plan c) cuts that floor only where it is marked void (its
+     'Stair opening' room), so the floor runs on over the lower treads */
   const holes = levels.map(() => []);
-  for (const s of model.stairs || []) if (levels[s.from + 1]) for (const t of s.treads) holes[s.from + 1].push(t);
+  for (const s of model.stairs || []) if (levels[s.from + 1]) for (const t of s.treads) {
+    if (s.hole === 'void') {
+      const c = t.reduce((a, p) => [a[0] + p[0] / t.length, a[1] + p[1] / t.length], [0, 0]), f = faceAt(LG[s.from + 1], c[0], c[1]);
+      if (f && !(f.room && f.room.floor === 'void')) continue;
+    }
+    holes[s.from + 1].push(t);
+  }
 
   const joinsUp = model.wallsUp ? levels.map((L, li) => levels[li + 1] ? joins(levels[li + 1].walls || []) : null) : [];
   levels.forEach((L, li) => {
     const G = LG[li], next = levels[li + 1];
-    const wallTopExt = next ? next.base - L.base : L.h;
+    /* model.wallsUp on the top floor (plan c: no loft): nothing above it but
+       the roof, so where the floor's clear height h stops short of the roof,
+       its outside walls and partitions run on up to it (clipped to it in 3D) */
+    let roofUp = 0;
+    if (model.wallsUp && !next) for (const rf of out.roofs) {
+      if (!rf.levels.includes(li) || !rf.rect) continue;
+      const hi = rf.h0 + rf.k * Math.abs(rf.rect[3] - rf.rect[1]) - L.base + 0.3;
+      if (hi > L.h) roofUp = Math.max(roofUp, r4(hi));
+    }
+    const wallTopExt = next ? next.base - L.base : (roofUp || L.h);
     const lv = { id: L.id, title: L.name, base: L.base, h: L.h, ct: L.ct, rooms: [], furniture: [], walls: [], patches: [], floors: [], faces: [] };
     /* rooms (faces) */
     G.rooms.forEach((f, k) => {
@@ -455,6 +473,7 @@ export function toPlan(model) {
               if (!up || (up.room && up.room.floor === 'void')) top = wallTopExt;
             }
           }
+          if (roofUp) top = roofUp;                    /* top floor under the roof (wallsUp) */
           if (w.h) top = w.h;                          /* a low wall (under a stair, a parapet) */
           lv.walls.push({ kind: 'int', a: pt(A), b: pt(B), t: r4(w.t), doors: ops, src: w.id, dz0: y0, top: top || undefined });
         } else {

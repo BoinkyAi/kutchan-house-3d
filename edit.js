@@ -2,14 +2,22 @@
    the ref-model.json format, see refplan.js). Drag walls, doors, windows and
    furniture; the 3D walkthrough (index.html?house=3) builds from the same
    model, saved in this browser or carried in a share link (#m=...).
-   ?plan=b = the revised plan (ref-model-b.json, 3D: index.html?house=4), saved
-   under its own key; without ?plan everything is as before. */
+   ?plan=b = the revised plan (ref-model-b.json, 3D: index.html?house=4) and
+   ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5), each
+   saved under its own key; without ?plan everything is as before. */
 'use strict';
-import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=3';
+import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=4';
 
-const PB = new URLSearchParams(location.search).get('plan') === 'b';
-const REF = PB ? { url: 'ref-model-b.json?v=1', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' }
-  : { url: 'ref-model.json?v=1', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' };
+/* the built-in plans: model file, saved copy (localStorage key), 3D page, editor page */
+const PLANS = {
+  a: { url: 'ref-model.json?v=1', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' },
+  b: { url: 'ref-model-b.json?v=1', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
+  c: { url: 'ref-model-c.json?v=1', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
+};
+const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
+const PLAN = PLANS[_qPlan] ? _qPlan : 'a';
+const REF = PLANS[PLAN];
+const PB = PLAN !== 'a';            /* plans b + c: their own strings, gym / onsen pieces, no unit bath */
 
 /* ------------------------------------------------------------------ text */
 const TX = {
@@ -96,7 +104,7 @@ const TX = {
       + '<span style="opacity:.6">出典：土屋建設 参考住宅プラン図面。寸法はCAD図面どおり、壁は910mmグリッドの芯です。</span>',
   },
 };
-/* the revised plan (?plan=b): its own title, reset question, extra floor finishes */
+/* the revised plan (?plan=b) and Plan B compact (?plan=c): own title, reset question, extra floor finishes */
 const TXB = {
   en: { title: 'Plan editor · Tsuchiya revised', resetQ: 'Throw away your changes and go back to the revised plan as first drawn?',
     fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)',
@@ -107,9 +115,24 @@ const TXB = {
     help: TX.ja.help.replace('<b>元の図面に戻す</b>で土屋建設の元の図面に戻ります。', '<b>元の図面に戻す</b>で改案の最初の間取りに戻ります。')
       .replace('出典：土屋建設 参考住宅プラン図面。寸法はCAD図面どおり、壁は910mmグリッドの芯です。', '土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2）。壁は910mmグリッドの芯です。') },
 };
+const TXC = {
+  en: { title: 'Plan editor · Plan B compact', resetQ: 'Throw away your changes and go back to Plan B compact as first drawn?',
+    fGranite: TXB.en.fGranite, fHinoki: TXB.en.fHinoki, fRubber: TXB.en.fRubber,
+    help: TXB.en.help.replace('<b>Reset</b> goes back to the revised plan as first drawn.', '<b>Reset</b> goes back to Plan B compact as first drawn.')
+      .replace('<b>Floors</b>: 1F / 2F / Loft tabs at the top.', '<b>Floors</b>: 1F / 2F tabs at the top.')
+      .replace('The revised plan (gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms), on the Tsuchiya Kensetsu reference house’s 910 mm grid.',
+        'Plan B compact: the compact, cheaper version of Plan B. One 8.19 x 13.65 m box (9 x 15 modules of 910 mm) under one sloped roof: gym + onsen on 1F, LDK + 3 bedrooms on 2F.') },
+  ja: { title: '間取り編集・プランB 縮小版', resetQ: '変更をすべて破棄して、プランB 縮小版の最初の間取りに戻しますか？',
+    fGranite: TXB.ja.fGranite, fHinoki: TXB.ja.fHinoki, fRubber: TXB.ja.fRubber,
+    help: TXB.ja.help.replace('<b>元の図面に戻す</b>で改案の最初の間取りに戻ります。', '<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。')
+      .replace('<b>フロア</b>：上部の1F / 2F / ロフトで切り替え。', '<b>フロア</b>：上部の1F / 2Fで切り替え。')
+      .replace('土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2）。壁は910mmグリッドの芯です。',
+        'プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。8.19×13.65mの総2階（910mmモジュールで9×15）、片流れ屋根1枚。1階ジム＋温泉、2階LDK＋寝室3。壁は910mmグリッドの芯です。') },
+};
+const TXP = { b: TXB, c: TXC };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
 if (!TX[LANG]) LANG = 'en';
-const T = (k) => (PB && TXB[LANG][k] !== undefined) ? TXB[LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
+const T = (k) => (PB && TXP[PLAN][LANG][k] !== undefined) ? TXP[PLAN][LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
 const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------------ state */
@@ -246,12 +269,15 @@ function draw() {
     const xs = f.poly.map(q => q[0]), ys = f.poly.map(q => q[1]);
     const px = Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * S.view.s;
     if (px < 26) continue;
+    /* a label on a flight (the stair's own room) gets a tread-coloured halo over the numbers + walking line */
+    const halo = (S.model.stairs || []).some(st => st.from === S.lvl && st.treads.some(t => inPoly(t, p[0], p[1])));
+    const txt = (s, x, y) => { if (halo) { c.save(); c.lineWidth = 4; c.lineJoin = 'round'; c.strokeStyle = '#efe5d4'; c.strokeText(s, x, y); c.restore(); } c.fillText(s, x, y); };
     c.font = '600 12px -apple-system,Segoe UI,Roboto,"Hiragino Sans",sans-serif';
     c.fillStyle = r && r.floor === 'void' ? '#8a8f96' : '#2b2f33';
-    if (nm) c.fillText(nm, q[0], q[1] - 7);
+    if (nm) txt(nm, q[0], q[1] - 7);
     if (px < 46) continue;
     c.font = '11px -apple-system,Segoe UI,Roboto,sans-serif'; c.fillStyle = '#6b6f75';
-    c.fillText(area.toFixed(2) + ' m²', q[0], q[1] + (nm ? 8 : 0));
+    txt(area.toFixed(2) + ' m²', q[0], q[1] + (nm ? 8 : 0));
   }
   /* selection extras */
   drawSelection(c);
@@ -369,11 +395,15 @@ function drawItem(c, it) {
 function drawStair(c, st, ghost) {
   const sel = S.sel && S.sel.type === 'stair' && S.sel.id === st.id;
   c.save(); if (ghost) { c.globalAlpha = 0.35; c.setLineDash([4, 3]); }
+  /* tread numbers only when they fit between the treads' centres (else they run together) */
+  c.font = '10px sans-serif';
+  const CN = st.treads.map(t => toS(t.reduce((a, p) => [a[0] + p[0] / t.length, a[1] + p[1] / t.length], [0, 0])));
+  const nums = !ghost && S.view.s > 35 && CN.every((p, i) => !i || Math.hypot(p[0] - CN[i - 1][0], p[1] - CN[i - 1][1]) > c.measureText(String(i + 1)).width + 2);
   st.treads.forEach((t, k) => {
     const P = t.map(toS);
     c.beginPath(); P.forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.closePath();
     c.fillStyle = sel ? '#d8eef9' : '#efe5d4'; c.fill(); c.strokeStyle = sel ? '#1d7fb8' : '#9c8c78'; c.lineWidth = 1; c.stroke();
-    if (!ghost && S.view.s > 35) {
+    if (nums) {
       const m = t.reduce((a, p) => [a[0] + p[0] / t.length, a[1] + p[1] / t.length], [0, 0]), q = toS(m);
       c.fillStyle = '#7b6d5c'; c.font = '10px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(k + 1), q[0], q[1]);
     }
@@ -802,7 +832,7 @@ const DEF = {
   dryer: [0.65, 0.6], stove: [0.56, 0.5], rugRound: [1.6, 1.6], shelves: [1.2, 0.35], rail: [1.6, 0.06], post: [0.12, 0.12], beam: [3.0, 0.12],
 };
 if (PB) {
-  delete DEF.ub;                                   /* the revised plan has no unit baths (shower units only) */
+  delete DEF.ub;                                   /* plans b + c have no unit baths (shower units only) */
   Object.assign(DEF, { tube: [1.2, 2.0], saunaBench: [1.8, 0.5], saunaHeater: [0.45, 0.45], gymRack: [1.2, 1.2], gymBench: [1.2, 0.3], treadmill: [0.8, 1.9], mat: [2.0, 2.0], railing: [2.0, 0.05] });
 }
 function placeItem(p) {

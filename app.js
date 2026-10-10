@@ -17,7 +17,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toPlan, loadModel } from './refplan.js?v=3';
+import { toPlan, loadModel } from './refplan.js?v=4';
 
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
@@ -39,14 +39,21 @@ const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
    ?house=2 opens house 2; the switcher reloads with it, so each house is
    built from a clean start (house 1 renders exactly as it did before). */
 const _qHouse = new URLSearchParams(location.search).get('house');
-const HOUSE = _qHouse === '2' ? 2 : _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : 1;
+const HOUSE = _qHouse === '2' ? 2 : _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : _qHouse === '5' ? 5 : 1;
 /* house 3 = Tsuchiya Kensetsu's reference house plan: built
    from the editable model (ref-model.json, or the plan editor's saved copy /
    a shared #m= link) through refplan.js. House 4 = its revision (Toby
    2026-10-10: gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms;
-   ref-model-b.json, the editor's ?plan=b) on the same code path. */
-const H3 = HOUSE === 3 || HOUSE === 4;
-const REF = HOUSE === 4 ? { url: 'ref-model-b.json?v=1', key: 'h3dRefModelB', edit: 'edit.html?plan=b' } : { url: 'ref-model.json?v=1', key: 'h3dRefModel', edit: 'edit.html' };
+   ref-model-b.json, the editor's ?plan=b) on the same code path. House 5 =
+   Plan B compact (Toby 2026-10-10: the compact, cheaper version of Plan B, an
+   8.2 x 13.7 m box; ref-model-c.json, the editor's ?plan=c), same path. */
+const H3 = HOUSE === 3 || HOUSE === 4 || HOUSE === 5;
+const REFS = {
+  3: { url: 'ref-model.json?v=1', key: 'h3dRefModel', edit: 'edit.html' },
+  4: { url: 'ref-model-b.json?v=1', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
+  5: { url: 'ref-model-c.json?v=1', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
+};
+const REF = REFS[HOUSE] || REFS[3];
 /* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
    ?lang=en|ja overrides; the choice is remembered in localStorage. */
 const _qLang = new URLSearchParams(location.search).get('lang');
@@ -54,7 +61,9 @@ let LANG = (_qLang === 'en' || _qLang === 'ja') ? _qLang : (localStorage.getItem
 const TXT = {
   ja: {
     title: '倶知安 住宅計画', h1: 'プランA', h2: 'プランB', h3: '土屋 参考プラン',
-    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', h4: '土屋 改案', h4t: '土屋参考プランの改案：1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2', hsegt: 'プランA・B（倶知安の計画）と土屋建設の参考プラン・改案',
+    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', h4: '土屋 改案', h4t: '土屋参考プランの改案：1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2', hsegt: 'プランA・B（倶知安の計画）と土屋建設の参考プラン・改案、プランB 縮小版',
+    h5: 'プランB 縮小版', h5t: 'プランB 縮小版：プランBをコンパクトにしてコストを抑えた案（8.2×13.7mの総2階、1階ジム＋温泉、2階LDK＋寝室3）',
+    origt5: 'プランB 縮小版の最初の間取りを表示（編集はそのまま残ります）',
     edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: '土屋建設の元の図面を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
@@ -71,7 +80,8 @@ const TXT = {
     fov: '画角', fovt: '画面の長辺方向の角度', speed: '速度', wide: '広角', narrow: '望遠', widet: '広角（90°）', narrowt: '望遠（50°）',
     hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
     loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
-    doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー', doc3: '土屋建設 参考プラン — 3Dウォークスルー', doc4: '土屋建設 参考プラン 改案 — 3Dウォークスルー',
+    doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー', doc3: '土屋建設 参考プラン — 3Dウォークスルー', doc4: '土屋建設 参考プラン 改案 — 3Dウォークスルー', doc5: '倶知安 住宅計画 プランB 縮小版 — 3D',
+    geo5: 'プランB 縮小版：プランB（2階建て・片流れ屋根）をコンパクトにしてコストを抑えた案です。8.19×13.65mの長方形の総2階（910mmモジュールで9×15）、片流れ屋根1枚（北側が高い）、外部階段・2階の外部出入口・吹抜けなし、直階段1本。1階（天井高2.8m）：南側にジム、中央に玄関・ホール・スキー/ブーツ室・トイレ・洗濯/機械室、北側に温泉（ひのき浴槽2つの浴室・サウナ・脱衣室・休憩室）。2階：北側の屋根の高い側にリビング・ダイニング、中央にキッチンと水まわり（1階の水まわりの上）、南側に寝室3室（主寝室はウォークインクローゼット・専用シャワー室付き）。ユニットバスは使いません。3Dは確認用の簡易表示です。「間取りを編集」で壁を動かせます。',
     geo4: '土屋建設の参考プランの改案：母屋を東側（旧風除室・物置の位置）まで延ばし、3層とも10.9×7.3m、片流れ屋根（4/10勾配・北側が高い）は同じです。1階（天井高2.8m）：ジム、ひのき浴槽2つとウォークインシャワーの浴室、サウナ、脱衣・休憩室、トイレ、機械室、カーポート側の玄関。2階：北側にLDK（リビングは吹抜け・薪ストーブ）、寝室1室（ウォークインクローゼット・専用シャワー室付き）、洗濯室。ロフト：天井高を取れる北側に寝室2室。ユニットバスは使わず、シャワーユニットのみ。仕上げはイメージで、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
     geo3: '土屋建設の参考住宅プラン（図面PDFのCAD寸法どおり）：2階建て＋ロフト、片流れ屋根1枚（4/10勾配・北側が高い）、リビングは吹抜け、窓・扉・階段は図面どおり。仕上げはパンフレットのイメージ（赤松の床・白い壁・梁）に近づけていますが、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
     help: '<h3>操作方法</h3>'
@@ -88,7 +98,9 @@ const TXT = {
   },
   en: {
     title: 'Kutchan house', h1: 'Plan A', h2: 'Plan B', h3: 'Tsuchiya ref.',
-    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", h4: 'Tsuchiya rev.', h4t: 'Revision of the Tsuchiya plan: gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms', hsegt: 'Plans A + B (the Kutchan house), the Tsuchiya Kensetsu reference house and its revision',
+    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", h4: 'Tsuchiya rev.', h4t: 'Revision of the Tsuchiya plan: gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms', hsegt: 'Plans A + B (the Kutchan house), the Tsuchiya Kensetsu reference house and its revision, Plan B compact',
+    h5: 'Plan B compact', h5t: 'Plan B compact: the compact, cheaper version of Plan B (8.2 x 13.7 m box on 2 floors: gym + onsen 1F, LDK + 3 bedrooms 2F)',
+    origt5: 'Show Plan B compact as first drawn (your edits stay saved)',
     edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: "Show Tsuchiya Kensetsu's original drawings (your edits stay saved)", loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
@@ -105,7 +117,8 @@ const TXT = {
     fov: 'FIELD OF VIEW', fovt: "Measured across the screen's long side", speed: 'SPEED', wide: 'Wide', narrow: 'Narrow', widet: 'Wide angle (90°)', narrowt: 'Narrow / zoom (50°)',
     hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
     loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
-    doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough', doc3: 'Tsuchiya Kensetsu reference house — 3D walkthrough', doc4: 'Tsuchiya Kensetsu reference house, revised — 3D walkthrough',
+    doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough', doc3: 'Tsuchiya Kensetsu reference house — 3D walkthrough', doc4: 'Tsuchiya Kensetsu reference house, revised — 3D walkthrough', doc5: 'Kutchan house — Plan B compact — 3D',
+    geo5: "Plan B compact: the compact, cheaper version of Plan B (2 floors under one sloped roof). One simple 8.19 x 13.65 m rectangle on both floors (9 x 15 modules of 910 mm) under one mono-pitch roof, high on the north; no outside stair, no 2F outside door, no void, one straight stair. 1F (2.8 m ceilings): gym on the south side; entrance, hall, ski + boot room, WC, laundry + plant room in the middle; onsen on the north side (bath with two hinoki tubs, sauna, changing room, rest lounge). 2F: living + dining under the high side of the roof, kitchen and the wet rooms in the middle (over the 1F wet rooms), three bedrooms along the south (the master with a walk-in closet and an ensuite). No unit baths. The 3D is a quick check, not a finished walkthrough. 'Edit plan' lets you move the walls.",
     geo4: "A revision of Tsuchiya Kensetsu's reference house: the main block runs east over the old porch and storage, so all three levels are 10.9 x 7.3 m, under the same sloped roof (4/10 pitch, high on the north). 1F (2.8 m ceilings): gym, a bath with two hinoki tubs and a walk-in shower, sauna, changing + rest room, WC, plant room and the entrance facing the carport. 2F: living, dining and kitchen along the north side (the living double height, with the wood stove), one bedroom with a walk-in closet and an ensuite shower room, laundry. Loft: two bedrooms in the north strip, where the roof is high enough. No unit baths, shower units only. Finishes are indicative only. 'Edit plan' lets you move the walls.",
     geo3: "Tsuchiya Kensetsu's reference house, built from the CAD dimensions in their drawings: 2 floors + a loft under one sloped roof (4/10 pitch, high on the north), double-height living room, every window, door and stair as drawn. Finishes follow their brochure loosely (red pine floors, white walls, timber beams) and are indicative only. 'Edit plan' lets you move the walls.",
     help: '<h3>How to move</h3>'
@@ -147,7 +160,7 @@ const JA_NAMES = {
   '1F — Wash room + bath': '1F — 洗面所・浴室', '1F — Porch': '1F — 風除室', '2F — Living, stove corner': '2F — リビング（薪ストーブ側）',
   '2F — Kitchen + dining': '2F — キッチン・ダイニング', '2F — From the dining table': '2F — ダイニングから', '2F — Veranda room': '2F — 広縁',
   '2F — Hall, ensuite door': '2F — ホール・専用バスルーム', '2F — Top of the stairs': '2F — 階段の上', 'Loft': 'ロフト', 'Loft — over the void': 'ロフト — 吹抜けを見下ろす',
-  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', '1F — Changing + rest room': '1F — 脱衣・休憩室', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
+  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', 'Outside — north-east': '外観 — 北東', '1F — Changing + rest room': '1F — 脱衣・休憩室', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
   '2F — Living (north glass, stove)': '2F — リビング（北側の大開口・薪ストーブ）', '2F — Dining + loft stair': '2F — ダイニング・ロフトへの階段', '2F — Bedroom': '2F — 寝室',
   '2F — Ensuite': '2F — 専用シャワー室', 'Loft — Hall, top of the stairs': 'ロフト — ホール（階段の上）', 'Loft — Bedroom A': 'ロフト — 寝室A', 'Loft — Bedroom B': 'ロフト — 寝室B',
 };
@@ -444,8 +457,8 @@ function buildMaterials() {
     MAT.siding = pbr('charred_cedar', 1.13, { env: 0.85, rough: 1.0, color: [0.5, 0.5, 0.5], maps: { nor: 'japanese_cedar_planks' }, nScale: 1.6,
       macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
     MAT.clad = MAT.siding;                         /* lighter, horizontal siding (the elevations) */
-    if (HOUSE === 4) {
-      /* house 4 gym: dark rubber sports flooring (the worn concrete scan, dark, matt: reads as EPDM granules) */
+    if (HOUSE >= 4) {
+      /* house 4 + 5 gym: dark rubber sports flooring (the worn concrete scan, dark, matt: reads as EPDM granules) */
       MAT.rubber = pbr('concrete_floor_worn_001', 1.4, { env: IN, color: [1.0, 1.02, 1.08], rough: 1.0, nScale: 0.35 });
     }
   }
@@ -697,6 +710,22 @@ function wallRun(G, w, lvl, L) {
     const s = Math.max(o.off, cur), e = Math.min(o.off + o.w, runEnd);
     if (e <= s) continue;
     if (s > cur) { solid(cur, s, yB, yT); skirt(Math.max(cur, 0), Math.min(s, len)); }
+    /* house 5 (plan c): openings stacked over the same span (the north FIX
+       pairs on the top floor) are cut one above the other, wall between them */
+    const stack = HOUSE === 5 ? ops.filter(q => q !== o && Math.abs(q.off - o.off) < 1e-4 && Math.abs(q.w - o.w) < 1e-4) : [];
+    if (stack.length) {
+      let y = yB;
+      for (const q of [o, ...stack].sort((p, r) => p.bottom - r.bottom)) {
+        const qb = L.base + Math.min(q.bottom, hIn);
+        const qt = !roof ? L.base + Math.min(q.top, hIn) : (q.full ? Infinity : Math.min(L.base + Math.min(q.top, hIn), roofMin(s, e) - ROOF_HEAD));
+        if (qb > y + 0.01) { solid(s, e, y, qb); if (y === yB) skirt(s, e); }
+        opening(G, q, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot: qb, top: qt, ext, own });
+        y = Math.max(y, qt);
+      }
+      if (y < yT - 0.01) solid(s, e, y, yT);
+      cur = Math.max(cur, e);
+      continue;
+    }
     const bot = L.base + Math.min(o.bottom, hIn);
     /* under house 2's roof: an FPC style-2 hole is open to the ceiling; any
        other opening keeps its drawn head unless the roof comes down past it */
@@ -2535,19 +2564,19 @@ function setupLabels3() {
   LABELS3.length = 0;
   LV.forEach((L, i) => { for (const f of L.faces) if (f.anchored && f.name && f.floor !== 'void') LABELS3.push([i, f.label[0], f.label[1], f.name, f.ja]); });
 }
-const LIT3 = HOUSE === 4 ? /bedroom|living|hall|entrance|gym|changing|bath|sauna/i : /bedroom|living|loft|veranda|hall|entrance|porch/i;
+const LIT3 = HOUSE === 4 ? /bedroom|living|hall|entrance|gym|changing|bath|sauna/i : HOUSE === 5 ? /bedroom|living|hall|corridor|entrance|gym|changing|bath|sauna|lounge|kitchen/i : /bedroom|living|loft|veranda|hall|entrance|porch/i;
 function lights3() {
   LV.forEach((L, i) => {
     for (const f of L.faces) {
       if (f.floor === 'void' || !f.anchored || f.area < 1.0) continue;
       const [x, z] = f.label, y = ceilAt3(x, z, i);
-      const lit = LIT3.test(f.name) && f.area > (HOUSE === 4 ? 2 : 3);
+      const lit = LIT3.test(f.name) && f.area > (HOUSE >= 4 ? 2 : 3);
       const sloped = !(LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0)) && y !== L.base + L.h;
       const q = new THREE.Quaternion();
       const r = ROOFS3.find(rr => x > rr.rect[0] && x < rr.rect[2] && z > rr.rect[1] && z < rr.rect[3]);
       if (sloped && r) q.setFromUnitVectors(new V(0, 0, 1), r.n.clone().negate()); else q.setFromUnitVectors(new V(0, 0, 1), new V(0, -1, 0));
       if (lit) { const pl = new THREE.PointLight(0xffdcb0, f.area > 20 ? 8 : 5, 9, 1.5); pl.position.set(x, y - 0.3, z); G.furn[i].add(pl); }
-      const yl = y - (HOUSE === 4 && f.floor === 'hinoki' ? 0.021 : 0);
+      const yl = y - (HOUSE >= 4 && f.floor === 'hinoki' ? 0.021 : 0);
       const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow); lens.quaternion.copy(q); lens.position.set(x, yl - 0.004, z); G.furn[i].add(lens);
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white); ring.quaternion.copy(q); ring.position.set(x, yl - 0.003, z); G.furn[i].add(ring);
     }
@@ -2555,6 +2584,7 @@ function lights3() {
   /* pendants over the island and the dining table */
   for (let i = 0; i < LV.length; i++) for (const f of LV[i].furniture) {
     if (f.name !== 'table' && f.name !== 'island') continue;
+    if (HOUSE === 5 && f.top < 0.6) continue;           /* plan c: none over the coffee / side tables */
     const along = f.name === 'table' ? [-0.5, 0.5] : [-0.6, 0.6];
     for (const dx of along) {
       const px = f.x + dx * Math.cos(f.a), pz = f.y + dx * Math.sin(f.a);
@@ -2568,7 +2598,7 @@ function lights3() {
 }
 function decorate3() {
   const li = 1, L = LV[li];
-  if (!L) return;
+  if (!L || HOUSE === 5) return;                                       /* plan c: the model's own pieces only (its coffee table too) */
   const sofa = L.furniture.find(f => f.name === 'sofa');
   if (sofa) placeModel(G.furn[li], 'coffee', sofa.x, L.base, sofa.y - 0.95, 0, 1);
   if (HOUSE === 4) {
@@ -2652,7 +2682,7 @@ function buildHouse3(plan) {
     for (const w of L.walls) wallRun(GL, w, i, L);
     for (const f of L.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base; G.furn[i].add(p); } }
   });
-  if (HOUSE === 4) lineRooms3();
+  if (HOUSE >= 4) lineRooms3();
   setupLabels3();
   LV.forEach((L, i) => buildLabels(i));
   buildStairs3(plan.stairs3 || []);
@@ -2702,6 +2732,11 @@ const VIEWS4 = [
   ['Loft — Hall, top of the stairs', 2.272, -3.264, 3.14, -0.35, 2],
   ['Loft — Bedroom A', 5.35, -3.264, 2.59, -0.1, 2],
   ['Loft — Bedroom B', 1.45, -3.264, 2.65, -0.1, 2],
+];
+/* house 5 presets (Plan B compact; model coordinates: x east, z south, the box centred) */
+const VIEWS5 = [
+  ['Outside — north-east', 11.5, -15.5, 2.5, 0.06, null, 2.6],
+  ['Doll-house from above', 0.0, 3.6, 0.0, -1.38, null, 18.4],
 ];
 /* Collapse single-material static meshes into one mesh per material. */
 function mergeStatic(group) {
@@ -2785,7 +2820,7 @@ const VIEWS2 = [
   ['2F — Bedroom 3', -2.5, 0.5, -0.9, 0.05, 1],
   ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
 ];
-const VIEWS = HOUSE === 4 ? VIEWS4 : H3 ? VIEWS3 : HOUSE === 2 ? VIEWS2 : VIEWS1;
+const VIEWS = HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : H3 ? VIEWS3 : HOUSE === 2 ? VIEWS2 : VIEWS1;
 
 /* ---------------------------------------------------------------- controls */
 const st = {
@@ -2793,7 +2828,7 @@ const st = {
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
-const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : HOUSE === 4 ? new V(0.9, 3.8, 0) : H3 ? new V(1.0, 3.5, 0.5) : new V(-4, 3, -5);
+const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 ? new V(0, 4.0, 0) : H3 ? new V(1.0, 3.5, 0.5) : new V(-4, 3, -5);
 const act = new Set();
 const KEYMAP = {
   KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',
@@ -3035,7 +3070,7 @@ function bindUI() {
   $('spd').oninput = (e) => { st.speed = +e.target.value * 0.75; };
   $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
   /* house switcher: each house is its own page load (?house=2) */
-  for (const h of [1, 2, 3, 4]) {
+  for (const h of [1, 2, 3, 4, 5]) {
     const b = $('bH' + h); if (!b) continue;
     b.classList.toggle('on', h === HOUSE);
     b.onclick = () => { if (h !== HOUSE) location.href = location.pathname + (h > 1 ? '?house=' + h : ''); };
@@ -3117,8 +3152,9 @@ function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(e => { const v = T(e.dataset.i18n); if (typeof v === 'string') e.textContent = v; });
   document.querySelectorAll('[data-i18n-title]').forEach(e => { const v = T(e.dataset.i18nTitle); if (typeof v === 'string') e.title = v; });
   const hb = $('helpBody'); if (hb) hb.innerHTML = T('help');
-  const geo = $('helpGeo'); if (geo) geo.textContent = T(HOUSE === 4 ? 'geo4' : H3 ? 'geo3' : HOUSE === 2 ? 'geo2' : 'geo1');
-  document.title = T(HOUSE === 4 ? 'doc4' : H3 ? 'doc3' : HOUSE === 2 ? 'doc2' : 'doc1');
+  const geo = $('helpGeo'); if (geo) geo.textContent = T(HOUSE === 5 ? 'geo5' : HOUSE === 4 ? 'geo4' : H3 ? 'geo3' : HOUSE === 2 ? 'geo2' : 'geo1');
+  document.title = T(HOUSE === 5 ? 'doc5' : HOUSE === 4 ? 'doc4' : H3 ? 'doc3' : HOUSE === 2 ? 'doc2' : 'doc1');
+  const bo = $('bOrig'); if (bo && HOUSE === 5) bo.title = T('origt5');
   const sb = $('srcBadge'); if (sb) { sb.hidden = !(H3 && MODEL_SRC !== 'original'); sb.textContent = MODEL_SRC === 'link' ? T('srcLink') : T('srcEdited'); }
   if (LV.length) {
     fillJump();
