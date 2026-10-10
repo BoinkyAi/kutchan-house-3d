@@ -14,6 +14,7 @@
      items[] { id, kind, x, y, w, d, a, ... } }
    stairs[] { id, from (level index), treads[] (polygons, bottom step first) }
    roofs[] { id, levels[], rect:[x0,y0,x1,y1], over{n,s,e,w}, y0, h0, k, th, low:'s', posts? }
+   wallsUp? (opt-in): partitions with no floor above run up to the floor above / the roof
 
    Rooms are not stored as outlines: they are the faces of the planar graph of
    the walls' reference lines, so moving a wall reshapes every room it bounds. */
@@ -286,6 +287,7 @@ export function toPlan(model) {
   const holes = levels.map(() => []);
   for (const s of model.stairs || []) if (levels[s.from + 1]) for (const t of s.treads) holes[s.from + 1].push(t);
 
+  const joinsUp = model.wallsUp ? levels.map((L, li) => levels[li + 1] ? joins(levels[li + 1].walls || []) : null) : [];
   levels.forEach((L, li) => {
     const G = LG[li], next = levels[li + 1];
     const wallTopExt = next ? next.base - L.base : L.h;
@@ -351,6 +353,76 @@ export function toPlan(model) {
           runs.splice(k, 1, { c: r.c, s0: r.s0, s1: c }, { c: r.c, s0: c, s1: r.s1 });
         }
       }
+      /* model.wallsUp (opt-in, the revised plan): a partition with no floor
+         above it on one side runs up to the floor above; with none on either
+         side (rooms under a sloped ceiling) it runs on up to the roof, except
+         where a wall of the floor above stands on it. Runs are split where
+         that changes, at the exact lines / wall faces above. */
+      if (model.wallsUp && next) {
+        const GU = LG[li + 1], JN = joinsUp[li], NW = next.walls || [];
+        const dq = Math.max(Math.abs(fr.q0), Math.abs(fr.q1)) + 0.05, qc = (fr.q0 + fr.q1) / 2;
+        const openUp = (s, sg) => {
+          const p = add(add(w.a, mul(fr.u, s)), mul(fr.n, sg * dq)), f = faceAt(GU, p[0], p[1]);
+          return !f || !!(f.room && f.room.floor === 'void');
+        };
+        const covered = (s) => {
+          const c = add(add(w.a, mul(fr.u, s)), mul(fr.n, qc));
+          return NW.some((v, vi) => {
+            if (!(v.t > 0)) return false;
+            const f = JN.F[vi], r = sub(c, v.a), t = dot(r, f.u), q = dot(r, f.n);
+            return t > -JN.ext[vi][0] + 1e-3 && t < f.L + JN.ext[vi][1] - 1e-3 && q > f.q0 + 1e-3 && q < f.q1 - 1e-3;
+          });
+        };
+        /* where the answer can change: this floor's junctions, the floor
+           above's lines crossing / ending on this one, its wall bodies' ends */
+        const ju = juncs.slice();
+        NW.forEach((v, vi) => {
+          for (const p of [v.a, v.b]) { const r = sub(p, w.a); if (Math.abs(cross(fr.u, r)) < 2e-3) ju.push(dot(r, fr.u)); }
+          const e = sub(v.b, v.a), den = cross(fr.u, e);
+          if (Math.abs(den) > 1e-9) { const r = sub(v.a, w.a), tv = cross(r, fr.u) / den; if (tv > -1e-6 && tv < 1 + 1e-6) ju.push(cross(r, e) / den); }
+          if (v.t > 0) {
+            const f = JN.F[vi];
+            for (const sv of [-JN.ext[vi][0], f.L + JN.ext[vi][1]]) for (const q of [f.q0, f.q1]) ju.push(dot(sub(add(add(v.a, mul(f.u, sv)), mul(f.n, q)), w.a), fr.u));
+          }
+        });
+        /* a partition across a flight from this floor (at its top or foot) stays
+           storey height: the stair passes over it, a raised top would be a lip */
+        const across = (model.stairs || []).filter(st => st.from === li && st.treads.length > 1).map(st => {
+          const cen = (t) => t.reduce((a, p) => [a[0] + p[0] / t.length, a[1] + p[1] / t.length], [0, 0]);
+          const d = sub(cen(st.treads[st.treads.length - 1]), cen(st.treads[0]));
+          return { u: mul(d, 1 / (len(d) || 1)), treads: st.treads };
+        }).filter(st => Math.abs(dot(st.u, fr.u)) < 0.3);
+        const overTread = (s) => across.some(st => st.treads.some(t => [fr.q0 + 0.005, qc, fr.q1 - 0.005].some(q => {
+          const p = add(add(w.a, mul(fr.u, s)), mul(fr.n, q)); return inPoly(t, p[0], p[1]);
+        })));
+        const split = [];
+        for (const run of runs) {
+          if (run.c !== 0) { split.push(run); continue; }
+          const m = Math.max(2, Math.ceil((run.s1 - run.s0) / 0.025)), cat = [];
+          for (let k = 0; k < m; k++) {
+            const s = run.s0 + (k + 0.5) / m * (run.s1 - run.s0);
+            let c = (openUp(s, 1) ? 1 : 0) + (openUp(s, -1) ? 1 : 0);
+            if (c === 2 && covered(s)) c = 1;
+            if (c && overTread(s)) c = 0;
+            cat.push(c);
+          }
+          let cur = null;
+          for (let k = 0; k < m; k++) {
+            const a = run.s0 + k / m * (run.s1 - run.s0), b = run.s0 + (k + 1) / m * (run.s1 - run.s0);
+            if (cur && cur.up === cat[k]) { cur.s1 = b; continue; }
+            let s0 = a;
+            if (cur) {
+              let best = null;
+              for (const j of ju) if (Math.abs(j - a) < 0.04 && (best === null || Math.abs(j - a) < Math.abs(best - a))) best = j;
+              if (best !== null && best > cur.s0 + 1e-3 && best < b - 1e-3) s0 = best;
+              cur.s1 = s0;
+            }
+            cur = { c: 0, s0, s1: b, up: cat[k] };
+            split.push(cur);
+          }
+        }
+        runs.length = 0; runs.push(...split);
+      }
       runs.forEach((run, ri) => {
         const first = ri === 0, last = ri === runs.length - 1;
         const sA = first ? -e0 : run.s0, sB = last ? fr.L + e1 : run.s1;
@@ -374,7 +446,8 @@ export function toPlan(model) {
           /* 1F partition with a single-storey room on one side (porch, storage):
              nothing rests on it there, so it runs up to the roof like an outside wall */
           let top = 0;
-          if (li === 0 && next) {
+          if (model.wallsUp && next) { if (run.up === 2 && li > 0) top = r4(wallTopExt + next.h); else if (run.up) top = wallTopExt; }
+          else if (li === 0 && next) {
             const GU = LG[li + 1], sm = (sA + sB) / 2;
             for (const sg of [1, -1]) {
               const p = add(add(w.a, mul(fr.u, sm)), mul(fr.n, sg * (Math.max(Math.abs(fr.q0), Math.abs(fr.q1)) + 0.05)));
@@ -439,7 +512,8 @@ export function toPlan(model) {
 export function itemToProp(it) {
   const p = { name: it.kind, x: it.x, y: it.y, w: it.w, d: it.d, a: it.a || 0, top: 0, bottom: 0, colors: [], treads: 0, rot: 0, id: it.id };
   const H = { bed: 0.92, desk: 0.72, chair: 0.8, closet: 2.3, ub: 2.1, vanity: 0.85, toilet: 0.8, washer: 0.9, dryer: 1.75, rail: 1.95, shelves: 2.1,
-    sofa: 0.8, rugRound: 0.01, stove: 0.75, table: 0.72, bench: 0.44, island: 0.9, tall: 2.3, fridge: 1.8, post: 2.6, beam: 2.665, shower: 2.1, wardrobe: 1.9 };
+    sofa: 0.8, rugRound: 0.01, stove: 0.75, table: 0.72, bench: 0.44, island: 0.9, tall: 2.3, fridge: 1.8, post: 2.6, beam: 2.665, shower: 2.1, wardrobe: 1.9,
+    gymRack: 2.3, treadmill: 1.45, gymBench: 0.45, mat: 0.01, saunaBench: 0.45, saunaHeater: 0.75, tube: 0.6, railing: 1.1 };
   p.top = it.h || H[it.kind] || 0.8;
   for (const k of ['chaise', 'hearth', 'depth', 'leaves']) if (it[k] !== undefined) p[k] = it[k];
   if (it.top !== undefined) p.topMode = it.top;
@@ -466,13 +540,14 @@ export async function unpackModel(s) {
   return JSON.parse(txt);
 }
 export const STORE_KEY = 'h3dRefModel';
-/* the model to show: a shared link (#m=) wins, then the editor's saved copy, then the original */
-export async function loadModel(defaultUrl) {
+/* the model to show: a shared link (#m=) wins, then the editor's saved copy
+   (localStorage[storeKey]: one per built-in plan), then the original */
+export async function loadModel(defaultUrl, storeKey) {
   const hash = location.hash.match(/[#&]m=([^&]+)/);
   if (hash) { try { return { model: await unpackModel(hash[1]), from: 'link' }; } catch (e) { console.warn('bad #m', e); } }
   const q = new URLSearchParams(location.search);
   if (!q.has('orig')) {
-    try { const s = localStorage.getItem(STORE_KEY); if (s) return { model: JSON.parse(s), from: 'edited' }; } catch (e) { /* private mode */ }
+    try { const s = localStorage.getItem(storeKey || STORE_KEY); if (s) return { model: JSON.parse(s), from: 'edited' }; } catch (e) { /* private mode */ }
   }
   const r = await fetch(defaultUrl);
   return { model: await r.json(), from: 'original' };

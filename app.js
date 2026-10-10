@@ -17,7 +17,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toPlan, loadModel } from './refplan.js?v=2';
+import { toPlan, loadModel } from './refplan.js?v=3';
 
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
@@ -39,11 +39,14 @@ const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
    ?house=2 opens house 2; the switcher reloads with it, so each house is
    built from a clean start (house 1 renders exactly as it did before). */
 const _qHouse = new URLSearchParams(location.search).get('house');
-const HOUSE = _qHouse === '2' ? 2 : _qHouse === '3' ? 3 : 1;
+const HOUSE = _qHouse === '2' ? 2 : _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : 1;
 /* house 3 = Tsuchiya Kensetsu's reference house plan: built
    from the editable model (ref-model.json, or the plan editor's saved copy /
-   a shared #m= link) through refplan.js */
-const H3 = HOUSE === 3;
+   a shared #m= link) through refplan.js. House 4 = its revision (Toby
+   2026-10-10: gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms;
+   ref-model-b.json, the editor's ?plan=b) on the same code path. */
+const H3 = HOUSE === 3 || HOUSE === 4;
+const REF = HOUSE === 4 ? { url: 'ref-model-b.json?v=1', key: 'h3dRefModelB', edit: 'edit.html?plan=b' } : { url: 'ref-model.json?v=1', key: 'h3dRefModel', edit: 'edit.html' };
 /* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
    ?lang=en|ja overrides; the choice is remembered in localStorage. */
 const _qLang = new URLSearchParams(location.search).get('lang');
@@ -51,7 +54,7 @@ let LANG = (_qLang === 'en' || _qLang === 'ja') ? _qLang : (localStorage.getItem
 const TXT = {
   ja: {
     title: '倶知安 住宅計画', h1: 'プランA', h2: 'プランB', h3: '土屋 参考プラン',
-    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', hsegt: 'プランA・B（倶知安の計画）と土屋建設の参考プラン',
+    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', h4: '土屋 改案', h4t: '土屋参考プランの改案：1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2', hsegt: 'プランA・B（倶知安の計画）と土屋建設の参考プラン・改案',
     edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: '土屋建設の元の図面を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
@@ -68,7 +71,8 @@ const TXT = {
     fov: '画角', fovt: '画面の長辺方向の角度', speed: '速度', wide: '広角', narrow: '望遠', widet: '広角（90°）', narrowt: '望遠（50°）',
     hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
     loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
-    doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー', doc3: '土屋建設 参考プラン — 3Dウォークスルー',
+    doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー', doc3: '土屋建設 参考プラン — 3Dウォークスルー', doc4: '土屋建設 参考プラン 改案 — 3Dウォークスルー',
+    geo4: '土屋建設の参考プランの改案：母屋を東側（旧風除室・物置の位置）まで延ばし、3層とも10.9×7.3m、片流れ屋根（4/10勾配・北側が高い）は同じです。1階（天井高2.8m）：ジム、ひのき浴槽2つとウォークインシャワーの浴室、サウナ、脱衣・休憩室、トイレ、機械室、カーポート側の玄関。2階：北側にLDK（リビングは吹抜け・薪ストーブ）、寝室1室（ウォークインクローゼット・専用シャワー室付き）、洗濯室。ロフト：天井高を取れる北側に寝室2室。ユニットバスは使わず、シャワーユニットのみ。仕上げはイメージで、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
     geo3: '土屋建設の参考住宅プラン（図面PDFのCAD寸法どおり）：2階建て＋ロフト、片流れ屋根1枚（4/10勾配・北側が高い）、リビングは吹抜け、窓・扉・階段は図面どおり。仕上げはパンフレットのイメージ（赤松の床・白い壁・梁）に近づけていますが、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
     help: '<h3>操作方法</h3>'
       + '<b>キー</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 前・左・後ろ・右へ移動 ・ <kbd>E</kbd>/<kbd>Q</kbd> 上の階・下の階へ（飛行モードでは上昇・下降） ・ <kbd>Shift</kbd> 走る<br>'
@@ -84,7 +88,7 @@ const TXT = {
   },
   en: {
     title: 'Kutchan house', h1: 'Plan A', h2: 'Plan B', h3: 'Tsuchiya ref.',
-    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", hsegt: 'Plans A + B (the Kutchan house) and the Tsuchiya Kensetsu reference house',
+    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", h4: 'Tsuchiya rev.', h4t: 'Revision of the Tsuchiya plan: gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms', hsegt: 'Plans A + B (the Kutchan house), the Tsuchiya Kensetsu reference house and its revision',
     edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: "Show Tsuchiya Kensetsu's original drawings (your edits stay saved)", loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
@@ -101,7 +105,8 @@ const TXT = {
     fov: 'FIELD OF VIEW', fovt: "Measured across the screen's long side", speed: 'SPEED', wide: 'Wide', narrow: 'Narrow', widet: 'Wide angle (90°)', narrowt: 'Narrow / zoom (50°)',
     hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
     loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
-    doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough', doc3: 'Tsuchiya Kensetsu reference house — 3D walkthrough',
+    doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough', doc3: 'Tsuchiya Kensetsu reference house — 3D walkthrough', doc4: 'Tsuchiya Kensetsu reference house, revised — 3D walkthrough',
+    geo4: "A revision of Tsuchiya Kensetsu's reference house: the main block runs east over the old porch and storage, so all three levels are 10.9 x 7.3 m, under the same sloped roof (4/10 pitch, high on the north). 1F (2.8 m ceilings): gym, a bath with two hinoki tubs and a walk-in shower, sauna, changing + rest room, WC, plant room and the entrance facing the carport. 2F: living, dining and kitchen along the north side (the living double height, with the wood stove), one bedroom with a walk-in closet and an ensuite shower room, laundry. Loft: two bedrooms in the north strip, where the roof is high enough. No unit baths, shower units only. Finishes are indicative only. 'Edit plan' lets you move the walls.",
     geo3: "Tsuchiya Kensetsu's reference house, built from the CAD dimensions in their drawings: 2 floors + a loft under one sloped roof (4/10 pitch, high on the north), double-height living room, every window, door and stair as drawn. Finishes follow their brochure loosely (red pine floors, white walls, timber beams) and are indicative only. 'Edit plan' lets you move the walls.",
     help: '<h3>How to move</h3>'
       + '<b>Keys</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk forward / left / back / right · <kbd>E</kbd>/<kbd>Q</kbd> up / down a floor (in Fly: rise / sink) · <kbd>Shift</kbd> run<br>'
@@ -142,6 +147,9 @@ const JA_NAMES = {
   '1F — Wash room + bath': '1F — 洗面所・浴室', '1F — Porch': '1F — 風除室', '2F — Living, stove corner': '2F — リビング（薪ストーブ側）',
   '2F — Kitchen + dining': '2F — キッチン・ダイニング', '2F — From the dining table': '2F — ダイニングから', '2F — Veranda room': '2F — 広縁',
   '2F — Hall, ensuite door': '2F — ホール・専用バスルーム', '2F — Top of the stairs': '2F — 階段の上', 'Loft': 'ロフト', 'Loft — over the void': 'ロフト — 吹抜けを見下ろす',
+  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', '1F — Changing + rest room': '1F — 脱衣・休憩室', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
+  '2F — Living (north glass, stove)': '2F — リビング（北側の大開口・薪ストーブ）', '2F — Dining + loft stair': '2F — ダイニング・ロフトへの階段', '2F — Bedroom': '2F — 寝室',
+  '2F — Ensuite': '2F — 専用シャワー室', 'Loft — Hall, top of the stairs': 'ロフト — ホール（階段の上）', 'Loft — Bedroom A': 'ロフト — 寝室A', 'Loft — Bedroom B': 'ロフト — 寝室B',
 };
 const NM = (en) => (LANG === 'ja' && JA_NAMES[en]) ? JA_NAMES[en] : en;
 
@@ -436,6 +444,10 @@ function buildMaterials() {
     MAT.siding = pbr('charred_cedar', 1.13, { env: 0.85, rough: 1.0, color: [0.5, 0.5, 0.5], maps: { nor: 'japanese_cedar_planks' }, nScale: 1.6,
       macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
     MAT.clad = MAT.siding;                         /* lighter, horizontal siding (the elevations) */
+    if (HOUSE === 4) {
+      /* house 4 gym: dark rubber sports flooring (the worn concrete scan, dark, matt: reads as EPDM granules) */
+      MAT.rubber = pbr('concrete_floor_worn_001', 1.4, { env: IN, color: [1.0, 1.02, 1.08], rough: 1.0, nScale: 0.35 });
+    }
   }
 }
 
@@ -2156,7 +2168,7 @@ function buildSite2() {
    come pre-joined (exterior runs: a-b on the inner face, n out; caps at the
    corners they own), stairs are tread polygons, roofs are planes. */
 let ROOFS3 = [];
-const FLOORMAT3 = () => ({ oak: MAT.pine, tile: MAT.greyTile, stone: MAT.entranceStone, concrete: MAT.concrete });
+const FLOORMAT3 = () => ({ oak: MAT.pine, tile: MAT.greyTile, stone: MAT.entranceStone, concrete: MAT.concrete, granite: MAT.granite, hinoki: MAT.hinoki, rubber: MAT.rubber || MAT.concrete });
 function mkRoof3(r) {
   /* underside (ceiling) plane: h0 at plan y = y0 (the low edge), rising k per
      metre away from it (low on the south: y grows to the south) */
@@ -2315,6 +2327,64 @@ function makeProp3(s, lvl) {
       const hd = mk(g, CY(0.08, 0.02, 20), MAT.steel, 0, 1.92, -d / 2 + 0.15); hd.rotation.x = Math.PI / 2;
       break;
     }
+    /* ---- house 4 (the revised plan): gym + sauna pieces */
+    case 'gymRack': {                                  /* power rack: 4 black steel uprights, top frame, safety arms, a loaded bar on the hooks (front = local +y) */
+      const p = 0.06, hx = w / 2 - p / 2, hz = d / 2 - p / 2;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(p, top, p), MAT.blackSteel, sx * hx, top / 2, sz * hz);
+      for (const sz of [-1, 1]) mk(g, B(w, p, p), MAT.blackSteel, 0, top - p / 2, sz * hz);
+      for (const sx of [-1, 1]) mk(g, B(p, p, d - 2 * p), MAT.blackSteel, sx * hx, top - p / 2, 0);
+      for (const sz of [-1, 1]) mk(g, B(w, 0.05, p), MAT.blackSteel, 0, 0.025, sz * hz);
+      for (const sx of [-1, 1]) mk(g, B(0.05, 0.05, d + 0.1), MAT.steel, sx * (hx - 0.055), 0.6, 0.05);          /* safety arms */
+      for (const sx of [-1, 1]) mk(g, B(0.05, 0.06, 0.1), MAT.steel, sx * (hx - 0.055), 1.3, hz - 0.02);        /* J-hooks */
+      const bar = mk(g, CY(0.014, w + 0.5, 12), MAT.steel, 0, 1.36, hz - 0.03); bar.rotation.z = Math.PI / 2;
+      for (const sx of [-1, 1]) for (const [o, r] of [[0.02, 0.225], [0.075, 0.16]]) { const pl = mk(g, CY(r, 0.045, 32), MAT.black, sx * (hx + 0.05 + o), 1.36, hz - 0.03); pl.rotation.z = Math.PI / 2; }
+      break;
+    }
+    case 'treadmill': {                                /* deck + belt, console on two uprights at the head (local -y) */
+      const dh = 0.2;
+      mk(g, B(w, dh, d), MAT.black, 0, dh / 2, 0);
+      mk(g, B(w - 0.2, 0.012, d - 0.3), MAT.screen, 0, dh + 0.006, 0.08);
+      for (const sx of [-1, 1]) {
+        mk(g, B(0.05, 1.15, 0.07), MAT.blackSteel, sx * (w / 2 - 0.05), dh + 0.575, -d / 2 + 0.12);
+        mk(g, B(0.04, 0.04, 0.5), MAT.blackSteel, sx * (w / 2 - 0.05), 1.05, -d / 2 + 0.38);
+      }
+      mk(g, B(w - 0.04, 0.3, 0.12), MAT.blackSteel, 0, 1.3, -d / 2 + 0.12);
+      mk(g, B(w - 0.26, 0.18, 0.01), MAT.screen, 0, 1.31, -d / 2 + 0.185);
+      break;
+    }
+    case 'gymBench': {                                 /* flat bench: padded top on a black steel frame, at `top` */
+      const pad = 0.08;
+      mk(g, RB(w, pad, d, 0.02, MAT.kitchenBlack), MAT.kitchenBlack, 0, top - pad / 2, 0);
+      mk(g, B(w - 0.3, 0.05, 0.06), MAT.blackSteel, 0, top - pad - 0.025, 0);
+      for (const sx of [-1, 1]) {
+        mk(g, B(0.05, top - pad - 0.05, 0.05), MAT.blackSteel, sx * (w / 2 - 0.2), (top - pad - 0.05) / 2, 0);
+        mk(g, B(0.06, 0.04, d + 0.12), MAT.blackSteel, sx * (w / 2 - 0.2), 0.02, 0);
+      }
+      break;
+    }
+    case 'mat': {                                      /* exercise mat, 1 cm */
+      const m = mk(g, B(w, 0.01, d), MAT.kitchenBlack, 0, 0.005, 0); m.castShadow = false;
+      break;
+    }
+    case 'saunaBench': {                               /* sauna bench: hinoki box, seat at `top`, slatted (front = local +y) */
+      mk(g, B(w, top, d, MAT.hinoki), MAT.hinoki, 0, top / 2, 0);
+      const ns = Math.max(2, Math.round(d / 0.1));
+      for (let i = 1; i < ns; i++) mk(g, B(w - 0.02, 0.004, 0.008, MAT.walnut), MAT.walnut, 0, top + 0.001, -d / 2 + d * i / ns);
+      mk(g, B(w - 0.02, 0.06, 0.012, MAT.walnut), MAT.walnut, 0, 0.03, d / 2 + 0.002);                     /* toe recess shadow line */
+      break;
+    }
+    case 'saunaHeater': {                              /* sauna heater: black steel box heaped with stones (house 1's), hinoki guard */
+      mk(g, B(w * 0.85, 0.65, d * 0.85), MAT.heater, 0, 0.325, 0);
+      let sd = 4242;
+      const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 26; i++) {
+        const st = mk(g, new THREE.IcosahedronGeometry(0.045 + rnd() * 0.03, 1), MAT.stones, (rnd() - 0.5) * w * 0.7, 0.69 + rnd() * 0.1, (rnd() - 0.5) * d * 0.7);
+        st.scale.y = 0.7;
+      }
+      for (const [sx, sz, gw, gd] of [[0, 1, w + 0.12, 0.02], [0, -1, w + 0.12, 0.02], [1, 0, 0.02, d + 0.12], [-1, 0, 0.02, d + 0.12]])
+        mk(g, B(gw, 0.09, gd, MAT.hinoki), MAT.hinoki, sx * (w / 2 + 0.06), 0.5, sz * (d / 2 + 0.06));
+      break;
+    }
     default: return undefined;
   }
   g.position.set(s.x, 0, s.y);
@@ -2465,20 +2535,21 @@ function setupLabels3() {
   LABELS3.length = 0;
   LV.forEach((L, i) => { for (const f of L.faces) if (f.anchored && f.name && f.floor !== 'void') LABELS3.push([i, f.label[0], f.label[1], f.name, f.ja]); });
 }
-const LIT3 = /bedroom|living|loft|veranda|hall|entrance|porch/i;
+const LIT3 = HOUSE === 4 ? /bedroom|living|hall|entrance|gym|changing|bath|sauna/i : /bedroom|living|loft|veranda|hall|entrance|porch/i;
 function lights3() {
   LV.forEach((L, i) => {
     for (const f of L.faces) {
       if (f.floor === 'void' || !f.anchored || f.area < 1.0) continue;
       const [x, z] = f.label, y = ceilAt3(x, z, i);
-      const lit = LIT3.test(f.name) && f.area > 3;
+      const lit = LIT3.test(f.name) && f.area > (HOUSE === 4 ? 2 : 3);
       const sloped = !(LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0)) && y !== L.base + L.h;
       const q = new THREE.Quaternion();
       const r = ROOFS3.find(rr => x > rr.rect[0] && x < rr.rect[2] && z > rr.rect[1] && z < rr.rect[3]);
       if (sloped && r) q.setFromUnitVectors(new V(0, 0, 1), r.n.clone().negate()); else q.setFromUnitVectors(new V(0, 0, 1), new V(0, -1, 0));
       if (lit) { const pl = new THREE.PointLight(0xffdcb0, f.area > 20 ? 8 : 5, 9, 1.5); pl.position.set(x, y - 0.3, z); G.furn[i].add(pl); }
-      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow); lens.quaternion.copy(q); lens.position.set(x, y - 0.004, z); G.furn[i].add(lens);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white); ring.quaternion.copy(q); ring.position.set(x, y - 0.003, z); G.furn[i].add(ring);
+      const yl = y - (HOUSE === 4 && f.floor === 'hinoki' ? 0.021 : 0);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow); lens.quaternion.copy(q); lens.position.set(x, yl - 0.004, z); G.furn[i].add(lens);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white); ring.quaternion.copy(q); ring.position.set(x, yl - 0.003, z); G.furn[i].add(ring);
     }
   });
   /* pendants over the island and the dining table */
@@ -2500,10 +2571,63 @@ function decorate3() {
   if (!L) return;
   const sofa = L.furniture.find(f => f.name === 'sofa');
   if (sofa) placeModel(G.furn[li], 'coffee', sofa.x, L.base, sofa.y - 0.95, 0, 1);
+  if (HOUSE === 4) {
+    const s1 = LV[0].furniture.find(f => f.name === 'sofa');           /* rest area: side table in front of the sofa */
+    if (s1) placeModel(G.furn[0], 'side', s1.x - 0.75 * Math.cos(s1.a - Math.PI / 2), LV[0].base, s1.y - 0.75 * Math.sin(s1.a - Math.PI / 2), 0, 1);
+    placeModel(G.furn[li], 'plant', -0.75, L.base, -0.31, 0.4, 1.2);    /* LDK, beside the bedroom door */
+    placeModel(G.furn[0], 'plant', 3.05, LV[0].base, -0.6, 1.1, 1.0);   /* changing room, by the washstand */
+    return;
+  }
   placeModel(G.furn[li], 'plant', -4.15, L.base, 1.3, 0.4, 1.2);
   placeModel(G.furn[0], 'plant', 3.8, LV[0].base, -0.6, 1.1, 1.0);
 }
 
+/* house 4: a room with a hinoki floor (the sauna) is lined with hinoki boards,
+   walls (round its openings) and ceiling */
+function lineRooms3() {
+  const T = 0.014;
+  LV.forEach((L, i) => {
+    for (const f of L.faces) {
+      if (f.floor !== 'hinoki' || !f.anchored) continue;
+      const inF = (x, z) => inside(f.poly, x, z) && !f.holes.some(h => inside(h, x, z));
+      const yb = L.base + (f.dz || 0), yt = ceilAt3(f.label[0], f.label[1], i) - 0.006;
+      for (const w of L.walls) {
+        const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az);
+        if (len < 0.05) continue;
+        const ux = (bx - ax) / len, uz = (bz - az) / len, th = Math.atan2(-uz, ux);
+        const sides = w.kind === 'ext' ? [[-w.n[0], -w.n[1], 0]] : [[-uz, ux, w.t / 2], [uz, -ux, w.t / 2]];
+        for (const [nx, nz, q] of sides) {
+          const N = Math.max(2, Math.ceil(len / 0.05)), spans = [];
+          for (let k = 0; k < N; k++) {
+            const sm = (k + 0.5) / N * len, on = inF(ax + ux * sm + nx * (q + 0.06), az + uz * sm + nz * (q + 0.06));
+            if (!on) continue;
+            const s0 = k / N * len, s1 = (k + 1) / N * len, last = spans[spans.length - 1];
+            if (last && Math.abs(last[1] - s0) < 1e-6) last[1] = s1; else spans.push([s0, s1]);
+          }
+          const board = (s0, s1, y0, y1) => {
+            if (s1 - s0 < 0.02 || y1 - y0 < 0.02) return;
+            const sm = (s0 + s1) / 2, qq = q + T / 2;
+            mk(G.walls[i], B(s1 - s0, y1 - y0, T, MAT.hinoki), MAT.hinoki, ax + ux * sm + nx * qq, (y0 + y1) / 2, az + uz * sm + nz * qq, th);
+          };
+          for (const [s0, s1] of spans) {
+            let cur = s0;
+            for (const o of w.doors.slice().sort((p, r) => p.off - r.off)) {
+              const a = Math.max(cur, o.off), e = Math.min(s1, o.off + o.w);
+              if (e <= a) continue;
+              board(cur, a, yb, yt);
+              if (o.bottom > 0.05) board(a, e, yb, L.base + o.bottom);
+              board(a, e, L.base + Math.min(o.top, yt - L.base), yt);
+              cur = e;
+            }
+            board(cur, s1, yb, yt);
+          }
+        }
+      }
+      const rs = rectsOf(f.poly, f.holes);
+      if (rs.length) slabRects(G.walls[i], rs, yt, T, MAT.hinoki, MAT.hinoki, MAT.hinoki);
+    }
+  });
+}
 function buildHouse3(plan) {
   PLAN = plan; LV = plan.levels; STAIRS = [];
   ROOFS3 = (plan.roofs || []).map(mkRoof3);
@@ -2528,6 +2652,7 @@ function buildHouse3(plan) {
     for (const w of L.walls) wallRun(GL, w, i, L);
     for (const f of L.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base; G.furn[i].add(p); } }
   });
+  if (HOUSE === 4) lineRooms3();
   setupLabels3();
   LV.forEach((L, i) => buildLabels(i));
   buildStairs3(plan.stairs3 || []);
@@ -2557,6 +2682,26 @@ const VIEWS3 = [
   ['2F — Top of the stairs', 4.09, -0.8, 3.14, -0.3, 1],
   ['Loft', -0.4, -3.0, -2.25, -0.05, 2],
   ['Loft — over the void', -0.35, -1.6, 2.1, -0.42, 2],
+];
+/* house 4 presets (the revised plan; model coordinates as house 3) */
+const VIEWS4 = [
+  ['Outside — south-east', 12.5, 13.5, 0.68, 0.04, null, 2.0],
+  ['Outside — north-west (roof high side)', -11.0, -13.5, -2.41, 0.08, null, 2.2],
+  ['Outside — east (carport, front door)', 15.5, 3.2, 1.45, 0.04, null, 1.1],
+  ['Doll-house from above', 1.4, 10.4, 0.0, -1.0, null, 15.4],
+  ['1F — Entrance', 4.905, 1.276, -2.69, 0.12, 0],
+  ['1F — Gym', 0.5, 2.94, 0.64, -0.02, 0],
+  ['1F — Changing + rest room', 1.75, -0.01, -1.571, -0.05, 0],
+  ['1F — Bath (hot tubs)', 5.15, -1.27, 0.6, -0.12, 0],
+  ['1F — Sauna', 2.355, -1.285, 0.53, -0.2, 0],
+  ['2F — Living (north glass, stove)', -1.25, -0.4, 0.75, 0.12, 1],
+  ['2F — Dining + loft stair', 3.75, 0.64, 0.98, 0.05, 1],
+  ['2F — Kitchen', 3.15, -3.05, -2.3, -0.05, 1],
+  ['2F — Bedroom', -1.275, 0.385, 2.36, -0.05, 1],
+  ['2F — Ensuite', -0.545, 1.285, -2.62, -0.15, 1],
+  ['Loft — Hall, top of the stairs', 2.272, -3.264, 3.14, -0.35, 2],
+  ['Loft — Bedroom A', 5.35, -3.264, 2.59, -0.1, 2],
+  ['Loft — Bedroom B', 1.45, -3.264, 2.65, -0.1, 2],
 ];
 /* Collapse single-material static meshes into one mesh per material. */
 function mergeStatic(group) {
@@ -2640,7 +2785,7 @@ const VIEWS2 = [
   ['2F — Bedroom 3', -2.5, 0.5, -0.9, 0.05, 1],
   ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
 ];
-const VIEWS = H3 ? VIEWS3 : HOUSE === 2 ? VIEWS2 : VIEWS1;
+const VIEWS = HOUSE === 4 ? VIEWS4 : H3 ? VIEWS3 : HOUSE === 2 ? VIEWS2 : VIEWS1;
 
 /* ---------------------------------------------------------------- controls */
 const st = {
@@ -2648,7 +2793,7 @@ const st = {
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
-const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : H3 ? new V(1.0, 3.5, 0.5) : new V(-4, 3, -5);
+const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : HOUSE === 4 ? new V(0.9, 3.8, 0) : H3 ? new V(1.0, 3.5, 0.5) : new V(-4, 3, -5);
 const act = new Set();
 const KEYMAP = {
   KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',
@@ -2890,15 +3035,15 @@ function bindUI() {
   $('spd').oninput = (e) => { st.speed = +e.target.value * 0.75; };
   $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
   /* house switcher: each house is its own page load (?house=2) */
-  for (const h of [1, 2, 3]) {
+  for (const h of [1, 2, 3, 4]) {
     const b = $('bH' + h); if (!b) continue;
     b.classList.toggle('on', h === HOUSE);
     b.onclick = () => { if (h !== HOUSE) location.href = location.pathname + (h > 1 ? '?house=' + h : ''); };
   }
   const be = $('bEdit');
-  if (be) { be.hidden = !H3; be.onclick = () => { location.href = 'edit.html' + (location.hash || ''); }; }
+  if (be) { be.hidden = !H3; be.onclick = () => { location.href = REF.edit + (location.hash || ''); }; }
   const bo = $('bOrig');
-  if (bo) { bo.hidden = !(H3 && MODEL_SRC !== 'original'); bo.onclick = () => { location.href = location.pathname + '?house=3&orig=1'; }; }
+  if (bo) { bo.hidden = !(H3 && MODEL_SRC !== 'original'); bo.onclick = () => { location.href = location.pathname + '?house=' + HOUSE + '&orig=1'; }; }
   if (HOUSE === 2) bindRoof();
 
   /* drag = grab the view and pull it (drag right -> the scene follows right) */
@@ -2972,8 +3117,8 @@ function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(e => { const v = T(e.dataset.i18n); if (typeof v === 'string') e.textContent = v; });
   document.querySelectorAll('[data-i18n-title]').forEach(e => { const v = T(e.dataset.i18nTitle); if (typeof v === 'string') e.title = v; });
   const hb = $('helpBody'); if (hb) hb.innerHTML = T('help');
-  const geo = $('helpGeo'); if (geo) geo.textContent = T(H3 ? 'geo3' : HOUSE === 2 ? 'geo2' : 'geo1');
-  document.title = T(H3 ? 'doc3' : HOUSE === 2 ? 'doc2' : 'doc1');
+  const geo = $('helpGeo'); if (geo) geo.textContent = T(HOUSE === 4 ? 'geo4' : H3 ? 'geo3' : HOUSE === 2 ? 'geo2' : 'geo1');
+  document.title = T(HOUSE === 4 ? 'doc4' : H3 ? 'doc3' : HOUSE === 2 ? 'doc2' : 'doc1');
   const sb = $('srcBadge'); if (sb) { sb.hidden = !(H3 && MODEL_SRC !== 'original'); sb.textContent = MODEL_SRC === 'link' ? T('srcLink') : T('srcEdited'); }
   if (LV.length) {
     fillJump();
@@ -3080,14 +3225,14 @@ function frame(dt) {
 }
 
 /* -------------------------------------------------------------------- init */
-let MODEL_SRC = 'original';     /* house 3: original | edited | link (refplan.js loadModel) */
+let MODEL_SRC = 'original';     /* houses 3 + 4: original | edited | link (refplan.js loadModel) */
 const MARKS = window.__marks = {};
 const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
 applyLang();   /* static UI text + titles before the house loads */
 loadMsg(T('loading'));
 const planReady = H3
-  ? loadModel('ref-model.json?v=1').then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
+  ? loadModel(REF.url, REF.key).then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
   : fetch(HOUSE === 2 ? 'plan2.json?v=7' : 'plan.json').then(r => r.json());
 planReady.then(async (plan) => {
   let t = performance.now();

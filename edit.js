@@ -1,9 +1,15 @@
 /* Plan editor for the Tsuchiya Kensetsu reference house (and anything else in
    the ref-model.json format, see refplan.js). Drag walls, doors, windows and
    furniture; the 3D walkthrough (index.html?house=3) builds from the same
-   model, saved in this browser or carried in a share link (#m=...). */
+   model, saved in this browser or carried in a share link (#m=...).
+   ?plan=b = the revised plan (ref-model-b.json, 3D: index.html?house=4), saved
+   under its own key; without ?plan everything is as before. */
 'use strict';
-import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=2';
+import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=3';
+
+const PB = new URLSearchParams(location.search).get('plan') === 'b';
+const REF = PB ? { url: 'ref-model-b.json?v=1', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' }
+  : { url: 'ref-model.json?v=1', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' };
 
 /* ------------------------------------------------------------------ text */
 const TX = {
@@ -35,7 +41,9 @@ const TX = {
     lenNote: 'Typing a length moves the wall’s end point (the B end).',
     kinds: { bed: 'Bed', sofa: 'Sofa', table: 'Table', bench: 'Bench', chair: 'Chair', desk: 'Desk / counter', closet: 'Built-in storage', wardrobe: 'Wardrobe', toilet: 'Toilet',
       vanity: 'Washstand', ub: 'Unit bath', shower: 'Shower unit', island: 'Kitchen island', tall: 'Tall kitchen units', fridge: 'Fridge', washer: 'Washing machine', dryer: 'Dryer',
-      stove: 'Wood stove', rugRound: 'Round rug', shelves: 'Shelves', rail: 'Hanging rail', post: 'Post', beam: 'Beam' },
+      stove: 'Wood stove', rugRound: 'Round rug', shelves: 'Shelves', rail: 'Hanging rail', post: 'Post', beam: 'Beam',
+      tube: 'Soaking tub (hinoki)', saunaBench: 'Sauna bench', saunaHeater: 'Sauna heater', gymRack: 'Power rack', gymBench: 'Weight bench',
+      treadmill: 'Treadmill', mat: 'Exercise mat', railing: 'Glass railing' },
     help: '<h3>Plan editor</h3>'
       + '<b>Move a wall</b>: drag it. The walls joined to it stretch with it, rooms reshape and their areas update. A straight run of walls moves together. With <b>Outside walls: all floors</b> on, moving an outside wall moves it on every floor (the roof follows).<br>'
       + '<b>Wall ends</b>: select a wall, then drag the round handle at an end to make it longer or shorter.<br>'
@@ -74,7 +82,9 @@ const TX = {
     lenNote: '長さを入力すると壁の終点（B側）が動きます。',
     kinds: { bed: 'ベッド', sofa: 'ソファ', table: 'テーブル', bench: 'ベンチ', chair: '椅子', desk: 'デスク・カウンター', closet: '造作収納', wardrobe: 'ワードローブ', toilet: 'トイレ',
       vanity: '洗面台', ub: 'ユニットバス', shower: 'シャワーユニット', island: 'アイランドキッチン', tall: 'キッチン収納（背面）', fridge: '冷蔵庫', washer: '洗濯機', dryer: '乾燥機',
-      stove: '薪ストーブ', rugRound: '丸ラグ', shelves: '棚', rail: '物干しパイプ', post: '柱', beam: '梁' },
+      stove: '薪ストーブ', rugRound: '丸ラグ', shelves: '棚', rail: '物干しパイプ', post: '柱', beam: '梁',
+      tube: '浴槽（ひのき）', saunaBench: 'サウナベンチ', saunaHeater: 'サウナストーブ', gymRack: 'パワーラック', gymBench: 'トレーニングベンチ',
+      treadmill: 'ランニングマシン', mat: 'トレーニングマット', railing: 'ガラス手すり' },
     help: '<h3>間取り編集</h3>'
       + '<b>壁を動かす</b>：壁をドラッグします。つながっている壁が伸び縮みし、部屋の形と面積も更新されます。一直線に並んだ壁は一緒に動きます。<b>外壁は全フロア連動</b>がオンのとき、外壁を動かすと全フロアの外壁が動きます（屋根も追従）。<br>'
       + '<b>壁の長さ</b>：壁を選択し、端の丸いハンドルをドラッグして伸ばす・縮める。<br>'
@@ -86,9 +96,20 @@ const TX = {
       + '<span style="opacity:.6">出典：土屋建設 参考住宅プラン図面。寸法はCAD図面どおり、壁は910mmグリッドの芯です。</span>',
   },
 };
+/* the revised plan (?plan=b): its own title, reset question, extra floor finishes */
+const TXB = {
+  en: { title: 'Plan editor · Tsuchiya revised', resetQ: 'Throw away your changes and go back to the revised plan as first drawn?',
+    fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)',
+    help: TX.en.help.replace('<b>Reset</b> goes back to Tsuchiya Kensetsu’s original.', '<b>Reset</b> goes back to the revised plan as first drawn.')
+      .replace('Source: Tsuchiya Kensetsu reference house plan drawings. Sizes are from the CAD drawings; walls are on their 910 mm grid lines.', 'The revised plan (gym + onsen 1F, LDK + 1 bedroom 2F, 2 loft bedrooms), on the Tsuchiya Kensetsu reference house’s 910 mm grid.') },
+  ja: { title: '間取り編集・土屋 改案', resetQ: '変更をすべて破棄して、改案の最初の間取りに戻しますか？',
+    fGranite: '黒い石調タイル（浴室）', fHinoki: 'ひのき（サウナ）', fRubber: 'ゴム床（ジム）',
+    help: TX.ja.help.replace('<b>元の図面に戻す</b>で土屋建設の元の図面に戻ります。', '<b>元の図面に戻す</b>で改案の最初の間取りに戻ります。')
+      .replace('出典：土屋建設 参考住宅プラン図面。寸法はCAD図面どおり、壁は910mmグリッドの芯です。', '土屋建設の参考プランの改案（1階ジム＋温泉、2階LDK＋寝室1、ロフト寝室2）。壁は910mmグリッドの芯です。') },
+};
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
 if (!TX[LANG]) LANG = 'en';
-const T = (k) => TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
+const T = (k) => (PB && TXB[LANG][k] !== undefined) ? TXB[LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
 const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------------ state */
@@ -167,7 +188,7 @@ let _raf = 0;
 function redraw() { if (!_raf) _raf = requestAnimationFrame(() => { _raf = 0; draw(); }); }
 
 /* ------------------------------------------------------------- drawing */
-const FILL = { oak: '#f3e6cf', tile: '#e3e7eb', stone: '#d6d2cb', concrete: '#e0dfdc', void: '#ffffff' };
+const FILL = { oak: '#f3e6cf', tile: '#e3e7eb', stone: '#d6d2cb', concrete: '#e0dfdc', void: '#ffffff', granite: '#c9cccf', hinoki: '#f2e4c2', rubber: '#c2c5c9' };
 function draw() {
   const c = cx, s = S.view.s;
   c.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -317,7 +338,8 @@ function drawItem(c, it) {
   const sel = S.sel && S.sel.type === 'item' && S.sel.id === it.id;
   const P = itemPoly(it).map(toS);
   c.beginPath(); P.forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.closePath();
-  const fills = { island: '#4a4c50', tall: '#4a4c50', closet: '#d8c3a5', wardrobe: '#d8c3a5', stove: '#3d3d3d', rugRound: 'rgba(0,0,0,0)', post: '#c9a77c', beam: 'rgba(201,167,124,.55)' };
+  const fills = { island: '#4a4c50', tall: '#4a4c50', closet: '#d8c3a5', wardrobe: '#d8c3a5', stove: '#3d3d3d', rugRound: 'rgba(0,0,0,0)', post: '#c9a77c', beam: 'rgba(201,167,124,.55)',
+    tube: '#e6cf9f', saunaBench: '#ead7ae', saunaHeater: '#3d3d3d', gymRack: 'rgba(60,62,66,.25)', gymBench: '#5a5d61', treadmill: '#5a5d61', mat: '#8e9196', railing: 'rgba(120,180,215,.7)' };
   c.fillStyle = fills[it.kind] || '#ffffff'; if (it.kind !== 'rugRound') c.fill();
   c.strokeStyle = sel ? '#1d7fb8' : '#8b7c6c'; c.lineWidth = sel ? 2.5 : 1; c.stroke();
   const hw = it.w / 2, hd = it.d / 2;
@@ -564,7 +586,7 @@ function commit(label) {
 function begin() { S.before = JSON.stringify(S.model); }
 function save() {
   clearTimeout(_saveT);
-  _saveT = setTimeout(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(S.model)); } catch (e) { console.warn(e); } }, 150);
+  _saveT = setTimeout(() => { try { localStorage.setItem(REF.key, JSON.stringify(S.model)); } catch (e) { console.warn(e); } }, 150);
 }
 function undo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.model)); S.model = JSON.parse(S.undo.pop()); S.sel = null; touch(); save(); syncUI(); redraw(); }
 function redo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.model)); S.model = JSON.parse(S.redo.pop()); S.sel = null; touch(); save(); syncUI(); redraw(); }
@@ -779,6 +801,10 @@ const DEF = {
   toilet: [0.4, 0.68], vanity: [0.75, 0.5], ub: [1.62, 1.62], shower: [0.9, 1.2], island: [2.4, 0.95], tall: [2.4, 0.45], fridge: [0.7, 0.7], washer: [0.6, 0.6],
   dryer: [0.65, 0.6], stove: [0.56, 0.5], rugRound: [1.6, 1.6], shelves: [1.2, 0.35], rail: [1.6, 0.06], post: [0.12, 0.12], beam: [3.0, 0.12],
 };
+if (PB) {
+  delete DEF.ub;                                   /* the revised plan has no unit baths (shower units only) */
+  Object.assign(DEF, { tube: [1.2, 2.0], saunaBench: [1.8, 0.5], saunaHeater: [0.45, 0.45], gymRack: [1.2, 1.2], gymBench: [1.2, 0.3], treadmill: [0.8, 1.9], mat: [2.0, 2.0], railing: [2.0, 0.05] });
+}
 function placeItem(p) {
   const k = S.armed, [w, d] = DEF[k] || [1, 1];
   begin();
@@ -787,6 +813,8 @@ function placeItem(p) {
   if (k === 'post') it.top = 'roof';
   if (k === 'stove') it.hearth = 1.2;
   if (k === 'rail') it.h = 1.95;
+  if (k === 'railing') it.h = 1.1;
+  if (k === 'saunaBench') it.h = 0.45;
   (LV().items = LV().items || []).push(it);
   commit();
   S.sel = { type: 'item', id: it.id }; S.armed = null; setTool('select'); syncProps(); redraw();
@@ -918,7 +946,9 @@ function syncProps() {
     if (f) P.appendChild(el('div', { class: 'area', text: T('area') + ': ' + f.netArea.toFixed(2) + ' m² · ' + (f.netArea / 3.3058).toFixed(2) + ' ' + T('tsubo') }));
     P.appendChild(textField(T('nameJa'), r.ja, (v) => { r.ja = v; }));
     P.appendChild(textField(T('name'), r.name, (v) => { r.name = v; }));
-    P.appendChild(selField(T('floor'), r.floor || 'oak', [['oak', T('fOak')], ['tile', T('fTile')], ['stone', T('fStone')], ['concrete', T('fConcrete')], ['void', T('fVoid')]], (v) => { r.floor = v; touch(); }));
+    const fins = [['oak', T('fOak')], ['tile', T('fTile')], ['stone', T('fStone')], ['concrete', T('fConcrete')], ['void', T('fVoid')]];
+    if (PB) fins.splice(4, 0, ['granite', T('fGranite')], ['hinoki', T('fHinoki')], ['rubber', T('fRubber')]);
+    P.appendChild(selField(T('floor'), r.floor || 'oak', fins, (v) => { r.floor = v; touch(); }));
     if (S.lvl === 0) P.appendChild(selField(T('level'), String(r.dz || 0), [['0', T('lv0')], ['-0.25', T('lvE')], ['-0.45', T('lvP')]], (v) => { r.dz = +v || 0; if (!r.dz) delete r.dz; touch(); }));
     P.appendChild(el('div', { class: 'row' }, [btn(T('del'), () => { begin(); L.rooms.splice(L.rooms.indexOf(r), 1); commit(); S.sel = null; syncProps(); redraw(); })]));
   } else if (sel.type === 'stair') {
@@ -958,20 +988,20 @@ function applyLang() {
   document.querySelectorAll('[data-it]').forEach(e => { const v = T(e.dataset.it); if (typeof v === 'string') e.title = v; });
   $('bLang').textContent = LANG === 'ja' ? 'English' : '日本語';
   $('helpBody').innerHTML = T('help');
-  document.title = T('title') + ' — ' + (LANG === 'ja' ? (S.model && S.model.ja || '土屋建設 参考プラン') : 'Tsuchiya Kensetsu reference house');
+  document.title = PB ? T('title') : T('title') + ' — ' + (LANG === 'ja' ? (S.model && S.model.ja || '土屋建設 参考プラン') : 'Tsuchiya Kensetsu reference house');
   setTool(S.tool);
   if (S.model) { syncUI(); syncProps(); }
 }
 function toast(t) { const e = $('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(() => { e.style.display = 'none'; }, 2600); }
 async function shareLinks() {
   const m = await packModel(S.model), base = location.href.replace(/[#?].*$/, '').replace(/edit\.html$/, '');
-  return { edit: base + 'edit.html#m=' + m, view: base + 'index.html?house=3#m=' + m };
+  return { edit: base + REF.edit + '#m=' + m, view: base + REF.view + '#m=' + m };
 }
 
 function bindUI() {
   document.querySelectorAll('[data-tool]').forEach(b => { b.onclick = () => setTool(b.dataset.tool); });
   $('bUndo').onclick = undo; $('bRedo').onclick = redo;
-  $('b3d').onclick = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(S.model)); } catch (e) { /* */ } location.href = 'index.html?house=3'; };
+  $('b3d').onclick = () => { try { localStorage.setItem(REF.key, JSON.stringify(S.model)); } catch (e) { /* */ } location.href = REF.view; };
   $('bShare').onclick = async () => { const l = await shareLinks(); $('shareUrl').value = l.edit; $('share').classList.add('show'); $('bCopy').onclick = () => copy(l.edit); $('bCopy3d').onclick = () => copy(l.view); };
   $('bReset').onclick = () => { if (!confirm(T('resetQ'))) return; begin(); S.model = clone(S.orig); commit(); S.sel = null; syncProps(); fit(); redraw(); };
   $('bLang').onclick = () => { LANG = LANG === 'ja' ? 'en' : 'ja'; try { localStorage.setItem('h3dEditLang', LANG); } catch (e) { /* */ } applyLang(); redraw(); };
@@ -1006,11 +1036,11 @@ async function copy(t) {
 
 /* ---------------------------------------------------------------- start */
 (async () => {
-  const r = await fetch('ref-model.json?v=1'); S.orig = await r.json();
-  const { model, from } = await loadModel('ref-model.json?v=1');
+  const r = await fetch(REF.url); S.orig = await r.json();
+  const { model, from } = await loadModel(REF.url, REF.key);
   S.model = model; S.from = from;
   if (from === 'link') {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(model)); } catch (e) { /* */ }
+    try { localStorage.setItem(REF.key, JSON.stringify(model)); } catch (e) { /* */ }
     history.replaceState(null, '', location.pathname + location.search);
     setTimeout(() => toast(T('fromLink')), 300);
   }
