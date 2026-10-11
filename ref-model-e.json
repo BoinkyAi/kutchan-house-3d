@@ -1,5 +1,5 @@
 {
- "version": 3,
+ "version": 4,
  "title": "Plan B — Ichijo",
  "ja": "プランB 一条版",
  "source": "Plan B (Toby's Floor Plan Creator plan, site/plan2.json) in the editor format with Ichijo Komuten's limits (model.ichijo, applied by ichijo.js) and catalogue fittings per room (room.fit -> catalog.json)",
@@ -299,7 +299,7 @@
      "id": "w11",
      "a": [
       -2.8489,
-      -3.1041
+      -1.92
      ],
      "b": [
       -2.8489,
@@ -310,7 +310,7 @@
       {
        "id": "o14",
        "type": "sliding",
-       "at": 4.6765,
+       "at": 3.4924,
        "w": 1.2544,
        "sill": 0.0,
        "head": 2.0,
@@ -414,7 +414,7 @@
       -1.92
      ],
      "b": [
-      -2.8489,
+      -2.38,
       -1.92
      ],
      "t": 0.12,
@@ -457,6 +457,19 @@
      ],
      "t": 0.12,
      "src": "877"
+    },
+    {
+     "id": "w20",
+     "a": [
+      -2.38,
+      -3.1041
+     ],
+     "b": [
+      -2.38,
+      -1.92
+     ],
+     "t": 0.12,
+     "src": "602 (v4: WC east wall)"
     },
     {
      "id": "d1",
@@ -565,7 +578,7 @@
      "name": "WC",
      "ja": "トイレ",
      "at": [
-      -3.3643,
+      -3.1243,
       -2.522
      ],
      "floor": "tile",
@@ -663,12 +676,13 @@
      "id": "f9",
      "kind": "bookcase",
      "x": -2.6209,
-     "y": -2.2437,
+     "y": -1.0496,
      "w": 1.6008,
      "d": 0.336,
      "a": 4.7124,
      "h": 2.0,
-     "src": "587"
+     "src": "587",
+     "moved": "south along its wall (the WC grew east)"
     },
     {
      "id": "f10",
@@ -880,7 +894,7 @@
    "ct": 0.3,
    "walls": [
     {
-     "id": "w20",
+     "id": "w21",
      "a": [
       -7.7403,
       6.9233
@@ -904,8 +918,8 @@
       {
        "id": "o19",
        "type": "window",
-       "at": 5.1693,
-       "w": 1.0652,
+       "at": 5.0892,
+       "w": 0.6533,
        "sill": 0.5,
        "head": 2.5,
        "src": "859"
@@ -913,8 +927,8 @@
       {
        "id": "o20",
        "type": "window",
-       "at": 7.1244,
-       "w": 1.0652,
+       "at": 7.5625,
+       "w": 0.625,
        "sill": 0.5,
        "head": 2.5,
        "src": "858"
@@ -922,8 +936,8 @@
       {
        "id": "o21",
        "type": "window",
-       "at": 10.7043,
-       "w": 2.9411,
+       "at": 11.2645,
+       "w": 2.3809,
        "sill": 0.0,
        "head": 3.5,
        "src": "837"
@@ -932,7 +946,7 @@
      "src": "636"
     },
     {
-     "id": "w21",
+     "id": "w22",
      "a": [
       -7.7403,
       -6.732
@@ -966,7 +980,7 @@
      "src": "634"
     },
     {
-     "id": "w22",
+     "id": "w23",
      "a": [
       0.8353,
       -6.732
@@ -1000,7 +1014,7 @@
      "src": "632+629"
     },
     {
-     "id": "w23",
+     "id": "w24",
      "a": [
       7.1098,
       6.9233
@@ -1053,7 +1067,7 @@
      "src": "748+641"
     },
     {
-     "id": "w24",
+     "id": "w25",
      "a": [
       0.8353,
       2.2317
@@ -1078,7 +1092,7 @@
      "src": "750"
     },
     {
-     "id": "w25",
+     "id": "w26",
      "a": [
       7.1098,
       2.2317
@@ -1103,7 +1117,7 @@
      "src": "751"
     },
     {
-     "id": "w26",
+     "id": "w27",
      "a": [
       -4.2021,
       6.9233
@@ -1117,7 +1131,7 @@
       {
        "id": "o33",
        "type": "door",
-       "at": 3.6559,
+       "at": 3.8059,
        "w": 0.9537,
        "sill": 0.0,
        "head": 2.5,
@@ -1127,33 +1141,33 @@
      "src": "674"
     },
     {
-     "id": "w27",
+     "id": "w28",
      "a": [
       0.8353,
       -1.8677
      ],
      "b": [
-      -2.8549,
+      -3.0049,
       -1.8677
      ],
      "t": 0.12,
      "src": "702"
     },
     {
-     "id": "w28",
+     "id": "w29",
      "a": [
       -4.2021,
       -7.0924
      ],
      "b": [
       -4.2021,
-      -2.2604
+      -2.6
      ],
      "t": 0.12,
      "src": "709"
     },
     {
-     "id": "w29",
+     "id": "w30",
      "a": [
       -7.7403,
       -4.1812
@@ -1166,7 +1180,7 @@
      "src": "728"
     },
     {
-     "id": "w30",
+     "id": "w31",
      "a": [
       -5.6612,
       -4.1812
@@ -1191,7 +1205,7 @@
      "src": "729"
     },
     {
-     "id": "w31",
+     "id": "w32",
      "a": [
       -7.7403,
       -1.3742
@@ -1204,10 +1218,10 @@
      "src": "732"
     },
     {
-     "id": "w32",
+     "id": "w33",
      "a": [
       -4.2021,
-      -2.5021
+      -2.6
      ],
      "b": [
       -4.2021,
@@ -1218,7 +1232,7 @@
       {
        "id": "o35",
        "type": "door",
-       "at": 0.2007,
+       "at": 0.1367,
        "w": 0.9991,
        "sill": 0.0,
        "head": 2.0,
@@ -1228,7 +1242,7 @@
      "src": "733"
     },
     {
-     "id": "w33",
+     "id": "w34",
      "a": [
       -4.2021,
       0.2708
@@ -1241,43 +1255,30 @@
      "src": "734"
     },
     {
-     "id": "w34",
+     "id": "w35",
      "a": [
       -4.2021,
-      3.3352
+      3.2352
      ],
      "b": [
       -2.5514,
-      3.3352
+      3.2352
      ],
      "t": 0.12,
      "src": "775"
     },
     {
-     "id": "w35",
+     "id": "w36",
      "a": [
       0.8353,
-      0.8123
+      0.6623
      ],
      "b": [
       -1.8758,
-      0.8123
+      0.6623
      ],
      "t": 0.12,
      "src": "787"
-    },
-    {
-     "id": "w36",
-     "a": [
-      -2.8549,
-      0.874
-     ],
-     "b": [
-      -2.8549,
-      -2.2604
-     ],
-     "t": 0.12,
-     "src": "788"
     },
     {
      "id": "w37",
@@ -1382,7 +1383,7 @@
      "id": "w42",
      "a": [
       -1.8758,
-      0.8123
+      0.6623
      ],
      "b": [
       -1.8758,
@@ -1444,20 +1445,7 @@
     {
      "id": "w45",
      "a": [
-      -2.8549,
-      -1.8677
-     ],
-     "b": [
-      -2.8549,
-      -3.3663
-     ],
-     "t": 0.12,
-     "src": "827"
-    },
-    {
-     "id": "w46",
-     "a": [
-      -2.8549,
+      -3.0049,
       -3.3663
      ],
      "b": [
@@ -1469,7 +1457,7 @@
       {
        "id": "o41",
        "type": "sliding",
-       "at": 0.1106,
+       "at": 0.2606,
        "w": 0.9537,
        "sill": 0.0,
        "head": 2.5,
@@ -1478,6 +1466,56 @@
       }
      ],
      "src": "828"
+    },
+    {
+     "id": "w46",
+     "a": [
+      -3.0049,
+      -4.3012
+     ],
+     "b": [
+      -3.0049,
+      0.8123
+     ],
+     "t": 0.12,
+     "ops": [
+      {
+       "id": "o42",
+       "type": "door",
+       "at": 0.11,
+       "w": 0.7,
+       "sill": 0.0,
+       "head": 2.031,
+       "src": "b2door",
+       "side": -1
+      }
+     ],
+     "src": "827+788 (v4: 0.15 m west)"
+    },
+    {
+     "id": "w47",
+     "a": [
+      -3.0049,
+      0.8123
+     ],
+     "b": [
+      -1.8758,
+      0.8123
+     ],
+     "t": 0.12,
+     "ops": [
+      {
+       "id": "o43",
+       "type": "door",
+       "at": 0.11,
+       "w": 0.7,
+       "sill": 0.0,
+       "head": 2.031,
+       "src": "b3door",
+       "side": -1
+      }
+     ],
+     "src": "v4 bedroom 3 door wall"
     },
     {
      "id": "d2",
@@ -1495,32 +1533,6 @@
     {
      "id": "d3",
      "a": [
-      -2.855,
-      -4.3012
-     ],
-     "b": [
-      -2.855,
-      -3.3663
-     ],
-     "t": 0,
-     "note": "bedroom 2 | hall: door-less 0.82 m opening (partitions stop short)"
-    },
-    {
-     "id": "d4",
-     "a": [
-      -1.8758,
-      0.8123
-     ],
-     "b": [
-      -2.855,
-      0.8123
-     ],
-     "t": 0,
-     "note": "bedroom 3 | hall: door-less 0.86 m opening"
-    },
-    {
-     "id": "d5",
-     "a": [
       -1.8758,
       2.1732
      ],
@@ -1532,36 +1544,36 @@
      "note": "hall | dining: bathroom 3 wall line continued west"
     },
     {
-     "id": "d6",
+     "id": "d4",
      "a": [
       -2.5514,
       2.1732
      ],
      "b": [
       -2.5514,
-      3.3352
+      3.2352
      ],
      "t": 0,
      "note": "hall | dining: kitchen wall end continued north"
     },
     {
-     "id": "d7",
+     "id": "d5",
      "a": [
       -2.5514,
-      3.3352
+      3.2352
      ],
      "b": [
       -1.5044,
-      3.3352
+      3.2352
      ],
      "t": 0,
      "note": "kitchen | dining: kitchen wall line continued east"
     },
     {
-     "id": "d8",
+     "id": "d6",
      "a": [
       -1.5044,
-      3.3352
+      3.2352
      ],
      "b": [
       -1.5044,
@@ -1571,7 +1583,7 @@
      "note": "kitchen | dining: the east end of the U-kitchen counters"
     },
     {
-     "id": "d9",
+     "id": "d7",
      "a": [
       1.6706,
       5.5233
@@ -1584,7 +1596,7 @@
      "note": "stair opening (north edge)"
     },
     {
-     "id": "d10",
+     "id": "d8",
      "a": [
       4.5506,
       5.5233
@@ -1597,7 +1609,7 @@
      "note": "stair opening (east edge, headroom 2.1 m)"
     },
     {
-     "id": "d11",
+     "id": "d9",
      "a": [
       1.6706,
       5.5233
@@ -1654,16 +1666,6 @@
     },
     {
      "id": "r14",
-     "name": "Hall",
-     "ja": "廊下",
-     "at": [
-      -3.3503,
-      2.0976
-     ],
-     "floor": "oak"
-    },
-    {
-     "id": "r15",
      "name": "Bedroom 2",
      "ja": "寝室2",
      "at": [
@@ -1673,28 +1675,38 @@
      "floor": "oak"
     },
     {
-     "id": "r16",
-     "name": "Bedroom 3",
-     "ja": "寝室3",
+     "id": "r15",
+     "name": "Hall",
+     "ja": "廊下",
      "at": [
-      -0.9903,
-      -0.5424
+      -3.3503,
+      2.0176
      ],
      "floor": "oak"
     },
     {
-     "id": "r17",
+     "id": "r16",
      "name": "Kitchen",
      "ja": "キッチン",
      "at": [
       -2.8303,
-      5.1576
+      5.0976
      ],
      "floor": "oak",
      "fit": {
       "kitchen": "ich-kitchen-grace-3shaku-wall-high-counter-2750",
       "layout": "peninsula"
      }
+    },
+    {
+     "id": "r17",
+     "name": "Bedroom 3",
+     "ja": "寝室3",
+     "at": [
+      -1.0503,
+      -0.6024
+     ],
+     "floor": "oak"
     },
     {
      "id": "r18",
@@ -1706,8 +1718,8 @@
      ],
      "floor": "tile",
      "fit": {
-      "ub": "ich-unit-bath-grace-1-0tsubo",
-      "vanity": "ich-vanity-grace-r111-900",
+      "ub": "ich-unit-bath-shower-room-white-1100x700",
+      "vanity": "ich-vanity-grace-r222-1350",
       "toilet": "ich-toilet-toto-zj2-washlet"
      }
     },
@@ -1731,8 +1743,8 @@
      ],
      "floor": "tile",
      "fit": {
-      "ub": "ich-unit-bath-grace-1-0tsubo",
-      "vanity": "ich-vanity-grace-r111-900",
+      "ub": "ich-unit-bath-shower-room-white-1100x700",
+      "vanity": "ich-vanity-grace-r222-1350",
       "toilet": "ich-toilet-toto-zj2-washlet"
      }
     },
@@ -1741,13 +1753,13 @@
      "name": "Bathroom 2",
      "ja": "バスルーム2",
      "at": [
-      -0.9903,
+      -1.0503,
       -2.6224
      ],
      "floor": "tile",
      "fit": {
-      "ub": "ich-unit-bath-grace-1-0tsubo",
-      "vanity": "ich-vanity-grace-r111-900",
+      "ub": "ich-unit-bath-shower-room-white-1100x700",
+      "vanity": "ich-vanity-grace-w444-2100",
       "toilet": "ich-toilet-toto-zj2-washlet"
      }
     },
@@ -1787,11 +1799,11 @@
      "ja": "バスルーム3",
      "at": [
       -0.4903,
-      1.4776
+      1.4176
      ],
      "floor": "tile",
      "fit": {
-      "ub": "ich-unit-bath-grace-1-0tsubo",
+      "ub": "ich-unit-bath-shower-room-white-1100x700",
       "vanity": "ich-vanity-grace-r111-900",
       "toilet": "ich-toilet-toto-zj2-washlet"
      }
@@ -2128,13 +2140,14 @@
     {
      "id": "f58",
      "kind": "bookcase",
-     "x": -2.5454,
+     "x": -2.6954,
      "y": -1.0098,
      "w": 1.2957,
      "d": 0.5,
      "a": -1.5708,
      "h": 2.0,
-     "src": "843"
+     "src": "843",
+     "moved": "with the hall wall"
     },
     {
      "id": "f59",
@@ -2945,6 +2958,9 @@
   "cupboardD": 0.45,
   "toiletZone": 0.8,
   "vanityStand": 0.6,
-  "endPassage": 0.85
+  "endPassage": 0.85,
+  "showerMargin": 0.05,
+  "toiletW": 0.38,
+  "toiletD": 0.76
  }
 }

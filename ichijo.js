@@ -20,8 +20,10 @@
               (transomH x <= transomMaxW, over a transomGap strip) where the ceiling
               leaves >= transomTopGap above it, unless switched off per window
      doors    every interior door at the catalogue door height
-     fittings kitchen (I / peninsula / island), unit bath or shower, vanity, toilet:
-              placed in the room's clear rectangle, with a fit verdict
+     fittings kitchen (I / peninsula / island), unit bath or unit shower, vanity, toilet:
+              placed in the room's clear rectangle, with a fit verdict (bathrooms: the unit
+              at the far end, the toilet zone, the vanity in a line, >= 0.6 m standing space,
+              door swing / entry and windows clear: see fitRoom)
    info (returned with the model) = readouts, window schedule, fit verdicts, the
    fitted pieces' footprints (for the editor) and the ceilings (for the 3D).
    The panel checks the roof's highest point (info.roof.maxH) against heightLimit (lot 9:
@@ -44,6 +46,7 @@ export const ICHIJO_DEFAULTS = {
   winMaxH: 2.2, winCeilGap: 0.1, transomH: 0.3, transomMaxW: 1.8, transomGap: 0.15, transomTopGap: 0.1,
   maxWindowW: 2.6, mullion: 0.1, transom: {}, doorH: 2.0,
   ubMargin: 0.15, walkway: 0.85, cupboardD: 0.45, toiletZone: 0.8, vanityStand: 0.6, endPassage: 0.85, needsMax: 0.3,
+  showerMargin: 0.05, toiletW: 0.38, toiletD: 0.76,                 /* v19: shower = install space, else size + 50 mm / side; toilet = TOTO ZJ2 383 x 759 */
 };
 export const opts = (m) => Object.assign({}, ICHIJO_DEFAULTS, (m && m.ichijo) || {});
 
@@ -150,21 +153,28 @@ function roomGeo(L, G, f) {
     }
     sides[s] = pick ? { ext: pick.e.ext, div: pick.e.div, nb: pick.e.nb, wi: pick.e.wi } : { open: true };
   }
-  /* door openings on this room's boundary (centre points) */
-  const doors = [];
+  /* door openings on this room's boundary: centre point 5 cm inside (p), the centre on the
+     wall face (c), the wall direction (u), the normal into the room (n), the width, and
+     whether a hinged leaf swings into this room (o.side: +1 toward the wall's +n, the editor's
+     convention); and the windows on it (same frame + sill) */
+  const doors = [], windows = [];
   walls.forEach(w => {
     if (!(w.t > 0) || !w.ops) return;
     const F = wallFrame(w);
     for (const o of w.ops) {
-      if (!/door|double|sliding|entry|slide/.test(o.type)) continue;
+      const isDoor = /door|double|sliding|entry|slide/.test(o.type), isWin = o.type === 'window';
+      if (!isDoor && !isWin) continue;
       const s = o.at + o.w / 2, c = [w.a[0] + F.u[0] * s, w.a[1] + F.u[1] * s];
       for (const sg of [1, -1]) {
-        const qq = (sg > 0 ? F.q1 : F.q0) + sg * 0.05, p = [c[0] + F.n[0] * qq, c[1] + F.n[1] * qq];
-        if (inPoly(poly, p[0], p[1])) doors.push({ p, w: o.w });
+        const qf = sg > 0 ? F.q1 : F.q0, qq = qf + sg * 0.05, p = [c[0] + F.n[0] * qq, c[1] + F.n[1] * qq];
+        if (!inPoly(poly, p[0], p[1])) continue;
+        const rec = { p, w: o.w, c: [c[0] + F.n[0] * qf, c[1] + F.n[1] * qf], u: F.u, n: [F.n[0] * sg, F.n[1] * sg], id: o.src || o.id };
+        if (isWin) windows.push(Object.assign(rec, { sill: o.sill || 0 }));
+        else doors.push(Object.assign(rec, { swingIn: /^(door|entry|double)$/.test(o.type) && Math.sign(o.side || 1) === sg }));
       }
     }
   });
-  return { poly, IP, rect, sides, doors, area: f.netArea };
+  return { poly, IP, rect, sides, doors, windows, area: f.netArea };
 }
 function sideLabel(side, s, lang, I18) {
   const T = I18[lang];
@@ -456,7 +466,15 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
     foot('cupboard', cc[0], cc[1], cupW, I.cupboardD, aCup, 'INFO', STR[lang].cupboard);
     add({ fit: 'kitchen', set: it ? it.id : null, label: lbl, layout: lay, need: [r4(needR), r4(needD)], verdict, shorts: shorts.map(s => Object.assign(s, { text: sideLabel(geo.sides[s.side], s.side, lang, STR) })) });
   }
-  /* ---------------- bathrooms: unit bath / shower, then the toilet zone, then the vanity */
+  /* ---------------- bathrooms (v19): in a line along one long wall (wallS), from the far end
+     (away from the door): the unit (shower room / unit bath), the toilet zone, the vanity; a
+     standing strip of >= vanityStand in front of each along the other long wall; every door's
+     swing (hinged, into the room) and entry (vanityStand deep) clear of the fittings; a unit
+     never stands in front of a window. Unit footprint: a shower's published installation space,
+     else its size + showerMargin per side; a unit bath's size + ubMargin per side. The unit is
+     tried with its long side along wallS (door onto the standing strip), then across the far end
+     (door toward the toilet zone, against the strip's wall); the first that fits wins.
+     WC (toilet only): the toilet at the far short end, facing along the room. */
   if (F.ub || F.vanity || F.toilet) {
     const longX = W >= D, Lx = longX ? W : D, Wx = longX ? D : W;
     const ends = longX ? ['w', 'e'] : ['n', 's'], longs = longX ? ['n', 's'] : ['w', 'e'];
@@ -470,70 +488,163 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
     const farC = { n: R[1], s: R[3], w: R[0], e: R[2] }[far], dirIn = far === ends[0] ? 1 : -1;    /* along the long axis, away from the far end */
     const wallC = { n: R[1], s: R[3], w: R[0], e: R[2] }[wallS], inW = SIDE[OPP[wallS]];
     const at = (along, acr) => longX ? [farC + dirIn * along, wallC + inW[1] * acr] : [wallC + inW[0] * acr, farC + dirIn * along];
-    let used = 0;
+    const box2 = (a0, a1, c0, c1) => { const p = at(a0, c0), q = at(a1, c1); return [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[0], q[0]), Math.max(p[1], q[1])]; };
+    const cm = (v) => Math.round(v * 100);
+    const stand = I.vanityStand;
     const toilets = mine('toilet');
-    const hasToilet = F.toilet !== undefined && toilets.length;
-    /* unit bath */
-    let ubAlong = 0;
-    if (F.ub) {
-      if (F.ub === 'hinoki') {
-        add({ fit: 'ub', set: 'hinoki', label: STR[lang].hinoki, verdict: 'CUSTOM', shorts: [] });
-        for (const o of mine('ub')) { const ca = Math.cos(o.a), sa = Math.sin(o.a); info.pieces.push({ level: li, fit: 'ub', poly: [[-o.w / 2, -o.d / 2], [o.w / 2, -o.d / 2], [o.w / 2, o.d / 2], [-o.w / 2, o.d / 2]].map(([px, py]) => [r4(o.x + px * ca - py * sa), r4(o.y + px * sa + py * ca)]), verdict: 'CUSTOM', label: '', room: r.id }); }
-      } else {
-        const shower = F.ub === 'shower' || String(F.ub).indexOf('shower') >= 0;
+    const hasToilet = F.toilet !== undefined && toilets.length > 0;
+    const unitSet = !!F.ub && F.ub !== 'hinoki';
+    const textOf = (shorts) => shorts.map(s => Object.assign(s, { text: sideLabel(geo.sides[s.side], s.side, lang, STR) }));
+    /* the toilet (catalogue size, else toiletW x toiletD: TOTO ZJ2) */
+    const tIt = hasToilet ? pickItem(cat, F.toilet, 'toilet') : null;
+    const tW = tIt && tIt.width_mm ? tIt.width_mm / 1000 : I.toiletW, tD = tIt && tIt.depth_mm ? tIt.depth_mm / 1000 : I.toiletD;
+    const tLbl = tIt ? catLabel(tIt, lang, true) : '?';
+    /* doors: a hinged leaf swinging in must not reach a fitting; every door needs an entry at
+       least min(width, vanityStand) wide and vanityStand deep free of fittings */
+    const doorShorts = (rects) => {
+      const out = {};
+      const push = (k, s) => (out[k] = out[k] || []).push(s);
+      const ov = (a, b) => Math.min(a[2], b[2]) - Math.max(a[0], b[0]) > 0.01 && Math.min(a[3], b[3]) - Math.max(a[1], b[1]) > 0.01;
+      for (const d of geo.doors) {
+        const zone = (depth) => { const P = [-1, 1].flatMap(sg => [0, depth].map(q => [d.c[0] + d.u[0] * sg * d.w / 2 + d.n[0] * q, d.c[1] + d.u[1] * sg * d.w / 2 + d.n[1] * q])); return [Math.min(...P.map(p => p[0])), Math.min(...P.map(p => p[1])), Math.max(...P.map(p => p[0])), Math.max(...P.map(p => p[1]))]; };
+        const corners = (r) => [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
+        const along = (r) => { const t = corners(r).map(p => (p[0] - d.c[0]) * d.u[0] + (p[1] - d.c[1]) * d.u[1]); return [Math.min(...t), Math.max(...t)]; };
+        const depth = (r) => Math.max(0, Math.min(...corners(r).map(p => (p[0] - d.c[0]) * d.n[0] + (p[1] - d.c[1]) * d.n[1])));
+        const acc = zone(stand), sw = d.swingIn ? zone(d.w) : null, blocked = [];
+        for (const [k, r] of Object.entries(rects)) {
+          if (!r) continue;
+          if (sw && ov(r, sw)) push(k, { cm: cm(d.w - depth(r)), side: wallS, door: d.id });
+          if (ov(r, acc)) blocked.push([k, along(r)]);
+        }
+        if (!blocked.length) continue;
+        const iv = blocked.map(b => [Math.max(-d.w / 2, b[1][0]), Math.min(d.w / 2, b[1][1])]).filter(v => v[1] > v[0]).sort((a, b) => a[0] - b[0]);
+        let free = 0, cur = -d.w / 2;
+        for (const [a0, a1] of iv) { free = Math.max(free, a0 - cur); cur = Math.max(cur, a1); }
+        free = Math.max(free, d.w / 2 - cur);
+        const need = Math.min(d.w, stand);
+        if (free < need - 0.005) for (const [k] of blocked) push(k, { cm: cm(need - free), side: wallS, door: d.id });
+      }
+      return out;
+    };
+    if (F.ub === 'hinoki') {
+      add({ fit: 'ub', set: 'hinoki', label: STR[lang].hinoki, verdict: 'CUSTOM', shorts: [] });
+      for (const o of mine('ub')) { const ca = Math.cos(o.a), sa = Math.sin(o.a); info.pieces.push({ level: li, fit: 'ub', poly: [[-o.w / 2, -o.d / 2], [o.w / 2, -o.d / 2], [o.w / 2, o.d / 2], [-o.w / 2, o.d / 2]].map(([px, py]) => [r4(o.x + px * ca - py * sa), r4(o.y + px * sa + py * ca)]), verdict: 'CUSTOM', label: '', room: r.id }); }
+    }
+    if (unitSet || (F.vanity && hasToilet)) {
+      /* the unit */
+      let U = null;
+      if (unitSet) {
+        const ce = cat && cat.byId && cat.byId.get(F.ub);
+        const shower = ce ? ce.category === 'shower' : (F.ub === 'shower' || String(F.ub).indexOf('shower') >= 0);
         const it = shower ? pickItem(cat, F.ub, 'shower') : pickItem(cat, F.ub, 'unit_bath');
-        const sz = shower ? (it ? [it.width_mm / 1000, it.depth_mm / 1000] : [0.9, 0.9]) : ubSize(it) || [1.6, 1.6];
-        const m = shower ? 0 : I.ubMargin;
-        const fw = sz[0] + 2 * m, fd = sz[1] + 2 * m;
-        /* orientation: across the room <= its width, the shorter one along */
-        const ori = [[fw, fd], [fd, fw]].map(([acr, alg]) => ({ acr, alg, sw: Math.max(0, acr - Wx) })).sort((a, b) => (a.sw - b.sw) || (a.alg - b.alg))[0];
-        ubAlong = ori.alg;
-        const shorts = [];
-        if (ori.sw > 0.005) shorts.push({ cm: Math.round(ori.sw * 100), side: moveSide(geo.sides, longs[0], longs[1]) });
-        const needL = ori.alg + (hasToilet ? I.toiletZone : 0);
-        if (needL > Lx + 0.005) shorts.push({ cm: Math.round((needL - Lx) * 100), side: moveSide(geo.sides, ends[0], ends[1]) });
-        const verdict = verdictOf(shorts, I);
+        const nom = shower ? (it && it.width_mm && it.depth_mm ? [it.width_mm / 1000, it.depth_mm / 1000] : [0.9, 0.9]) : ubSize(it) || [1.6, 1.6];
+        const inst = shower && it && it.install_w_mm && it.install_d_mm ? [it.install_w_mm / 1000, it.install_d_mm / 1000] : null;
+        const m = shower ? I.showerMargin : I.ubMargin;
+        const fp = inst || [nom[0] + 2 * m, nom[1] + 2 * m];
+        const wall = shower ? 0.03 : 0.05;                                  /* the unit's own panels, inside its footprint */
+        const sh = [Math.min(nom[0] + 2 * wall, fp[0]), Math.min(nom[1] + 2 * wall, fp[1])];
+        U = { it, shower, Lu: Math.max(...fp), Su: Math.min(...fp), sLu: Math.max(...sh), sSu: Math.min(...sh), inst: !!inst,
+          label: it ? catLabel(it, lang, true) : (shower ? STR[lang].showerOnly : '?') };
+      }
+      const vIt = F.vanity ? pickItem(cat, F.vanity, 'vanity') : null;
+      const vw = F.vanity ? (vIt && vIt.width_mm ? vIt.width_mm / 1000 : 0.75) : 0, vd = F.vanity ? vanityDepth(vIt) : 0;
+      const tz = hasToilet ? I.toiletZone : 0;
+      const layout = (ori) => {
+        const L = { ori, sh: { ub: [], toilet: [], vanity: [] }, rect: {} };
+        let used = 0;
+        if (U) {
+          const ua = ori === 'along' ? U.Lu : U.Su, uc = ori === 'along' ? U.Su : U.Lu;
+          if (ori === 'along' ? uc + stand > Wx + 0.005 : uc > Wx + 0.005) L.sh.ub.push({ cm: cm(ori === 'along' ? uc + stand - Wx : uc - Wx), side: moveSide(geo.sides, longs[0], longs[1]) });
+          const needL = ua + (hasToilet ? tz : F.vanity ? 0 : ori === 'across' ? stand : 0);
+          if (needL > Lx + 0.005) L.sh.ub.push({ cm: cm(needL - Lx), side: moveSide(geo.sides, ends[0], ends[1]) });
+          L.rect.ub = ori === 'along' ? box2(0, ua, 0, uc) : box2(0, ua, Math.max(0, Wx - uc), Math.max(Wx, uc));
+          L.ua = ua; L.uc = uc; L.need = [ori === 'along' ? uc + stand : uc, needL];
+          used = ua;
+        }
+        if (hasToilet) {
+          if (tD + stand > Wx + 0.005) L.sh.toilet.push({ cm: cm(tD + stand - Wx), side: moveSide(geo.sides, longs[0], longs[1]) });
+          if (!U && used + tz > Lx + 0.005) L.sh.toilet.push({ cm: cm(used + tz - Lx), side: moveSide(geo.sides, ends[0], ends[1]) });
+          L.rect.toilet = box2(used + tz / 2 - tW / 2, used + tz / 2 + tW / 2, 0.01, 0.01 + tD);
+          L.tC = at(used + tz / 2, 0.01 + tD / 2);
+          used += tz;
+        }
+        if (F.vanity) {
+          const left = Lx - used, vl = Math.min(vw, Math.max(left, 0.3));
+          if (vw > left + 0.005) L.sh.vanity.push({ cm: cm(vw - left), side: moveSide(geo.sides, ends[0], ends[1]) });
+          if (vd + stand > Wx + 0.005) L.sh.vanity.push({ cm: cm(vd + stand - Wx), side: moveSide(geo.sides, longs[0], longs[1]) });
+          L.rect.vanity = box2(used, used + vl, 0, vd);
+          L.vC = at(used + vl / 2, vd / 2);
+        }
+        /* windows: the unit (about 2.1 m tall, own walls and ceiling) must not stand in front of one */
+        if (U) for (const wn of geo.windows) {
+          if (wn.sill > 2.0) continue;
+          const zone = [-1, 1].flatMap(sg => [0, 0.15].map(q => [wn.c[0] + wn.u[0] * sg * wn.w / 2 + wn.n[0] * q, wn.c[1] + wn.u[1] * sg * wn.w / 2 + wn.n[1] * q]));
+          const z = [Math.min(...zone.map(p => p[0])), Math.min(...zone.map(p => p[1])), Math.max(...zone.map(p => p[0])), Math.max(...zone.map(p => p[1]))], b = L.rect.ub;
+          const ox = Math.min(z[2], b[2]) - Math.max(z[0], b[0]), oy = Math.min(z[3], b[3]) - Math.max(z[1], b[1]);
+          if (ox > 0.02 && oy > 0.005) L.sh.ub.push({ cm: cm(Math.abs(wn.u[0]) > 0.5 ? ox : oy), side: wallS, win: wn.id });
+        }
+        const ds = doorShorts(L.rect);
+        for (const k of Object.keys(ds)) L.sh[k].push(...ds[k]);
+        L.worst = Math.max(0, ...Object.values(L.sh).flat().map(x => x.cm));
+        return L;
+      };
+      const cands = U ? ['along', 'across'].map(layout) : [layout('none')];
+      const B = cands.find(c => c.worst <= 0.5) || cands.slice().sort((a, b) => (a.worst - b.worst) || (a.ori === 'across' ? -1 : 1))[0];
+      const real = (v, sh) => v === 'FITS' || (v === 'NEEDS' && Math.max(...sh.map(x => x.cm)) <= 10);
+      if (U) {
         drop(mine('ub'));
-        const shell = (v) => v + 2 * Math.min(m, 0.05);                 /* the unit's own walls */
-        const acrIsW = Math.abs(ori.acr - fw) < 1e-9;
-        const sA = shell(acrIsW ? sz[0] : sz[1]), sL = shell(acrIsW ? sz[1] : sz[0]);
-        const c = at(ori.alg / 2, Math.min(ori.acr, Wx) / 2);
-        const lbl = it ? catLabel(it, lang, true) : (shower ? STR[lang].showerOnly : '?');
-        const real = verdict === 'FITS' || (verdict === 'NEEDS' && Math.max(...shorts.map(x => x.cm)) <= 10);
-        if (real) piece(shower ? 'shbox' : 'ubox', c[0], c[1], sA, sL, backA[far], { h: 2.15 });
-        else piece(verdict === 'NO' ? 'ghostNo' : 'ghostNeeds', c[0], c[1], longX ? ori.alg : ori.acr, longX ? ori.acr : ori.alg, 0, { h: 2.15 });
-        foot('ub', c[0], c[1], longX ? ori.alg : ori.acr, longX ? ori.acr : ori.alg, 0, verdict, lbl);
-        add({ fit: 'ub', set: it ? it.id : F.ub, label: lbl, need: [r4(ori.acr), r4(needL)], verdict, shorts: shorts.map(s => Object.assign(s, { text: sideLabel(geo.sides[s.side], s.side, lang, STR) })) });
+        const sh = B.sh.ub, verdict = verdictOf(sh, I), b = B.rect.ub, c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+        if (real(verdict, sh)) {
+          const along = B.ori === 'along', a = along ? backA[wallS] : backA[far];
+          const extra = { h: 2.15 };
+          if (U.shower && !along) {
+            /* door toward the standing strip: the middle of the unit's front beside the toilet */
+            const c0 = Math.max(hasToilet ? 0.01 + tD : vd, Wx - B.uc), want = (c0 + Wx) / 2 - (Wx - B.uc / 2);
+            const ax = [Math.cos(a), Math.sin(a)], acr = [inW[0], inW[1]];
+            extra.dx = r4(want * (ax[0] * acr[0] + ax[1] * acr[1]));
+          }
+          piece(U.shower ? 'shbox' : 'ubox', c[0], c[1], U.sLu, U.sSu, a, extra);
+        } else piece(verdict === 'NO' ? 'ghostNo' : 'ghostNeeds', c[0], c[1], b[2] - b[0], b[3] - b[1], 0, { h: 2.15 });
+        foot('ub', c[0], c[1], b[2] - b[0], b[3] - b[1], 0, verdict, U.label);
+        add({ fit: 'ub', set: U.it ? U.it.id : F.ub, label: U.label, need: [r4(B.need[0]), r4(B.need[1])], verdict, layout: B.ori, inst: U.inst, shorts: textOf(sh) });
       }
-    }
-    used = F.ub && F.ub !== 'hinoki' ? ubAlong : 0;
-    /* toilet: maker / model only (no fit check); in a bathroom with a unit bath it moves into its zone */
-    if (F.toilet !== undefined && toilets.length) {
-      const it = pickItem(cat, F.toilet, 'toilet');
-      const t = toilets[0];
-      if (F.ub && F.ub !== 'hinoki') {
-        const c = at(used + I.toiletZone / 2, 0.36);
-        t.x = r4(c[0]); t.y = r4(c[1]); t.a = r4(backA[wallS] + Math.PI);
-        used += I.toiletZone;
+      if (hasToilet) {
+        const t = toilets[0], sh = B.sh.toilet, verdict = verdictOf(sh, I);
+        t.x = r4(B.tC[0]); t.y = r4(B.tC[1]); t.a = r4(backA[wallS] + Math.PI); t.w = r4(tW); t.d = r4(tD);
+        t.model = tIt ? tIt.id : null;
+        foot('toilet', t.x, t.y, tW, tD, backA[wallS], verdict, tLbl);
+        add({ fit: 'toilet', set: tIt ? tIt.id : null, label: tLbl, need: [r4(tD + stand), r4(tz)], verdict, shorts: textOf(sh) });
       }
-      t.model = it ? it.id : null;
-      add({ fit: 'toilet', set: it ? it.id : null, label: it ? catLabel(it, lang, true) : '?', verdict: 'MODEL', shorts: [] });
-    }
-    /* vanity: what is left along the wall (bathrooms), or the drawn counter's place (wash rooms) */
-    if (F.vanity) {
-      const it = pickItem(cat, F.vanity, 'vanity');
-      const vw = it && it.width_mm ? it.width_mm / 1000 : 0.75, vd = vanityDepth(it);
-      const old = mine('vanity');
-      const shorts = [];
-      let c, a;
-      if (F.ub && F.ub !== 'hinoki') {
-        const left = Lx - used;
-        if (vw > left + 0.005) shorts.push({ cm: Math.round((vw - left) * 100), side: moveSide(geo.sides, ends[0], ends[1]) });
-        if (vd + I.vanityStand > Wx + 0.005) shorts.push({ cm: Math.round((vd + I.vanityStand - Wx) * 100), side: moveSide(geo.sides, longs[0], longs[1]) });
-        c = at(used + Math.min(vw, Math.max(left, 0.3)) / 2, vd / 2);
-        a = backA[wallS];
-      } else {
-        /* keep the drawn counter's wall + centre; needs its width along that wall */
+      if (F.vanity) {
+        drop(mine('vanity'));
+        const sh = B.sh.vanity, verdict = verdictOf(sh, I), lbl = vIt ? catLabel(vIt, lang, true) : '?', a = backA[wallS];
+        if (real(verdict, sh)) piece('vanity', B.vC[0], B.vC[1], vw, vd, a, { h: 0.85 });
+        else piece(verdict === 'NO' ? 'ghostNo' : 'ghostNeeds', B.vC[0], B.vC[1], vw, vd, a, { h: 0.85 });
+        foot('vanity', B.vC[0], B.vC[1], vw, vd, a, verdict, lbl);
+        add({ fit: 'vanity', set: vIt ? vIt.id : null, label: lbl, need: [r4(vw), r4(vd + stand)], verdict, shorts: textOf(sh) });
+      }
+    } else {
+      /* WC: the toilet at the far short end, its back to that wall, facing along the room */
+      if (hasToilet) {
+        const t = toilets[0], sh = [];
+        if (tD + stand > Lx + 0.005) sh.push({ cm: cm(tD + stand - Lx), side: moveSide(geo.sides, ends[0], ends[1]) });
+        if (I.toiletZone > Wx + 0.005) sh.push({ cm: cm(I.toiletZone - Wx), side: moveSide(geo.sides, longs[0], longs[1]) });
+        const cx = longX ? farC + dirIn * (0.01 + tD / 2) : (R[0] + R[2]) / 2, cy = longX ? (R[1] + R[3]) / 2 : farC + dirIn * (0.01 + tD / 2);
+        const q = !longX, hx = (q ? tW : tD) / 2, hy = (q ? tD : tW) / 2;
+        const ds = doorShorts({ toilet: [cx - hx, cy - hy, cx + hx, cy + hy] });
+        sh.push(...(ds.toilet || []));
+        const verdict = verdictOf(sh, I);
+        t.x = r4(cx); t.y = r4(cy); t.a = r4(backA[far] + Math.PI); t.w = r4(tW); t.d = r4(tD);
+        t.model = tIt ? tIt.id : null;
+        foot('toilet', t.x, t.y, tW, tD, backA[far], verdict, tLbl);
+        add({ fit: 'toilet', set: tIt ? tIt.id : null, label: tLbl, need: [r4(I.toiletZone), r4(tD + stand)], verdict, shorts: textOf(sh) });
+      }
+      /* wash room: the vanity at the drawn counter's place (its wall + centre); needs its width along that wall */
+      if (F.vanity) {
+        const it = pickItem(cat, F.vanity, 'vanity');
+        const vw = it && it.width_mm ? it.width_mm / 1000 : 0.75, vd = vanityDepth(it);
+        const old = mine('vanity');
+        const shorts = [];
         const o = old[0];
         let side = 'e', cx = (R[0] + R[2]) / 2, cy = (R[1] + R[3]) / 2;
         if (o) {
@@ -546,16 +657,16 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
         const half = vw / 2, lo = alongX ? R[0] + half : R[1] + half, hi = alongX ? R[2] - half : R[3] - half;
         const along = Math.max(lo, Math.min(hi, alongX ? cx : cy));
         const wc = { n: R[1], s: R[3], w: R[0], e: R[2] }[side], ni = SIDE[OPP[side]];
-        c = alongX ? [along, wc + ni[1] * vd / 2] : [wc + ni[0] * vd / 2, along];
-        a = backA[side];
+        const c = alongX ? [along, wc + ni[1] * vd / 2] : [wc + ni[0] * vd / 2, along];
+        const a = backA[side];
+        drop(old);
+        const verdict = verdictOf(shorts, I);
+        const lbl = it ? catLabel(it, lang, true) : '?';
+        if (verdict === 'FITS' || (verdict === 'NEEDS' && Math.max(...shorts.map(x => x.cm)) <= 10)) piece('vanity', c[0], c[1], vw, vd, a, { h: 0.85 });
+        else piece(verdict === 'NO' ? 'ghostNo' : 'ghostNeeds', c[0], c[1], vw, vd, a, { h: 0.85 });
+        foot('vanity', c[0], c[1], vw, vd, a, verdict, lbl);
+        add({ fit: 'vanity', set: it ? it.id : null, label: lbl, need: [r4(vw), r4(vd + I.vanityStand)], verdict, shorts: textOf(shorts) });
       }
-      drop(old);
-      const verdict = verdictOf(shorts, I);
-      const lbl = it ? catLabel(it, lang, true) : '?';
-      if (verdict === 'FITS' || (verdict === 'NEEDS' && Math.max(...shorts.map(x => x.cm)) <= 10)) piece('vanity', c[0], c[1], vw, vd, a, { h: 0.85 });
-      else piece(verdict === 'NO' ? 'ghostNo' : 'ghostNeeds', c[0], c[1], vw, vd, a, { h: 0.85 });
-      foot('vanity', c[0], c[1], vw, vd, a, verdict, lbl);
-      add({ fit: 'vanity', set: it ? it.id : null, label: lbl, need: [r4(vw), r4(vd + I.vanityStand)], verdict, shorts: shorts.map(s => Object.assign(s, { text: sideLabel(geo.sides[s.side], s.side, lang, STR) })) });
     }
   }
 }
@@ -569,6 +680,11 @@ export function postPlan(plan, D) {
   const L0 = plan.levels[0], L1 = plan.levels[1];
   const ground = plan.ground;
   plan.ichijo = { info, outside: [], porches: [] };
+  /* the shower room's door offset (dx): refplan's itemToProp carries only a few extras */
+  M.levels.forEach((L, li) => {
+    const P = plan.levels[li], dx = new Map((L.items || []).filter(it => it.dx !== undefined).map(it => [it.id, it.dx]));
+    if (P && P.furniture && dx.size) for (const p of P.furniture) if (dx.has(p.id)) p.dx = dx.get(p.id);
+  });
   for (const s of M.stairs || []) {
     if (!s.outside) continue;
     const e = plan.stairs3.find(x => x.id === s.id);
@@ -610,15 +726,15 @@ export function postPlan(plan, D) {
 
 /* ------------------------------------------------------------- strings */
 const LAYOUT = { ja: { I: 'I型', peninsula: 'ペニンシュラ', island: 'アイランド' }, en: { I: 'I-type', peninsula: 'peninsula', island: 'island' } };
-const MAKER_JA = { ichijo: '一条', panasonic: 'パナソニック', lixil: 'LIXIL', toto: 'TOTO' };
-const MAKER_EN = { ichijo: 'Ichijo', panasonic: 'Panasonic', lixil: 'LIXIL', toto: 'TOTO' };
+const MAKER_JA = { ichijo: '一条', panasonic: 'パナソニック', lixil: 'LIXIL', toto: 'TOTO', housetec: 'ハウステック' };
+const MAKER_EN = { ichijo: 'Ichijo', panasonic: 'Panasonic', lixil: 'LIXIL', toto: 'TOTO', housetec: 'Housetec' };
 const yen = (v) => v === null || v === undefined ? '' : v === 0 ? '' : '+¥' + Math.round(v).toLocaleString('en-US');
 /* a catalogue entry in one line: maker line size (layout) [price] [provisional] */
 export function catLabel(e, lang, short, noLayout) {
   if (!e) return '';
   const ja = lang === 'ja';
   const jaLine = (e.line_ja || (e.line && /[^\x00-\x7f]/.test(e.line) ? e.line : e.name_ja || e.line || '')).replace(/\s*\(.*$/, '');
-  const enLine = (e.line_en || (e.line && !/[^\x00-\x7f]/.test(e.line) ? e.line : '') || (e.name_en || '').replace(/\s*[\(,].*$/, '').replace(/^(Ichijo|TOTO|LIXIL|Panasonic)\s+/i, '')).replace(/\s*\(.*$/, '').trim();
+  const enLine = (e.line_en || (e.line && !/[^\x00-\x7f]/.test(e.line) ? e.line : '') || (e.name_en || '').replace(/\s*[\(,].*$/, '').replace(/^(Ichijo|TOTO|LIXIL|Panasonic|Housetec)\s+/i, '')).replace(/\s*\(.*$/, '').trim();
   let size = '';
   if (e.category === 'unit_bath' && e.size_code) size = e.size_code;
   else if (e.category === 'interior_door' && e.height_mm) size = 'H' + e.height_mm.toLocaleString('en-US');
@@ -652,8 +768,10 @@ export const STR = {
     dirs: { n: '北', s: '南', e: '東', w: '西' },
     windows: '窓（高さ最大2.2m）', maxW: '最大幅', transomNote: '欄間窓（0.3×1.8 m）は久坂氏の口頭説明のみ・カタログ未掲載', schedule: '窓リスト', transom: '欄間', noRoom: '天井が低く不可',
     winRow: (w) => w.n > 1 ? w.n + '枚 × ' + Math.round(w.unitW * 1000) + '（方立100）' : Math.round(w.unitW * 1000) + '',
-    fittings: '設備', kitchen: 'キッチン', layout: '型', ub: 'ユニットバス', vanity: '洗面化粧台', toilet: 'トイレ', door: '室内ドアの高さ', allDoors: 'すべての室内ドア',
-    hinoki: 'ひのき浴槽（図面どおり・造作）', showerOnly: 'シャワーのみ', cupboard: 'カップボード', summary: 'カタログ適合',
+    fittings: '設備', kitchen: 'キッチン', layout: '型', ub: 'ユニットバス／シャワー', vanity: '洗面化粧台', toilet: 'トイレ', door: '室内ドアの高さ', allDoors: 'すべての室内ドア',
+    hinoki: 'ひのき浴槽（図面どおり・造作）', showerOnly: 'シャワーユニット', cupboard: 'カップボード', summary: 'カタログ適合',
+    fitRules: '判定：シャワーユニットはメーカーの据付寸法（未公表なら本体＋各辺50mm）、ユニットバスは本体＋各辺150mm。バスルームは奥からユニット・トイレ（幅0.8m、便器0.38×0.76m＝TOTO ZJ2）・洗面化粧台を一列に並べ、それぞれの前に0.6m以上の立つスペース。ドアの開き・出入り口は設備に当たらないこと、ユニットは窓の前に置かない。トイレ室は便器＋前0.6m×幅0.8m。',
+    doorFix: (c, id) => 'ドア' + (id ? '（' + id + '）' : '') + 'の開き・出入りに当たる：ドアか設備を' + c + 'cm 移動', winFix: (c, id) => '窓' + (id ? '（' + id + '）' : '') + 'の前：窓を' + c + 'cm 移動',
     FITS: '収まる', NEEDS: (c) => '+' + c + 'cm 必要', NO: '収まらない', CUSTOM: '造作', MODEL: '機種のみ', INFO: '',
     fix: (c, t) => t + 'を' + c + 'cm 広げる', sideWall: (d, n) => d + '側の壁' + (n ? '（' + n + '側）' : ''), sideExt: (d) => d + '側の外壁', sideDiv: (d, n) => d + '側の境界' + (n ? '（' + n + '・壁なし）' : '（壁なし）'), sideOpen: (d) => d + '側',
     inner: '内法', need: '必要', drawn: '図面', ichijo: '一条', units: '枚', head: '上端', prov: '［仮］はカタログ未確認の暫定値',
@@ -677,8 +795,10 @@ export const STR = {
     dirs: { n: 'N', s: 'S', e: 'E', w: 'W' },
     windows: 'WINDOWS (max 2.2 m tall)', maxW: 'Max width', transomNote: 'Transom (0.3 × 1.8 m) per Hisasaka verbally — not in the catalogue, confirm in writing', schedule: 'Window schedule', transom: 'Transom', noRoom: 'ceiling too low',
     winRow: (w) => w.n > 1 ? w.n + ' × ' + Math.round(w.unitW * 1000) + ' (100 mullions)' : Math.round(w.unitW * 1000) + '',
-    fittings: 'FITTINGS', kitchen: 'Kitchen', layout: 'Layout', ub: 'Unit bath', vanity: 'Vanity', toilet: 'Toilet', door: 'Interior door height', allDoors: 'all interior doors',
-    hinoki: 'Hinoki tubs as drawn (custom)', showerOnly: 'Shower only', cupboard: 'Cupboard', summary: 'CATALOGUE FIT',
+    fittings: 'FITTINGS', kitchen: 'Kitchen', layout: 'Layout', ub: 'Unit bath / shower', vanity: 'Vanity', toilet: 'Toilet', door: 'Interior door height', allDoors: 'all interior doors',
+    hinoki: 'Hinoki tubs as drawn (custom)', showerOnly: 'Unit shower', cupboard: 'Cupboard', summary: 'CATALOGUE FIT',
+    fitRules: 'Fit rules: unit shower = the maker\u2019s installation space where published, else its size + 50 mm per side; unit bath = size + 150 mm per side. Bathrooms: from the far end the unit, a 0.8 m toilet zone (toilet 0.38 × 0.76 m, TOTO ZJ2), the vanity, in a line along one wall, with ≥ 0.6 m standing space in front of each; door swing and entry clear of the fittings; no unit in front of a window. WC: toilet + 0.6 m in front, 0.8 m wide.',
+    doorFix: (c, id) => 'clear of door ' + (id || '') + ': move the door or the fitting ' + c + ' cm', winFix: (c, id) => 'in front of window ' + (id || '') + ': move the window ' + c + ' cm',
     FITS: 'FITS', NEEDS: (c) => 'NEEDS +' + c + ' cm', NO: 'NO', CUSTOM: 'CUSTOM', MODEL: 'model only', INFO: '',
     fix: (c, t) => 'move ' + t + ' out ' + c + ' cm', sideWall: (d, n) => 'the ' + d + ' wall' + (n ? ' (' + n + ')' : ''), sideExt: (d) => 'the ' + d + ' outside wall', sideDiv: (d, n) => 'the open ' + d + ' side' + (n ? ' (' + n + ', no wall)' : ''), sideOpen: (d) => 'the ' + d + ' side',
     inner: 'clear', need: 'needs', drawn: 'drawn', ichijo: 'Ichijo', units: 'units', head: 'head', prov: '[provisional] = not yet confirmed by a catalogue',
@@ -693,7 +813,8 @@ export function verdictText(f, lang) {
 }
 export function fixText(f, lang) {
   if (!f.shorts || !f.shorts.length) return '';
-  return f.shorts.map(s => s.view ? STR[lang].viewFix : STR[lang].fix(s.cm, s.text)).join(lang === 'ja' ? '、' : '; ');
+  const T = STR[lang];
+  return f.shorts.map(s => s.view ? T.viewFix : s.door ? T.doorFix(s.cm, s.door) : s.win ? T.winFix(s.cm, s.win) : T.fix(s.cm, s.text)).join(lang === 'ja' ? '、' : '; ');
 }
 
 /* ------------------------------------------------------------- panel (DOM, both pages) */
@@ -872,10 +993,13 @@ export function mountPanel(host, o) {
       }
       if (r.fit.toilet !== undefined) {
         const f = fits.find(x => x.fit === 'toilet');
-        box.appendChild(E('div', { class: 'row' }, [E('label', { text: T.toilet }), select(byMaker(listOf(cat, 'toilet'), lang), f ? f.set : r.fit.toilet, v => setFit(r.id, 'toilet', v))]));
+        box.appendChild(E('div', { class: 'row' }, [E('label', { text: T.toilet }), badge(f)]));
+        box.appendChild(E('div', { class: 'row' }, [select(byMaker(listOf(cat, 'toilet'), lang), f ? f.set : r.fit.toilet, v => setFit(r.id, 'toilet', v))]));
+        if (f && f.shorts.length) box.appendChild(E('div', { class: 'fx', text: fixText(f, lang) }));
       }
       el.appendChild(box);
     }
+    el.appendChild(E('div', { class: 'note fitrules', text: T.fitRules }));
     /* interior doors */
     const doors = [];
     const seenH = new Set();

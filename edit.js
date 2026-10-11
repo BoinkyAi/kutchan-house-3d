@@ -15,7 +15,7 @@ const PLANS = {
   b: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=3', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
-  e: { url: 'ref-model-e.json?v=3', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e' },
+  e: { url: 'ref-model-e.json?v=4', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e' },
 };
 const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
 const PLAN = PLANS[_qPlan] ? _qPlan : 'a';
@@ -153,11 +153,11 @@ const TXE = {
   en: { title: 'Plan editor · Plan B — Ichijo', resetQ: 'Throw away your changes (walls and catalogue choices) and go back to Plan B — Ichijo as first drawn?',
     fGranite: TXB.en.fGranite, fHinoki: TXB.en.fHinoki, fRubber: TXB.en.fRubber, ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings",
     help: TXC.en.help.replace('<b>Reset</b> goes back to Plan B compact as first drawn.', '<b>Reset</b> goes back to Plan B — Ichijo as first drawn.')
-      .replace(/Plan B compact: the compact, cheaper version of Plan B\..*$/, "Plan B — Ichijo: Toby's Plan B (his Floor Plan Creator dimensions) under Ichijo Komuten's limits. The <b>Ichijo spec</b> panel sets the heights, the sloped living ceiling and the window rules, and picks the kitchen, unit baths, vanities, toilets and the interior door height from the catalogue; each fitting's footprint is drawn in its room, green = fits, amber = needs a few cm, red = does not fit (the panel names the wall to move). Fittings follow the rooms when walls move.</span>") },
+      .replace(/Plan B compact: the compact, cheaper version of Plan B\..*$/, "Plan B — Ichijo: Toby's Plan B (his Floor Plan Creator dimensions) under Ichijo Komuten's limits. The <b>Ichijo spec</b> panel sets the heights, the sloped living ceiling and the window rules, and picks the kitchen, unit showers / unit baths, vanities, toilets and the interior door height from the catalogue (the 2F bathrooms default to unit showers); each fitting's footprint is drawn in its room, green = fits, amber = needs a few cm, red = does not fit (the panel names the wall to move). Fittings follow the rooms when walls move.</span>") },
   ja: { title: '間取り編集・プランB 一条版', resetQ: '変更（壁・設備の選択）をすべて破棄して、プランB 一条版の最初の間取りに戻しますか？',
     fGranite: TXB.ja.fGranite, fHinoki: TXB.ja.fHinoki, fRubber: TXB.ja.fRubber, ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備',
     help: TXC.ja.help.replace('<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。', '<b>元の図面に戻す</b>でプランB 一条版の最初の間取りに戻ります。')
-      .replace(/プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。.*$/, 'プランB 一条版：プランB（Floor Plan Creatorの寸法のまま）に一条工務店の制約をかけた版。<b>一条仕様</b>パネルで高さ・リビングの勾配天井・窓のルールを設定し、キッチン・ユニットバス・洗面化粧台・トイレ・室内ドアの高さをカタログから選びます。各設備の大きさを部屋に表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない。動かす壁はパネルに表示）。壁を動かすと設備も部屋に合わせて動きます。</span>') },
+      .replace(/プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。.*$/, 'プランB 一条版：プランB（Floor Plan Creatorの寸法のまま）に一条工務店の制約をかけた版。<b>一条仕様</b>パネルで高さ・リビングの勾配天井・窓のルールを設定し、キッチン・シャワーユニット／ユニットバス・洗面化粧台・トイレ・室内ドアの高さをカタログから選びます（2階のバスルームはシャワーユニットが標準）。各設備の大きさを部屋に表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない。動かす壁はパネルに表示）。壁を動かすと設備も部屋に合わせて動きます。</span>') },
 };
 const TXP = { b: TXB, c: TXC, d: TXD, e: TXE };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
@@ -1114,8 +1114,9 @@ function ichijoPrep() {
     const D = ICH.mod.derive(S.model, ICH.cat, LANG);
     ICH.info = D.info;
     /* the drawn pieces a catalogue choice replaces (faint) */
-    const keep = new Set(D.model.levels.flatMap(L => (L.items || []).map(it => it.id)));
-    ICH.replaced = new Set(S.model.levels.flatMap(L => (L.items || []).filter(it => it.fx && it.fx !== 'toilet' && !keep.has(it.id)).map(it => it.id)));
+    const dm = new Map(D.model.levels.flatMap(L => (L.items || []).map(it => [it.id, it])));
+    const moved = (it, d) => !d || Math.abs(d.x - it.x) > 1e-3 || Math.abs(d.y - it.y) > 1e-3 || Math.abs((d.a || 0) - (it.a || 0)) > 1e-3;
+    ICH.replaced = new Set(S.model.levels.flatMap(L => (L.items || []).filter(it => it.fx && moved(it, dm.get(it.id))).map(it => it.id)));
     ICH.stale = false;
     if (ICH.panel && !ICH.panel.el.hidden) ICH.panel.render();
   } catch (e) { console.error('ichijo', e); }
@@ -1138,14 +1139,14 @@ function ichijoOverlay(c) {
     if (!p.label || S.view.s < 40) continue;
     const m = P.reduce((a, q) => [a[0] + q[0] / P.length, a[1] + q[1] / P.length], [0, 0]);
     const f = info.fits.find(x => x.roomId === p.room && x.fit === p.fit);
-    const txt = (p.fit === 'kitchen' ? '' : (p.label.replace(/\s+(std|標準|\+¥[\d,]+).*$/, '').split(' ').slice(-1)[0] + ' ')) + (f ? ICH.mod.verdictText(f, LANG) : '');
+    const txt = (p.fit === 'kitchen' || p.fit === 'toilet' ? '' : (p.label.replace(/\s+(std|標準|\+¥[\d,]+|list ¥[\d,]+|定価¥[\d,]+).*$/, '').split(' ').slice(-1)[0] + ' ')) + (f ? ICH.mod.verdictText(f, LANG) : '');
     c.save(); c.font = '600 10px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.lineWidth = 3; c.strokeStyle = 'rgba(255,255,255,.85)'; c.strokeText(txt, m[0], m[1]); c.fillStyle = col[1]; c.fillText(txt, m[0], m[1]); c.restore();
   }
 }
 async function ichijoStart() {
-  const mod = await import('./ichijo.js?v=3');
-  ICH.mod = mod; ICH.cat = await mod.loadCatalog('catalog.json?v=1');
+  const mod = await import('./ichijo.js?v=4');
+  ICH.mod = mod; ICH.cat = await mod.loadCatalog('catalog.json?v=2');
   const top = $('top');
   const b = el('button', { id: 'bIch', class: 'go', text: T('ich') }); b.title = T('icht');
   top.insertBefore(b, $('b3d').nextSibling);
