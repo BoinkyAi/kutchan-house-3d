@@ -45,7 +45,7 @@ const _qHouse = new URLSearchParams(location.search).get('house');
 const PLAN_A_URL = 'https://boinkyai.github.io/kutchan-house-plan-a/';
 const MOVED = _qHouse === '1';
 if (MOVED) location.replace(PLAN_A_URL);
-const HOUSE = _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : _qHouse === '5' ? 5 : _qHouse === '6' ? 6 : 2;
+const HOUSE = _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : _qHouse === '5' ? 5 : _qHouse === '6' ? 6 : _qHouse === '7' ? 7 : 2;
 /* house 3 = Tsuchiya Kensetsu's reference house plan: built
    from the editable model (ref-model.json, or the plan editor's saved copy /
    a shared #m= link) through refplan.js. House 4 = its revision (Toby
@@ -57,12 +57,13 @@ const HOUSE = _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : _qHouse === '5' ? 5 : 
    ref-model-c.json, the editor's ?plan=c), same path. House 6 = Plan C
    (Toby 2026-10-10: the L-shaped version of Plan B compact, more frontage +
    glass on the view; ref-model-d.json, the editor's ?plan=d), same path. */
-const H3 = HOUSE === 3 || HOUSE === 4 || HOUSE === 5 || HOUSE === 6;
+const H3 = HOUSE === 3 || HOUSE === 4 || HOUSE === 5 || HOUSE === 6 || HOUSE === 7;   /* house 7 = Plan B — Ichijo (ref-model-e.json via ichijo.js, see the house 7 section) */
 const REFS = {
   3: { url: 'ref-model.json?v=1', key: 'h3dRefModel', edit: 'edit.html' },
   4: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
   5: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=1', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
+  7: { url: 'ref-model-e.json?v=1', key: 'h3dRefModelE', edit: 'edit.html?plan=e' },
 };
 const REF = REFS[HOUSE] || REFS[3];
 /* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
@@ -149,6 +150,17 @@ const TXT = {
     close: 'Close',
   },
 };
+/* house 7: Plan B — Ichijo (Toby 2026-10-11) */
+Object.assign(TXT.ja, {
+  h7: 'プランB 一条版', h7t: 'プランB 一条版：一条工務店の仕様（1階天井2.6m・2階2.4m＋リビングの勾配天井・窓の高さ最大2.2m）とカタログの設備（キッチン・ユニットバス・洗面・トイレ・室内ドア）を選べる版',
+  origt7: 'プランB 一条版の最初の間取りを表示（編集・選択はそのまま残ります）', doc7: '倶知安 住宅計画 プランB 一条版 — 3D', ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備を選ぶパネル',
+  geo7: 'プランB 一条版：プランBの間取り（トビアスさんの寸法のまま）に一条工務店の制約をかけた版です。1階の天井高2.6m（ジムは床を0.2m下げて2.8m）、床の構成0.45mで2階床3.05m、2階は天井2.4mのフラット＋リビングだけ勾配天井（22m²以内・リビングの眺望側のガラスから）。屋根は2階全体に片流れ1枚（眺望側が高い）。窓は高さ最大2.2m、幅の広い窓は分割、天井に余裕がある所は欄間窓。階段は新しい階高で再計算。キッチン・ユニットバス・洗面化粧台・トイレ・室内ドアは「一条仕様」パネルでカタログから選べ、各部屋に収まるか（収まる／+○cm 必要／収まらない）と、収めるために動かす壁を表示します。［仮］はカタログ未確認の暫定値。「間取りを編集」で壁を動かせます。',
+});
+Object.assign(TXT.en, {
+  h7: 'Plan B — Ichijo', h7t: "Plan B — Ichijo: Plan B under Ichijo Komuten's limits (1F 2.6 m, 2F 2.4 m with a sloped living ceiling, windows max 2.2 m tall), with catalogue fittings to choose (kitchen, unit bath, vanity, toilet, interior doors)",
+  origt7: 'Show Plan B — Ichijo as first drawn (your edits and choices stay saved)', doc7: 'Kutchan house — Plan B — Ichijo — 3D', ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings",
+  geo7: "Plan B — Ichijo: Plan B's layout (Toby's dimensions) under Ichijo Komuten's limits. 1F ceilings 2.6 m (the gym floor sunk 0.2 m: 2.8 m), a 0.45 m floor build-up so the 2F floor is at 3.05 m, 2F ceilings 2.4 m flat except a sloped ceiling over at most 22 m² of the living, from its view glass. One mono-pitch roof over the whole 2F, high on the view side. Windows max 2.2 m tall, wide ones split into units, a transom where the ceiling leaves room. The stairs are recomputed for the new floor height. Kitchen, unit baths, vanities, toilets and the interior door height are chosen from the catalogue in the 'Ichijo spec' panel, with a verdict per room (FITS / NEEDS +x cm / NO) and the wall to move. [provisional] = not yet confirmed by a catalogue. 'Edit plan' lets you move the walls.",
+});
 const T = (k) => (TXT[LANG][k] !== undefined ? TXT[LANG][k] : TXT.en[k]);
 /* preset + room-label names: English is the key (goView tests 'Doll'), Japanese looked up */
 const JA_NAMES = {
@@ -179,6 +191,12 @@ const JA_NAMES = {
   '2F — Living (north glass, stove)': '2F — リビング（北側の大開口・薪ストーブ）', '2F — Dining + loft stair': '2F — ダイニング・ロフトへの階段', '2F — Master bedroom': '2F — 主寝室', '2F — Den / office 2': '2F — 書斎2',
   '2F — Ensuite': '2F — 専用シャワー室', 'Loft — Hall, top of the stairs': 'ロフト — ホール（階段の上）', 'Loft — Bedroom A + ensuite': 'ロフト — 寝室A・専用シャワー室', 'Loft — Den / office 1': 'ロフト — 書斎1',
 };
+Object.assign(JA_NAMES, {                              /* house 7 presets */
+  'Outside — north-east': '外観 — 北東', 'Outside — south (entrance, outside stair)': '外観 — 南（玄関・外部階段）', '1F — Entrance': '1F — 玄関',
+  '1F — Gym (sunken floor)': '1F — トレーニングルーム（床を下げた土間）', '1F — Bath (hinoki tubs)': '1F — 浴室（ひのき浴槽）', '1F — Stair hall + stair': '1F — 階段ホール・階段',
+  '2F — Living (sloped ceiling)': '2F — リビング（勾配天井）', '2F — Kitchen': '2F — キッチン', '2F — Bedroom 1': '2F — 寝室1', '2F — Bedroom 2': '2F — 寝室2',
+  '2F — Bedroom 3': '2F — 寝室3', '2F — Bedroom 4': '2F — 寝室4', '2F — Bathroom 4 (unit bath)': '2F — バスルーム4（ユニットバス）', '2F — Top of the stairs': '2F — 階段の上',
+});
 const NM = (en) => (LANG === 'ja' && JA_NAMES[en]) ? JA_NAMES[en] : en;
 
 /* house 2: the 2F ceiling plane, see roofSetup(); null for house 1 */
@@ -472,6 +490,10 @@ function buildMaterials() {
     MAT.siding = pbr('charred_cedar', 1.13, { env: 0.85, rough: 1.0, color: [0.5, 0.5, 0.5], maps: { nor: 'japanese_cedar_planks' }, nScale: 1.6,
       macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
     MAT.clad = MAT.siding;                         /* lighter, horizontal siding (the elevations) */
+    if (HOUSE === 7) {
+      MAT.ghostNo = new THREE.MeshStandardMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.28, depthWrite: false, roughness: 0.6 });
+      MAT.ghostNeeds = new THREE.MeshStandardMaterial({ color: 0xffb020, transparent: true, opacity: 0.28, depthWrite: false, roughness: 0.6 });
+    }
     if (HOUSE >= 4) {
       /* house 4 + 5 gym: dark rubber sports flooring (the worn concrete scan, dark, matt: reads as EPDM granules) */
       MAT.rubber = pbr('concrete_floor_worn_001', 1.4, { env: IN, color: [1.0, 1.02, 1.08], rough: 1.0, nScale: 0.35 });
@@ -746,7 +768,8 @@ function wallRun(G, w, lvl, L) {
     if (s > cur) { solid(cur, s, yB, yT); skirt(Math.max(cur, 0), Math.min(s, len)); }
     /* houses 5 + 6 (plans c + d): openings stacked over the same span (the
        floor-to-ceiling bands on the top floor) are cut one above the other, wall between them */
-    const stack = HOUSE >= 5 ? ops.filter(q => q !== o && Math.abs(q.off - o.off) < 1e-4 && Math.abs(q.w - o.w) < 1e-4) : [];
+    const stack = HOUSE >= 5 ? ops.filter(q => q !== o && ((Math.abs(q.off - o.off) < 1e-4 && Math.abs(q.w - o.w) < 1e-4)
+      || (HOUSE === 7 && q.style === 'transom' && q.off > o.off - 1e-4 && q.off + q.w < o.off + o.w + 1e-4 && q.bottom >= o.top - 1e-4))) : [];
     if (stack.length) {
       let y = yB, rk = null;
       const bands = [o, ...stack].sort((p, r) => p.bottom - r.bottom);
@@ -755,8 +778,14 @@ function wallRun(G, w, lvl, L) {
         rk = q === bands[bands.length - 1] ? rakeOf(q, s, e) : null;
         const qt = rk ? Math.min(rk(s), rk(e)) : !roof ? L.base + Math.min(q.top, hIn) : (q.full ? Infinity : Math.min(L.base + Math.min(q.top, hIn), roofMin(s, e) - ROOF_HEAD));
         if (qb > y + 0.01) { solid(s, e, y, qb); if (y === yB) skirt(s, e); }
+        let qs = s, qe = e;                            /* house 7: a transom narrower than its window, wall either side */
+        if (HOUSE === 7) {
+          qs = Math.max(s, q.off); qe = Math.min(e, q.off + q.w);
+          if (qs > s + 0.004) solid(s, qs, qb, qt);
+          if (qe < e - 0.004) solid(qe, e, qb, qt);
+        }
         /* upper: over a transom (no oak sill board inside there) */
-        opening(G, q, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot: qb, top: qt, ext, own, upper: y > yB, rake: rk });
+        opening(G, q, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s: qs, e: qe, bot: qb, top: qt, ext, own, upper: y > yB, rake: rk });
         y = Math.max(y, qt);
       }
       if (rk) solid(s, e, y, yT, rk);
@@ -1228,6 +1257,7 @@ function loadModels() {
       const o = gl.scene;
       o.traverse(m => {
         if (!m.isMesh) return;
+        m.userData.gltf = 1;
         m.castShadow = true; m.receiveShadow = true;
         const mm = m.material; if (mm) { mm.envMapIntensity = 0.6; if (mm.map) mm.map.anisotropy = 4; }
       });
@@ -2251,6 +2281,12 @@ function mkRoof3(r) {
   /* underside (ceiling) plane: h0 at plan y = y0 (the low edge), rising k per
      metre away from it (low on the south: y grows to the south) */
   const R = Object.assign({}, r);
+  if (r.axis === 'x') {                              /* house 7: sloping east-west, h0 at plan x = x0 (the low edge) */
+    const sx = r.low === 'w' ? 1 : -1;
+    R.y = (x, z) => r.h0 + r.k * sx * (x - r.x0);
+    R.n = new V(-sx * r.k, 1, 0).normalize();
+    return R;
+  }
   const sgn = r.low === 'n' ? -1 : 1;
   R.y = (x, z) => r.h0 + r.k * sgn * (r.y0 - z);
   R.n = new V(0, 1, sgn * r.k).normalize();
@@ -2261,7 +2297,9 @@ function roofFor(w, lvl) {
   return ROOFS3.find(r => r.levels.includes(lvl) && mx > r.rect[0] - 0.01 && mx < r.rect[2] + 0.01 && mz > r.rect[1] - 0.01 && mz < r.rect[3] + 0.01) || null;
 }
 /* the ceiling over a point on a level: the floor above (flat) or a roof */
+let CEIL7 = null;                                    /* house 7: the Ichijo ceilings (flat + the sloped zone), ichijo.js */
 function ceilAt3(x, z, lvl) {
+  if (CEIL7) return CEIL7(x, z, lvl);
   const L = LV[lvl], U = LV[lvl + 1];
   if (U && onRects(FLOOR_RECTS[lvl + 1], x, z, 0)) return L.base + L.h;
   let y = Infinity;
@@ -2463,6 +2501,35 @@ function makeProp3(s, lvl) {
         mk(g, B(gw, 0.09, gd, MAT.hinoki), MAT.hinoki, sx * (w / 2 + 0.06), 0.5, sz * (d / 2 + 0.06));
       break;
     }
+    /* ---- house 7 (Plan B — Ichijo): catalogue unit bath / shower room shells, fittings that do not fit */
+    case 'ubox': case 'shbox': {                       /* the unit's own room: floor pan, walls, ceiling, glass door at local +y; tub along -y */
+      const t = 0.04, H = top, dw = Math.min(0.8, w - 0.3), sd = (w - dw) / 2, wm = MAT.greyTile || MAT.white;   /* panels: grey stone-look */
+      mk(g, B(w, 0.12, d, MAT.white), MAT.white, 0, 0.06, 0);
+      for (const sx of [-1, 1]) mk(g, B(t, H, d, wm), wm, sx * (w / 2 - t / 2), H / 2, 0);
+      mk(g, B(w - 2 * t, H, t, wm), wm, 0, H / 2, -d / 2 + t / 2);
+      for (const sx of [-1, 1]) mk(g, B(sd - t, H, t, wm), wm, sx * (w / 2 - t - (sd - t) / 2), H / 2, d / 2 - t / 2);
+      mk(g, B(dw, H - 2.0, t, wm), wm, 0, 2.0 + (H - 2.0) / 2, d / 2 - t / 2);
+      const door = new THREE.Mesh(new THREE.BoxGeometry(dw - 0.02, 1.86, 0.015), MAT.glassIn); door.position.set(0, 0.12 + 0.93, d / 2 - t / 2); door.renderOrder = 2; g.add(door);
+      mk(g, B(w, 0.03, d, MAT.white), MAT.white, 0, H + 0.015, 0);
+      if (s.name === 'ubox') {
+        const tw = w - 2 * t - 0.04, td = Math.min(0.8, d * 0.45), tz = -d / 2 + t + td / 2 + 0.02;
+        mk(g, RB(tw, 0.55, td, 0.06, MAT.porcelain), MAT.porcelain, 0, 0.12 + 0.275, tz);
+        const wt = new THREE.Mesh(new THREE.PlaneGeometry(tw - 0.16, td - 0.16), MAT.water); wt.rotation.x = -Math.PI / 2; wt.position.set(0, 0.6, tz); g.add(wt);
+      }
+      mk(g, CY(0.012, 1.0, 10), MAT.steel, w / 2 - t - 0.06, 1.45, 0.1);
+      const hd = mk(g, CY(0.07, 0.02, 20), MAT.steel, w / 2 - t - 0.1, 1.98, 0.1); hd.rotation.z = Math.PI / 2;
+      mk(g, B(0.05, 0.08, 0.22), MAT.steel, w / 2 - t - 0.03, 1.0, 0.1);
+      break;
+    }
+    case 'ghostNoFill': case 'ghostNeedsFill': {       /* a fitting that does not fit as drawn: translucent red (NO) / amber (NEEDS), inside its room */
+      const gm = new THREE.Mesh(new THREE.BoxGeometry(w, top, d), s.name === 'ghostNoFill' ? MAT.ghostNo : MAT.ghostNeeds); gm.position.y = top / 2; gm.renderOrder = 3; g.add(gm);
+      break;
+    }
+    case 'ghostLineNo': case 'ghostLineNeeds': {       /* ... and its real size as an outline (through the walls it overruns) */
+      const ln = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, top, d)), new THREE.LineBasicMaterial({ color: s.name === 'ghostLineNo' ? 0xff3b3b : 0xffb020 }));
+      ln.position.y = top / 2; g.add(ln);
+      break;
+    }
     default: return undefined;
   }
   g.position.set(s.x, 0, s.y);
@@ -2474,6 +2541,7 @@ function makeProp3(s, lvl) {
    (the one over the entrance) is one closed solid with a smooth sloped soffit */
 function buildStairs3(list) {
   for (const s of list) {
+    if (s.hidden) continue;                          /* house 7: outside stair + porch steps, walkable but drawn by buildIchijo7 */
     const L = LV[s.level], g = new THREE.Group(), y0 = L.base;
     const rise = s.rise / s.n;
     s.treads.forEach((t, k) => {
@@ -2530,6 +2598,7 @@ function stairHeights3(x, z) {
    standing-seam metal on top, a layer of snow */
 function buildRoofs3() {
   for (const r of ROOFS3) {
+    if (r.custom) continue;                          /* house 7 builds its own (buildRoof7) */
     const o = r.over || { n: 0, s: 0, e: 0, w: 0 };
     const X0 = r.rect[0] - (o.w || 0), X1 = r.rect[2] + (o.e || 0), Z0 = r.rect[1] - (o.n || 0), Z1 = r.rect[3] + (o.s || 0);
     /* inside = the rooms under it (the lowest level it covers), out to the walls' outside faces */
@@ -2736,9 +2805,275 @@ function buildHouse3(plan) {
   LV.forEach((L, i) => buildLabels(i));
   buildStairs3(plan.stairs3 || []);
   buildRoofs3(); buildChimney3(); buildSite3(); lights3(); decorate3();
+  if (HOUSE === 7) buildIchijo7(plan);
   parkSliders();
   for (let i = 0; i < LV.length; i++) { mergeStatic(G.walls[i]); mergeStatic(G.furn[i]); mergeStatic(G.floor[i]); mergeStatic(G.ceil[i]); }
   mergeStatic(G.ext); mergeStatic(G.roof);
+}
+
+/* ================================================================ house 7 */
+/* Plan B — Ichijo (Toby 2026-10-11): Plan B under Ichijo Komuten's limits with
+   the catalogue fittings as user controls. ichijo.js derive() turns the editable
+   model (ref-model-e.json) into the one refplan.js builds (heights, the gym
+   floor, windows <= 2.2 m + transoms, door heights, fittings, the roof) and
+   postPlan() adds the outside stair / porch steps; the house-3 code builds it
+   and buildIchijo7 adds the ceilings, the L-shaped roof, the outside stair,
+   porch steps and the carport. The "Ichijo spec" panel (ichijo.js mountPanel)
+   rebuilds the house in place (rebuild7) and saves the model (h3dRefModelE). */
+let IJ = null, CATALOG = null, ICH = null, ICHP = null, MODEL7 = null;
+function buildIchijo7(plan) {
+  const info = ICH.info, I = info.opts, L0 = LV[0], L1 = LV[1];
+  const gy = PLAN.ground;
+  /* 2F ceilings: flat at h2, the sloped zone parallel to the roof */
+  if (L1) {
+    const Z = info.ceilings.zone, FL2 = L1.base, gc = G.ceil[1];
+    const inZ = (x, z) => Z && x > Z.rect[0] && x < Z.rect[2] && z > Z.rect[1] && z < Z.rect[3];
+    const polys = L1.faces.map(f => f.poly);
+    const xs = polys.flat().map(p => p[0]), zs = polys.flat().map(p => p[1]);
+    if (Z) { xs.push(Z.rect[0], Z.rect[2]); zs.push(Z.rect[1], Z.rect[3]); }
+    const flatR = gridRects(xs, zs, (x, z) => polys.some(p => inside(p, x, z)) && !inZ(x, z));
+    slabRects(gc, flatR, FL2 + I.h2 + 0.03, 0.03, MAT.ceiling, MAT.ceiling, MAT.white);
+    if (Z) {
+      const v = Z.view, k = Z.k, h0 = FL2 + I.h2;
+      const zp = mkRoof3(v === 'n' ? { low: 's', y0: Z.inner, h0, k } : v === 's' ? { low: 'n', y0: Z.inner, h0, k } : v === 'e' ? { axis: 'x', low: 'w', x0: Z.inner, h0, k } : { axis: 'x', low: 'e', x0: Z.inner, h0, k });
+      slopedSlab(gc, [Z.rect], 0, 0.03, MAT.ceiling, MAT.white, () => MAT.ceiling, zp);
+      /* the zone's sides along the slope: a wall from the flat ceiling up to the slope where no outside wall stands */
+      const sides = v === 'n' || v === 's' ? [[Z.rect[0], 'x'], [Z.rect[2], 'x']] : [[Z.rect[1], 'z'], [Z.rect[3], 'z']];
+      const Q = Quads(MAT.plaster);
+      for (const [c, ax] of sides) {
+        const onExt = L1.walls.some(w => w.kind === 'ext' && (ax === 'x' ? Math.abs(w.a[0] - c) < 0.01 && Math.abs(w.b[0] - c) < 0.01 : Math.abs(w.a[1] - c) < 0.01 && Math.abs(w.b[1] - c) < 0.01));
+        if (onExt) continue;
+        const [t0, t1] = ax === 'x' ? [Z.rect[1], Z.rect[3]] : [Z.rect[0], Z.rect[2]];
+        const P = (t, y) => ax === 'x' ? [c, y, t] : [t, y, c];
+        const yp = (t) => ax === 'x' ? zp.y(c, t) : zp.y(t, c);
+        for (const sg of [1, -1]) {
+          const nrm = ax === 'x' ? [sg, 0, 0] : [0, 0, sg];
+          quad(Q, P(t0, h0), P(t1, h0), P(t1, yp(t1)), P(t0, yp(t0)), nrm, (q) => [ax === 'x' ? q[2] : q[0], q[1]]);
+        }
+      }
+      const m = qMesh(Q); if (m) gc.add(m);
+    }
+  }
+  /* 1F ceiling where no 2F face is above (the 2 cm west strip: Plan B's 1F and 2F west walls differ) */
+  if (L1) {
+    const p0 = L0.faces.map(f => f.poly), p1 = L1.faces.map(f => f.poly);
+    const xs = p0.flat().map(p => p[0]).concat(p1.flat().map(p => p[0])), zs = p0.flat().map(p => p[1]).concat(p1.flat().map(p => p[1]));
+    const R = gridRects(xs, zs, (x, z) => p0.some(p => inside(p, x, z)) && !p1.some(p => inside(p, x, z)));
+    if (R.length) slabRects(G.ceil[0], R, L0.base + L0.h + 0.03, 0.03, MAT.ceiling, MAT.ceiling, MAT.white);
+  }
+  buildRoof7();
+  for (const e of PLAN.ichijo.outside) outsideStair7(e);
+  for (const e of PLAN.ichijo.porches) for (const t of e.treads) {
+    const b = bbox(t.poly), m = mk(G.ext, B(b[2] - b[0], t.top - gy, b[3] - b[1], MAT.pad), MAT.pad, (b[0] + b[2]) / 2, (gy + t.top) / 2, (b[1] + b[3]) / 2);
+    m.castShadow = false;
+  }
+  /* the carport (Plan B's north-east shade), standing on the ground, and its drive */
+  const c = PLAN.carport7;
+  if (c) {
+    _house = null;
+    const cl = clearOfHouse(c);
+    if (cl) {
+      const n0 = G.ext.children.length, k0 = COLL.length;
+      buildCarport2(Object.assign({}, cl, { top: c.top || 3.0 }));
+      for (let i = n0; i < G.ext.children.length; i++) G.ext.children[i].position.y += gy;
+      for (let i = k0; i < COLL.length; i++) { COLL[i].y0 += gy; COLL[i].y1 += gy; }
+      const C = CARPORT2;
+      mk(G.ext, B(C.x1 - C.x0, 0.05, C.z1 - C.z0, MAT.pad), MAT.pad, (C.x0 + C.x1) / 2, gy + 0.005, (C.z0 + C.z1) / 2).castShadow = false;
+      mk(G.ext, B(13.4, 0.04, 6.0, MAT.packed), MAT.packed, C.x1 + 6.7, gy, (C.z0 + C.z1) / 2).castShadow = false;
+    }
+  }
+}
+/* one mono-pitch roof over the L-shaped 2F (ROOFS3[0]: the plane): metal on
+   top, plaster under it inside the walls, cedar soffit outside, snow on it */
+function buildRoof7() {
+  const R = ROOFS3.find(r => r.custom), L1 = LV[1];
+  if (!R || !L1) return;
+  const t = Math.max(...L1.walls.filter(w => w.kind === 'ext').map(w => w.t)), o = R.over.n, th = R.th || 0.34;
+  const fr = L1.faces.flatMap(f => rectsOf(f.poly, []));
+  const grow = (d) => fr.map(r => [r[0] - d, r[1] - d, r[2] + d, r[3] + d]);
+  const outer = grow(t + o), walls = grow(t), snow = grow(t + o - 0.1);
+  const inR = (rs) => (x, z) => rs.some(r => x > r[0] && x < r[2] && z > r[1] && z < r[3]);
+  const xs = outer.concat(walls).flatMap(r => [r[0], r[2]]), zs = outer.concat(walls).flatMap(r => [r[1], r[3]]);
+  const all = gridRects(xs, zs, inR(outer)), inW = inR(walls);
+  slopedSlab(G.roof, all, 0, th, MAT.roofMetal, MAT.blackSteel, (q) => inW((q[0] + q[2]) / 2, (q[1] + q[3]) / 2) ? MAT.ceiling : MAT.cedar, R);
+  slopedSlab(G.roof, gridRects(snow.flatMap(r => [r[0], r[2]]), snow.flatMap(r => [r[1], r[3]]), inR(snow)), th, 0.22, MAT.roofSnow, MAT.roofSnow, null, R);
+}
+/* the outside stair (house-2 style: deck treads with snow, black steel stringers
+   and handrails) from the ground to a landing deck on posts at the 2F door */
+function outsideStair7(e) {
+  const g = new THREE.Group(), base = LV[e.level].base, gy = PLAN.ground;
+  const nf = e.treads.length - (e.landing ? 1 : 0), fl = e.treads.slice(0, nf);
+  const cen = (t) => t.poly.reduce((a, p) => [a[0] + p[0] / t.poly.length, a[1] + p[1] / t.poly.length], [0, 0]);
+  for (const t of fl) {
+    const b = bbox(t.poly);
+    mk(g, B(b[2] - b[0], 0.045, b[3] - b[1], MAT.deck), MAT.deck, (b[0] + b[2]) / 2, base + t.top - 0.0225, (b[1] + b[3]) / 2);
+    mk(g, RS(b[2] - b[0] - 0.06, 0.04, (b[3] - b[1]) * 0.8, 0.02, MAT.snow), MAT.snow, (b[0] + b[2]) / 2, base + t.top + 0.01, (b[1] + b[3]) / 2).castShadow = false;
+  }
+  if (fl.length > 1) {
+    const c0 = cen(fl[0]), c1 = cen(fl[fl.length - 1]), d = [c1[0] - c0[0], c1[1] - c0[1]], dl = Math.hypot(d[0], d[1]), u = [d[0] / dl, d[1] / dl], nrm = [-u[1], u[0]];
+    const P = fl.flatMap(t => t.poly), q = P.map(p => (p[0] - c0[0]) * nrm[0] + (p[1] - c0[1]) * nrm[1]), q0 = Math.min(...q), q1 = Math.max(...q);
+    const go = dl / (fl.length - 1), y0 = gy, y1 = base + fl[fl.length - 1].top;
+    const sA = -go / 2, sB = dl + go / 2, run = sB - sA, rise = y1 - y0 + (y1 - y0) / (fl.length - 1) * 0.5, sl = Math.hypot(run, rise), ang = Math.atan2(rise, run);
+    for (const qq of [q0 + 0.006, q1 - 0.006]) {
+      const mx = c0[0] + u[0] * (sA + sB) / 2 + nrm[0] * qq, mz = c0[1] + u[1] * (sA + sB) / 2 + nrm[1] * qq;
+      const st = new THREE.Mesh(B(sl, 0.26, 0.012), MAT.blackSteel);
+      st.position.set(mx, (y0 + y1) / 2 - 0.1, mz); st.rotation.order = 'YXZ'; st.rotation.y = Math.atan2(-u[1], u[0]); st.rotation.z = ang; st.castShadow = true; g.add(st);
+      const hr = new THREE.Mesh(CY(0.022, sl + 0.2, 12), MAT.blackSteel);
+      hr.position.set(mx, (y0 + y1) / 2 + 0.9, mz); hr.rotation.order = 'YXZ'; hr.rotation.y = Math.atan2(-u[1], u[0]); hr.rotation.z = ang - Math.PI / 2; g.add(hr);
+      for (let i = 0; i < fl.length; i += 3) { const c = cen(fl[i]); mk(g, CY(0.011, 0.92, 8), MAT.blackSteel, c[0] + nrm[0] * (qq - (c[0] - c0[0]) * nrm[0] - (c[1] - c0[1]) * nrm[1]), base + fl[i].top + 0.46, c[1] + nrm[1] * (qq - (c[0] - c0[0]) * nrm[0] - (c[1] - c0[1]) * nrm[1])); }
+    }
+  }
+  if (e.landing) {
+    const t = e.treads[nf], b = bbox(t.poly), H = base + t.top, w = b[2] - b[0], d = b[3] - b[1], cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2;
+    mk(g, B(w, 0.045, d, MAT.deck), MAT.deck, cx, H - 0.0225, cz);
+    mk(g, RS(w - 0.08, 0.04, d - 0.08, 0.02, MAT.snow), MAT.snow, cx, H + 0.012, cz).castShadow = false;
+    mk(g, B(w, 0.16, 0.06), MAT.blackSteel, cx, H - 0.125, b[1] + 0.03); mk(g, B(w, 0.16, 0.06), MAT.blackSteel, cx, H - 0.125, b[3] - 0.03);
+    for (const [sx, sz] of [[0, 1], [0, 3], [2, 1], [2, 3]]) { const px = b[sx] + (sx ? -0.05 : 0.05), pz = b[sz] + (sz === 3 ? -0.05 : 0.05); mk(g, B(0.1, H - 0.2 - gy, 0.1), MAT.blackSteel, px, (gy + H - 0.2) / 2, pz); addCollBox(px, pz, 0.1, 0.1, 0, gy, H - 0.2); }
+    /* rails on the sides away from the house and the flight */
+    const away = [[b[1], 'z'], [b[3], 'z'], [b[0], 'x']].filter(([c, ax]) => !houseAt(ax === 'z' ? cx : c - 0.25, ax === 'z' ? c + (c === b[1] ? -0.25 : 0.25) : cz));
+    for (const [c, ax] of away) {
+      const L = ax === 'z' ? w : d;
+      mk(g, ax === 'z' ? B(L, 0.04, 0.05) : B(0.05, 0.04, L), MAT.blackSteel, ax === 'z' ? cx : c + 0.03, H + 1.1, ax === 'z' ? c : cz);
+      const nb = Math.round(L / 0.11);
+      for (let i = 0; i <= nb; i++) { const tt = -L / 2 + 0.03 + (L - 0.06) * i / nb; mk(g, B(0.016, 1.08, 0.016), MAT.blackSteel, ax === 'z' ? cx + tt : c + 0.03, H + 0.56, ax === 'z' ? c : cz + tt); }
+    }
+  }
+  G.ext.add(g);
+}
+/* presets from the rooms (they follow wall drags): [name, x, z, yaw, pitch, level] */
+function views7() {
+  VIEWS7.length = 0;
+  const face = (li, re) => LV[li] && LV[li].faces.find(f => f.anchored && re.test(f.name));
+  const bb = (f) => bbox(f.poly);
+  const yawTo = (x, z, tx, tz) => Math.atan2(-(tx - x), -(tz - z));
+  const at = (f, fx, fz) => { const b = bb(f); return [b[0] + (b[2] - b[0]) * fx, b[1] + (b[3] - b[1]) * fz]; };
+  const onFloor = (li, x, z) => LV[li].faces.some(f => f.floor !== 'void' && inside(f.poly, x, z));
+  const view = (name, li, f, e, tg, pitch) => {
+    if (!f) return;
+    let [x, z] = at(f, e[0], e[1]);
+    const [tx, tz] = at(f, tg[0], tg[1]);
+    for (let i = 0; i < 12 && !onFloor(li, x, z); i++) { x += (tx - x) * 0.15; z += (tz - z) * 0.15; }
+    VIEWS7.push([name, +x.toFixed(3), +z.toFixed(3), +yawTo(x, z, tx, tz).toFixed(3), pitch, li]);
+  };
+  const all = LV.flatMap(L => L.faces.flatMap(f => f.poly)), B0 = bbox(all);
+  const cx = (B0[0] + B0[2]) / 2, cz = (B0[1] + B0[3]) / 2;
+  VIEWS7.push(['Outside — north-east', B0[2] + 9.5, B0[1] - 11.5, +yawTo(B0[2] + 9.5, B0[1] - 11.5, cx, cz).toFixed(3), 0.12, null, 2.4]);
+  VIEWS7.push(['Outside — south (entrance, outside stair)', cx + 2.5, B0[3] + 13.5, +yawTo(cx + 2.5, B0[3] + 13.5, cx + 1.0, cz).toFixed(3), 0.1, null, 1.9]);
+  VIEWS7.push(['Doll-house from above', cx, B0[3] + 10.5, 0.0, -1.0, null, 19.0]);
+  view('1F — Entrance', 0, face(0, /^entrance/i), [0.8, 0.82], [0.0, 0.25], -0.04);
+  view('1F — Gym (sunken floor)', 0, face(0, /^gym/i), [0.93, 0.95], [0.08, 0.1], -0.05);
+  view('1F — Bath (hinoki tubs)', 0, face(0, /^bath$/i), [0.49, 0.1], [0.12, 0.8], -0.15);
+  view('1F — Stair hall + stair', 0, face(0, /^stair hall/i), [0.96, 0.12], [0.05, 0.85], 0.05);
+  const Z = ICH.info.zone, lv = face(1, /^living/i);
+  if (lv && Z) {
+    /* from the low side of the slope, looking up it at the view glass and its transoms */
+    const E = { n: [0.12, 0.62], s: [0.12, 0.38], e: [0.38, 0.12], w: [0.62, 0.12] }[Z.view], Tg = { n: [1.0, 0.08], s: [1.0, 0.92], e: [0.92, 1.0], w: [0.08, 1.0] }[Z.view];
+    view('2F — Living (sloped ceiling)', 1, lv, E, Tg, 0.24);
+  }
+  const din = face(1, /^dining/i), kit = face(1, /^kitchen/i);
+  if (din && kit) {
+    const kb = bb(kit), db = bb(din);
+    const x = db[0] + (db[2] - db[0]) * 0.55, z = (kb[1] + kb[3]) / 2 + 0.4;
+    VIEWS7.push(['2F — Kitchen', +x.toFixed(3), +z.toFixed(3), +yawTo(x, z, kb[0] + 0.3, (kb[1] + kb[3]) / 2).toFixed(3), -0.12, 1]);
+  }
+  /* bedrooms: from the corner nearest the door toward the opposite corner */
+  const doors = LV[1].walls.flatMap(w => {
+    const len = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1, u = [(w.b[0] - w.a[0]) / len, (w.b[1] - w.a[1]) / len];
+    return w.doors.filter(o => o.kind !== 'WINDOW').map(o => [w.a[0] + u[0] * (o.off + o.w / 2), w.a[1] + u[1] * (o.off + o.w / 2)]);
+  });
+  /* the largest axis-aligned rectangle inside a face (its main part) */
+  const bigRect = (P) => {
+    const xs = [...new Set(P.map(p => +p[0].toFixed(4)))].sort((a, b) => a - b), zs = [...new Set(P.map(p => +p[1].toFixed(4)))].sort((a, b) => a - b);
+    let best = null;
+    for (let i0 = 0; i0 < xs.length; i0++) for (let i1 = i0 + 1; i1 < xs.length; i1++) for (let j0 = 0; j0 < zs.length; j0++) for (let j1 = j0 + 1; j1 < zs.length; j1++) {
+      const A = (xs[i1] - xs[i0]) * (zs[j1] - zs[j0]);
+      if (best && A <= best[4]) continue;
+      let ok = true;
+      for (let i = i0; i < i1 && ok; i++) for (let j = j0; j < j1 && ok; j++) if (!inside(P, (xs[i] + xs[i + 1]) / 2, (zs[j] + zs[j + 1]) / 2)) ok = false;
+      if (ok) best = [xs[i0], zs[j0], xs[i1], zs[j1], A];
+    }
+    return best || bbox(P);
+  };
+  for (let n = 1; n <= 4; n++) {
+    const f = face(1, new RegExp('^bedroom ' + n + '$', 'i'));
+    if (!f) continue;
+    const b = bigRect(f.poly), cs = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const near = (p) => Math.min(...cs.map(([i, j]) => Math.hypot(b[0] + (b[2] - b[0]) * i - p[0], b[1] + (b[3] - b[1]) * j - p[1])));
+    const dps = doors.filter(p => near(p) < 2.5 && (inside(f.poly, p[0], p[1]) || f.poly.some((q, k) => { const r = f.poly[(k + 1) % f.poly.length]; return Math.abs((r[0] - q[0]) * (p[1] - q[1]) - (r[1] - q[1]) * (p[0] - q[0])) < 0.2 * Math.hypot(r[0] - q[0], r[1] - q[1]) && p[0] > Math.min(q[0], r[0]) - 0.2 && p[0] < Math.max(q[0], r[0]) + 0.2 && p[1] > Math.min(q[1], r[1]) - 0.2 && p[1] < Math.max(q[1], r[1]) + 0.2; })));
+    const dp = dps[0] || [(b[0] + b[2]) / 2, b[3]];
+    const k = cs.map(([i, j]) => [Math.hypot(b[0] + (b[2] - b[0]) * i - dp[0], b[1] + (b[3] - b[1]) * j - dp[1]), i, j]).sort((p, q) => p[0] - q[0])[0];
+    const fb = bbox(f.poly), fr = (x, z) => [(x - fb[0]) / (fb[2] - fb[0]), (z - fb[1]) / (fb[3] - fb[1])];   /* view() takes fractions of the face's bbox */
+    const ex = b[0] + (b[2] - b[0]) * (k[1] ? 0.88 : 0.12), ez = b[1] + (b[3] - b[1]) * (k[2] ? 0.88 : 0.12);
+    const tx = b[0] + (b[2] - b[0]) * (k[1] ? 0.02 : 0.98), tz = b[1] + (b[3] - b[1]) * (k[2] ? 0.02 : 0.98);
+    view('2F — Bedroom ' + n, 1, f, fr(ex, ez), fr(tx, tz), -0.08);
+  }
+  const ba = face(1, /^bathroom 4$/i);
+  if (ba) view('2F — Bathroom 4 (unit bath)', 1, ba, [0.97, 0.62], [0.0, 0.45], -0.14);
+  const st = (PLAN.stairs3 || []).find(s => s.id === 's1');
+  if (st) {
+    const top = st.treads[st.treads.length - 1].poly, c = top.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
+    VIEWS7.push(['2F — Top of the stairs', +(c[0] - 0.75).toFixed(3), +(c[1] - 0.2).toFixed(3), -1.57, -0.35, 1]);
+  }
+}
+/* the options panel: changes rebuild the house and are saved like the editor's */
+function bindIchijo7() {
+  const top = $('top');
+  let b = $('bIch');
+  if (!b) {
+    b = document.createElement('button'); b.id = 'bIch'; b.className = 'ac'; b.dataset.i18n = 'ich'; b.dataset.i18nTitle = 'icht';
+    b.textContent = T('ich'); b.title = T('icht');
+    const be = $('bEdit'); top.insertBefore(b, be ? be.nextSibling : null);
+  }
+  ICHP = IJ.mountPanel(document.body, {
+    model: () => MODEL7, cat: CATALOG, lang: () => LANG, info: () => ICH.info,
+    change: (fn) => { const m = JSON.parse(JSON.stringify(MODEL7)); m.ichijo = m.ichijo || {}; fn(m); rebuild7(m, true); },
+    closeBtn: () => { ICHP.show(false); b.classList.remove('on'); },
+  });
+  const show = (v) => { ICHP.show(v); b.classList.toggle('on', v); if (v) { ICHP.render(); placeIchijo7(); } };
+  b.onclick = () => show(ICHP.el.hidden);
+  show(!(Math.min(innerWidth, innerHeight) < 500));
+}
+function placeIchijo7() {
+  if (!ICHP) return;
+  const t = Math.round($('top').getBoundingClientRect().bottom + 6);
+  ICHP.el.style.top = t + 'px'; ICHP.el.style.right = '8px'; ICHP.el.style.maxHeight = 'calc(100vh - ' + (t + 120) + 'px)';
+}
+function teardown7() {
+  const kill = (g) => {
+    if (!g) return;
+    g.traverse(o => {
+      if (o.isSprite && o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
+      else if ((o.isMesh || o.isLineSegments) && o.geometry && !o.userData.gltf) o.geometry.dispose();
+    });
+    root.remove(g);
+  };
+  for (const k of ['floor', 'walls', 'furn', 'ceil', 'labels']) { for (const g of G[k]) kill(g); G[k].length = 0; }
+  for (const g of [G.ext, G.roof]) { g.traverse(o => { if ((o.isMesh || o.isLineSegments) && o.geometry && !o.userData.gltf) o.geometry.dispose(); }); g.clear(); }
+  COLL.length = 0; SLIDERS.length = 0; FLOOR_RECTS.length = 0; LABELS3.length = 0;
+  _house = null; CARPORT2 = null; STAIRS = [];
+}
+function rebuild7(model, save) {
+  const t0 = performance.now();
+  MODEL7 = model; window.__model = model;
+  if (save) {
+    try { localStorage.setItem(REF.key, JSON.stringify(model)); } catch (e) { /* private mode */ }
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    MODEL_SRC = 'edited';
+    const sb = $('srcBadge'); if (sb) { sb.hidden = false; sb.textContent = T('srcEdited'); }
+    const bo = $('bOrig'); if (bo) bo.hidden = false;
+  }
+  ICH = IJ.derive(model, CATALOG, LANG);
+  const plan = IJ.postPlan(toPlan(ICH.model), ICH);
+  teardown7();
+  buildHouse3(plan);
+  views7(); fillJump();
+  const a3 = plan.levels.map(L => L.faces.filter(f => f.floor !== 'void').reduce((s, f) => s + f.area, 0));
+  $('areaInfo').textContent = a3.map((v, i) => floorName(i) + ' ' + v.toFixed(1) + 'm²').join(' · ');
+  if (!st.fly) { const h = supportAt(camera.position.x, camera.position.z, st.h === undefined || st.h === null ? LV[st.floor].base : st.h); if (h !== null) { st.h = h; camera.position.y = h + EYE; } }
+  Object.assign(window, { LV, PLAN, ROOFS3, ICH, FLOOR_RECTS });
+  if (ICHP) ICHP.render();
+  window.__rebuildMs = Math.round(performance.now() - t0);
+  window.__rebuilds = (window.__rebuilds || 0) + 1;
 }
 
 /* house 3 presets (model coordinates: x east, z south, the main block centred) */
@@ -2876,7 +3211,8 @@ const VIEWS2 = [
   ['2F — Bedroom 3', -2.5, 0.5, -0.9, 0.05, 1],
   ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
 ];
-const VIEWS = HOUSE === 6 ? VIEWS6 : HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : H3 ? VIEWS3 : HOUSE === 2 ? VIEWS2 : VIEWS1;
+const VIEWS7 = [];   /* house 7: computed from the rooms after every build (views7) */
+const VIEWS = HOUSE === 7 ? VIEWS7 : HOUSE === 6 ? VIEWS6 : HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : H3 ? VIEWS3 : HOUSE === 2 ? VIEWS2 : VIEWS1;
 
 /* ---------------------------------------------------------------- controls */
 const st = {
@@ -2884,7 +3220,7 @@ const st = {
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
-const ORBIT_T = HOUSE === 2 ? new V(0, 3, 0) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 || HOUSE === 6 ? new V(0, 4.0, 0) : H3 ? new V(1.0, 3.5, 0.5) : new V(-4, 3, -5);
+const ORBIT_T = HOUSE === 7 ? new V(-0.3, 4.5, 0.1) : HOUSE === 2 ? new V(0, 3, 0) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 || HOUSE === 6 ? new V(0, 4.0, 0) : H3 ? new V(1.0, 3.5, 0.5) : new V(-4, 3, -5);
 const act = new Set();
 const KEYMAP = {
   KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',
@@ -3126,7 +3462,7 @@ function bindUI() {
   $('spd').oninput = (e) => { st.speed = +e.target.value * 0.75; };
   $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
   /* house switcher: each house is its own page load (?house=2) */
-  for (const h of [1, 2, 3, 4, 5, 6]) {
+  for (const h of [1, 2, 3, 4, 5, 6, 7]) {
     const b = $('bH' + h); if (!b) continue;
     b.classList.toggle('on', h === HOUSE);
     b.onclick = () => { if (h !== HOUSE) location.href = location.pathname + (h > 1 ? '?house=' + h : ''); };
@@ -3136,6 +3472,7 @@ function bindUI() {
   const bo = $('bOrig');
   if (bo) { bo.hidden = !(H3 && MODEL_SRC !== 'original'); bo.onclick = () => { location.href = location.pathname + '?house=' + HOUSE + '&orig=1'; }; }
   if (HOUSE === 2) bindRoof();
+  if (HOUSE === 7) bindIchijo7();
 
   /* drag = grab the view and pull it (drag right -> the scene follows right) */
   let dragging = false, px = 0, py = 0;
@@ -3208,8 +3545,8 @@ function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(e => { const v = T(e.dataset.i18n); if (typeof v === 'string') e.textContent = v; });
   document.querySelectorAll('[data-i18n-title]').forEach(e => { const v = T(e.dataset.i18nTitle); if (typeof v === 'string') e.title = v; });
   const hb = $('helpBody'); if (hb) hb.innerHTML = T('help');
-  const geo = $('helpGeo'); if (geo) geo.textContent = T(HOUSE === 6 ? 'geo6' : HOUSE === 5 ? 'geo5' : HOUSE === 4 ? 'geo4' : H3 ? 'geo3' : HOUSE === 2 ? 'geo2' : 'geo1');
-  document.title = T(HOUSE === 6 ? 'doc6' : HOUSE === 5 ? 'doc5' : HOUSE === 4 ? 'doc4' : H3 ? 'doc3' : HOUSE === 2 ? 'doc2' : 'doc1');
+  const geo = $('helpGeo'); if (geo) geo.textContent = T(HOUSE === 7 ? 'geo7' : HOUSE === 6 ? 'geo6' : HOUSE === 5 ? 'geo5' : HOUSE === 4 ? 'geo4' : H3 ? 'geo3' : HOUSE === 2 ? 'geo2' : 'geo1');
+  document.title = T(HOUSE === 7 ? 'doc7' : HOUSE === 6 ? 'doc6' : HOUSE === 5 ? 'doc5' : HOUSE === 4 ? 'doc4' : H3 ? 'doc3' : HOUSE === 2 ? 'doc2' : 'doc1');
   const bo = $('bOrig'); if (bo && HOUSE >= 5) bo.title = T('origt' + HOUSE);
   const sb = $('srcBadge'); if (sb) { sb.hidden = !(H3 && MODEL_SRC !== 'original'); sb.textContent = MODEL_SRC === 'link' ? T('srcLink') : T('srcEdited'); }
   if (LV.length) {
@@ -3218,6 +3555,7 @@ function applyLang() {
     syncUI();
     if (HOUSE === 2 && ROOF) { roofReadout(); bindRoofTip(); }
     placeHud(); if (HOUSE === 2) placeRoofPanel();
+    if (HOUSE === 7 && ICHP) { ICH.info = IJ.derive(MODEL7, CATALOG, LANG).info; ICHP.render(); placeIchijo7(); }
   }
 }
 
@@ -3265,7 +3603,7 @@ function setupComposer() {
      there: the AO of the room behind it vanished and a noisy dark halo ran
      round its edges -- a shower screen read as a white slab. Glass doesn't
      occlude: hide it for that pass (restoreVisibility puts it back). */
-  const NO_AO = new Set([MAT.glassIn, MAT.doorGhost]);   /* looked up per frame: house 2's 2F walls are rebuilt by the roof sliders */
+  const NO_AO = new Set([MAT.glassIn, MAT.doorGhost, MAT.ghostNo, MAT.ghostNeeds].filter(Boolean));   /* looked up per frame: house 2's 2F walls are rebuilt by the roof sliders */
   const hideForGBuffer = gtaoPass.overrideVisibility;
   gtaoPass.overrideVisibility = function () { hideForGBuffer.call(this); scene.traverse(o => { if (o.isMesh && NO_AO.has(o.material)) o.visible = false; }); };
   composer.addPass(gtaoPass);
@@ -3279,6 +3617,7 @@ function resize() {
   camera.aspect = w / h; applyLens();              /* vertical fov follows the aspect */
   placeHud();
   if (HOUSE === 2) placeRoofPanel();
+  if (HOUSE === 7) placeIchijo7();
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
 }
 let last = performance.now();
@@ -3324,6 +3663,12 @@ const texturesReady = new Promise((res) => { LM.onLoad = res; });
 applyLang();   /* static UI text + titles before the house loads */
 loadMsg(T('loading'));
 const planReady = MOVED ? new Promise(() => {})   /* ?house=1: leaving for kutchan-house-plan-a, build nothing */
+  : HOUSE === 7 ? Promise.all([import('./ichijo.js?v=1'), loadModel(REF.url, REF.key)]).then(async ([ij, { model, from }]) => {
+    IJ = ij; CATALOG = await ij.loadCatalog('catalog.json?v=1');
+    MODEL_SRC = from; MODEL7 = model; window.__model = model;
+    ICH = ij.derive(model, CATALOG, LANG);
+    return ij.postPlan(toPlan(ICH.model), ICH);
+  })
   : H3 ? loadModel(REF.url, REF.key).then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
   : fetch('plan2.json?v=7').then(r => r.json());
 planReady.then(async (plan) => {
@@ -3331,6 +3676,7 @@ planReady.then(async (plan) => {
   buildMaterials(); t = mark('materials', t);
   setupLights();
   await Promise.all([setupEnv(), loadModels()]); t = mark('env+models', t);
+  if (HOUSE === 7) CEIL7 = (x, z, lvl) => LV[lvl].base + ICH.info.ceilAt(lvl, x, z);
   if (H3) buildHouse3(plan); else buildHouse(plan);
   t = mark('house', t); _built = true;
   setupComposer(); t = mark('composer', t);
@@ -3340,12 +3686,14 @@ planReady.then(async (plan) => {
   const a3 = H3 ? plan.levels.map(L => L.faces.filter(f => f.floor !== 'void').reduce((s, f) => s + f.area, 0)) : a;
   $('areaInfo').textContent = a3.map((v, i) => floorName(i) + ' ' + v.toFixed(H3 ? 1 : 0) + 'm²').join(' · ');
   if ((navigator.hardwareConcurrency || 8) <= 4 || Math.min(screen.width, screen.height) < 500) st.quality = 0;
+  if (HOUSE === 7) views7();
   bindPad(); bindUI(); applyLang(); resize();
   addEventListener('resize', resize);
   goView(VIEWS[0]);
   setFov(FOV.def);
   Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, SLIDERS, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
   Object.assign(window, { __house: HOUSE, ROOF, rebuildRoof, roofReadout, PLAN, ROOFS3, MODEL_SRC });
+  if (HOUSE === 7) Object.assign(window, { rebuild7, ICH, CATALOG, IJ, VIEWS7 });
   window.__roofInfo = () => ROOF && { axis: ROOF.axis ? 'z' : 'x', living: ROOF.living, bedrooms: ROOF.bedrooms, delta: ROOF.delta, sBed: ROOF.sBed, sLiv: ROOF.sLiv, hBed: ROOF.hBed, hLiv: ROOF.hLiv, pitch: +ROOF.pitch.toFixed(2), ms: ROOF.ms };
   $('load').style.display = 'none';
   window.__ready = true;

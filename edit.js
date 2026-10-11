@@ -15,11 +15,13 @@ const PLANS = {
   b: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=1', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
+  e: { url: 'ref-model-e.json?v=1', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e' },
 };
 const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
 const PLAN = PLANS[_qPlan] ? _qPlan : 'a';
 const REF = PLANS[PLAN];
 const PB = PLAN !== 'a';            /* plans b, c + d: their own strings, gym / onsen pieces, no unit bath */
+const PE = PLAN === 'e';            /* plan e = Plan B — Ichijo: the Ichijo spec panel + catalogue fittings (ichijo.js) */
 
 /* ------------------------------------------------------------------ text */
 const TX = {
@@ -53,7 +55,9 @@ const TX = {
       vanity: 'Washstand', ub: 'Unit bath', shower: 'Shower unit', island: 'Kitchen island', tall: 'Tall kitchen units', fridge: 'Fridge', washer: 'Washing machine', dryer: 'Dryer',
       stove: 'Wood stove', rugRound: 'Round rug', shelves: 'Shelves', rail: 'Hanging rail', post: 'Post', beam: 'Beam',
       tube: 'Soaking tub (hinoki)', saunaBench: 'Sauna bench', saunaHeater: 'Sauna heater', gymRack: 'Power rack', gymBench: 'Weight bench',
-      treadmill: 'Treadmill', mat: 'Exercise mat', railing: 'Glass railing' },
+      treadmill: 'Treadmill', mat: 'Exercise mat', railing: 'Glass railing',
+      showerSystem: 'Shower column', armchair: 'Armchair', bookcase: 'Bookcase', water_heater: 'Water heater', coatHanger: 'Hanging rail',
+      tv: 'TV / media unit', 'kitchen.cabinet': 'Kitchen unit (Plan B)', fence: 'Fence', shade: 'Pergola' },
     help: '<h3>Plan editor</h3>'
       + '<b>Move a wall</b>: drag it. The walls joined to it stretch with it, rooms reshape and their areas update. A straight run of walls moves together. With <b>Outside walls: all floors</b> on, moving an outside wall moves it on every floor (the roof follows).<br>'
       + '<b>Wall ends</b>: select a wall, then drag the round handle at an end to make it longer or shorter.<br>'
@@ -94,7 +98,9 @@ const TX = {
       vanity: '洗面台', ub: 'ユニットバス', shower: 'シャワーユニット', island: 'アイランドキッチン', tall: 'キッチン収納（背面）', fridge: '冷蔵庫', washer: '洗濯機', dryer: '乾燥機',
       stove: '薪ストーブ', rugRound: '丸ラグ', shelves: '棚', rail: '物干しパイプ', post: '柱', beam: '梁',
       tube: '浴槽（ひのき）', saunaBench: 'サウナベンチ', saunaHeater: 'サウナストーブ', gymRack: 'パワーラック', gymBench: 'トレーニングベンチ',
-      treadmill: 'ランニングマシン', mat: 'トレーニングマット', railing: 'ガラス手すり' },
+      treadmill: 'ランニングマシン', mat: 'トレーニングマット', railing: 'ガラス手すり',
+      showerSystem: 'シャワー水栓', armchair: 'アームチェア', bookcase: '本棚', water_heater: '給湯器', coatHanger: 'ハンガーパイプ',
+      tv: 'テレビ台', 'kitchen.cabinet': 'キッチン（プランB）', fence: 'フェンス', shade: 'パーゴラ' },
     help: '<h3>間取り編集</h3>'
       + '<b>壁を動かす</b>：壁をドラッグします。つながっている壁が伸び縮みし、部屋の形と面積も更新されます。一直線に並んだ壁は一緒に動きます。<b>外壁は全フロア連動</b>がオンのとき、外壁を動かすと全フロアの外壁が動きます（屋根も追従）。<br>'
       + '<b>壁の長さ</b>：壁を選択し、端の丸いハンドルをドラッグして伸ばす・縮める。<br>'
@@ -142,7 +148,18 @@ const TXD = {
     help: TXC.ja.help.replace('<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。', '<b>元の図面に戻す</b>でプランCの最初の間取りに戻ります。')
       .replace('プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。13.65×9.1mの総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（北側が高い）。1階ジム＋温泉、2階リビング・ダイニング、キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。', 'プランC：プランB 縮小版のL字版。眺望側の間口と窓を増やした案。12.74×8.19mの棟（910mmモジュールで14×9）の東端から、5.46×4.55mの翼が北（眺望側）へ張り出す総2階、片流れ屋根1面（北側が高い）。1階は翼にジム＋温泉、2階は翼にリビング（3面ガラス）、ダイニング・キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。') },
 };
-const TXP = { b: TXB, c: TXC, d: TXD };
+/* Plan B — Ichijo (?plan=e) */
+const TXE = {
+  en: { title: 'Plan editor · Plan B — Ichijo', resetQ: 'Throw away your changes (walls and catalogue choices) and go back to Plan B — Ichijo as first drawn?',
+    fGranite: TXB.en.fGranite, fHinoki: TXB.en.fHinoki, fRubber: TXB.en.fRubber, ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings",
+    help: TXC.en.help.replace('<b>Reset</b> goes back to Plan B compact as first drawn.', '<b>Reset</b> goes back to Plan B — Ichijo as first drawn.')
+      .replace(/Plan B compact: the compact, cheaper version of Plan B\..*$/, "Plan B — Ichijo: Toby's Plan B (his Floor Plan Creator dimensions) under Ichijo Komuten's limits. The <b>Ichijo spec</b> panel sets the heights, the sloped living ceiling and the window rules, and picks the kitchen, unit baths, vanities, toilets and the interior door height from the catalogue; each fitting's footprint is drawn in its room, green = fits, amber = needs a few cm, red = does not fit (the panel names the wall to move). Fittings follow the rooms when walls move.</span>") },
+  ja: { title: '間取り編集・プランB 一条版', resetQ: '変更（壁・設備の選択）をすべて破棄して、プランB 一条版の最初の間取りに戻しますか？',
+    fGranite: TXB.ja.fGranite, fHinoki: TXB.ja.fHinoki, fRubber: TXB.ja.fRubber, ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備',
+    help: TXC.ja.help.replace('<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。', '<b>元の図面に戻す</b>でプランB 一条版の最初の間取りに戻ります。')
+      .replace(/プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。.*$/, 'プランB 一条版：プランB（Floor Plan Creatorの寸法のまま）に一条工務店の制約をかけた版。<b>一条仕様</b>パネルで高さ・リビングの勾配天井・窓のルールを設定し、キッチン・ユニットバス・洗面化粧台・トイレ・室内ドアの高さをカタログから選びます。各設備の大きさを部屋に表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない。動かす壁はパネルに表示）。壁を動かすと設備も部屋に合わせて動きます。</span>') },
+};
+const TXP = { b: TXB, c: TXC, d: TXD, e: TXE };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
 if (!TX[LANG]) LANG = 'en';
 const T = (k) => (PB && TXP[PLAN][LANG][k] !== undefined) ? TXP[PLAN][LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
@@ -215,7 +232,7 @@ function fit() {
   if (!pts.length) return;
   const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), y1 = Math.max(...pts.map(p => p[1]));
   const mobile = W < 640;
-  const padL = mobile ? 20 : 190, padR = mobile ? 20 : 300, padT = mobile ? 70 : 80, padB = mobile ? 130 : 50;
+  const padL = mobile ? 20 : 190, padR = mobile ? 20 : (PE && W >= 900 ? 370 : 300), padT = mobile ? 70 : 80, padB = mobile ? 130 : 50;
   S.view.s = Math.min((W - padL - padR) / (x1 - x0 + 1.2), (H - padT - padB) / (y1 - y0 + 1.2));
   S.view.cx = (x0 + x1) / 2 - ((padL - padR) / 2) / S.view.s;
   S.view.cy = (y0 + y1) / 2 - ((padT - padB) / 2) / S.view.s;
@@ -260,7 +277,9 @@ function draw() {
     else if (st.from === S.lvl - 1) drawStair(c, st, true);
   }
   /* furniture */
+  if (PE) ichijoPrep();
   for (const it of L.items || []) drawItem(c, it);
+  if (PE) ichijoOverlay(c);
   /* walls */
   const outer = new Map();
   for (const w of L.walls) outer.set(w.id, w.t > 0 ? outsideSide(w, S.lvl) : 0);
@@ -374,6 +393,10 @@ function itemPoly(it, grow) {
 }
 const loc = (it, x, y) => { const ca = Math.cos(it.a || 0), sa = Math.sin(it.a || 0); return toS([it.x + x * ca - y * sa, it.y + x * sa + y * ca]); };
 function drawItem(c, it) {
+  if (PE && it.fx && ICH.replaced.has(it.id)) { c.save(); c.globalAlpha = 0.22; drawItem1(c, it); c.restore(); return; }
+  drawItem1(c, it);
+}
+function drawItem1(c, it) {
   const sel = S.sel && S.sel.type === 'item' && S.sel.id === it.id;
   const P = itemPoly(it).map(toS);
   c.beginPath(); P.forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.closePath();
@@ -625,14 +648,15 @@ function commit(label) {
   S.undo.push(S.before); if (S.undo.length > 120) S.undo.shift();
   S.redo.length = 0; S.before = null;
   touch(); save(); syncUI();
+  if (PE) ichijoChanged();
 }
 function begin() { S.before = JSON.stringify(S.model); }
 function save() {
   clearTimeout(_saveT);
   _saveT = setTimeout(() => { try { localStorage.setItem(REF.key, JSON.stringify(S.model)); } catch (e) { console.warn(e); } }, 150);
 }
-function undo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.model)); S.model = JSON.parse(S.undo.pop()); S.sel = null; touch(); save(); syncUI(); redraw(); }
-function redo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.model)); S.model = JSON.parse(S.redo.pop()); S.sel = null; touch(); save(); syncUI(); redraw(); }
+function undo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.model)); S.model = JSON.parse(S.undo.pop()); S.sel = null; touch(); save(); syncUI(); redraw(); if (PE) ichijoChanged(); }
+function redo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.model)); S.model = JSON.parse(S.redo.pop()); S.sel = null; touch(); save(); syncUI(); redraw(); if (PE) ichijoChanged(); }
 
 /* ------------------------------------------------------------- pointers */
 const ptrs = new Map();
@@ -1034,6 +1058,7 @@ function applyLang() {
   document.title = PB ? T('title') : T('title') + ' — ' + (LANG === 'ja' ? (S.model && S.model.ja || '土屋建設 参考プラン') : 'Tsuchiya Kensetsu reference house');
   setTool(S.tool);
   if (S.model) { syncUI(); syncProps(); }
+  if (PE && ICH.panel) { ichijoChanged(); const b = $('bIch'); if (b) { b.textContent = T('ich'); b.title = T('icht'); } }
 }
 function toast(t) { const e = $('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(() => { e.style.display = 'none'; }, 2600); }
 async function shareLinks() {
@@ -1077,6 +1102,71 @@ async function copy(t) {
   catch (e) { const ta = $('shareUrl'); ta.value = t; ta.select(); document.execCommand('copy'); toast(T('copied')); }
 }
 
+/* ------------------------------------------------------- plan e: Ichijo */
+/* the panel (ichijo.js mountPanel) edits model.ichijo + room.fit like any other
+   change (undo, autosave, share link); the derived fittings are drawn over the
+   plan: each catalogue piece's footprint in its room, coloured by its verdict */
+const ICH = { mod: null, cat: null, info: null, panel: null, stale: true, replaced: new Set() };
+function ichijoChanged() { ICH.stale = true; redraw(); }
+function ichijoPrep() {
+  if (!ICH.mod || (!ICH.stale && ICH.info) || S.drag) return;
+  try {
+    const D = ICH.mod.derive(S.model, ICH.cat, LANG);
+    ICH.info = D.info;
+    /* the drawn pieces a catalogue choice replaces (faint) */
+    const keep = new Set(D.model.levels.flatMap(L => (L.items || []).map(it => it.id)));
+    ICH.replaced = new Set(S.model.levels.flatMap(L => (L.items || []).filter(it => it.fx && it.fx !== 'toilet' && !keep.has(it.id)).map(it => it.id)));
+    ICH.stale = false;
+    if (ICH.panel && !ICH.panel.el.hidden) ICH.panel.render();
+  } catch (e) { console.error('ichijo', e); }
+}
+const VCOL = { FITS: ['rgba(46,170,98,.28)', '#1f8f50'], NEEDS: ['rgba(245,170,40,.30)', '#c07c00'], NO: ['rgba(230,60,60,.26)', '#c62828'], CUSTOM: ['rgba(90,140,200,.18)', '#3a6ea8'], INFO: ['rgba(60,60,70,.10)', '#6b6f75'] };
+function ichijoOverlay(c) {
+  const info = ICH.info; if (!info) return;
+  /* the sloped ceiling zone (2F) */
+  if (S.lvl === 1 && info.zone) {
+    const z = info.zone.rect, a = toS([z[0], z[1]]), b = toS([z[2], z[3]]);
+    c.save(); c.setLineDash([7, 5]); c.strokeStyle = '#7a5bc4'; c.lineWidth = 1.6; c.strokeRect(a[0], a[1], b[0] - a[0], b[1] - a[1]); c.restore();
+    c.font = '600 11px sans-serif'; c.fillStyle = '#6a4bb4'; c.textAlign = 'left'; c.textBaseline = 'top';
+    c.fillText((LANG === 'ja' ? '勾配天井 ' : 'Sloped ceiling ') + info.zone.area.toFixed(1) + ' m² · ' + info.zone.peak.toFixed(2) + ' m', Math.min(a[0], b[0]) + 6, Math.min(a[1], b[1]) + 5);
+  }
+  for (const p of info.pieces) {
+    if (p.level !== S.lvl) continue;
+    const col = VCOL[p.verdict] || VCOL.INFO, P = p.poly.map(toS);
+    c.beginPath(); P.forEach((q, i) => i ? c.lineTo(...q) : c.moveTo(...q)); c.closePath();
+    c.fillStyle = col[0]; c.fill(); c.strokeStyle = col[1]; c.lineWidth = 1.6; c.stroke();
+    if (!p.label || S.view.s < 40) continue;
+    const m = P.reduce((a, q) => [a[0] + q[0] / P.length, a[1] + q[1] / P.length], [0, 0]);
+    const f = info.fits.find(x => x.roomId === p.room && x.fit === p.fit);
+    const txt = (p.fit === 'kitchen' ? '' : (p.label.replace(/\s+(std|標準|\+¥[\d,]+).*$/, '').split(' ').slice(-1)[0] + ' ')) + (f ? ICH.mod.verdictText(f, LANG) : '');
+    c.save(); c.font = '600 10px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.lineWidth = 3; c.strokeStyle = 'rgba(255,255,255,.85)'; c.strokeText(txt, m[0], m[1]); c.fillStyle = col[1]; c.fillText(txt, m[0], m[1]); c.restore();
+  }
+}
+async function ichijoStart() {
+  const mod = await import('./ichijo.js?v=1');
+  ICH.mod = mod; ICH.cat = await mod.loadCatalog('catalog.json?v=1');
+  const top = $('top');
+  const b = el('button', { id: 'bIch', class: 'go', text: T('ich') }); b.title = T('icht');
+  top.insertBefore(b, $('b3d').nextSibling);
+  ICH.panel = mod.mountPanel(document.body, {
+    model: () => S.model, cat: ICH.cat, lang: () => LANG, info: () => { ichijoPrep(); return ICH.info; },
+    change: (fn) => { begin(); S.model.ichijo = S.model.ichijo || {}; fn(S.model); commit(); },
+    closeBtn: () => show(false),
+  });
+  const P = ICH.panel.el;
+  P.style.top = '64px'; P.style.right = '8px';
+  const show = (v) => { ICH.panel.show(v); b.classList.toggle('on', v); document.body.classList.toggle('ich-open', v); if (v) { ICH.stale = true; ichijoPrep(); ICH.panel.render(); } };
+  b.onclick = () => show(P.hidden);
+  if (!document.getElementById('ich-edit-css')) {
+    const st = document.createElement('style'); st.id = 'ich-edit-css';
+    st.textContent = 'body.ich-open #props{right:356px} @media (max-width:640px){ body.ich-open #props{right:8px} }';
+    document.head.appendChild(st);
+  }
+  show(innerWidth >= 900);
+  redraw();
+}
+
 /* ---------------------------------------------------------------- start */
 (async () => {
   const r = await fetch(REF.url); S.orig = await r.json();
@@ -1092,6 +1182,7 @@ async function copy(t) {
   }
   for (const L of S.model.levels) { L.items = L.items || []; L.rooms = L.rooms || []; }
   bindUI(); resize(); fit(); applyLang(); syncUI(); redraw();
-  Object.assign(window, { S, graph, redraw, syncUI, chainOf, moveChain, pick, toS, toW, frame });
+  if (PE) await ichijoStart();
+  Object.assign(window, { S, graph, redraw, syncUI, chainOf, moveChain, pick, toS, toW, frame, ICH });
   window.__ready = true;
 })().catch(e => { document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#a00">' + e + '</div>'); console.error(e); });
