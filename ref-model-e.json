@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "title": "Plan B — Ichijo",
  "ja": "プランB 一条版",
  "source": "Plan B (Toby's Floor Plan Creator plan, site/plan2.json) in the editor format with Ichijo Komuten's limits (model.ichijo, applied by ichijo.js) and catalogue fittings per room (room.fit -> catalog.json)",
@@ -26,13 +26,22 @@
      "off": -0.185,
      "ops": [
       {
-       "id": "o1",
+       "id": "os1",
        "type": "window",
-       "at": 0.01,
-       "w": 6.0455,
-       "sill": 1.0,
-       "head": 3.0,
-       "src": "853"
+       "at": 0.3,
+       "w": 5.4655,
+       "sill": 0.3,
+       "head": 2.5,
+       "src": "max1a"
+      },
+      {
+       "id": "os2",
+       "type": "window",
+       "at": 6.4855,
+       "w": 1.3291,
+       "sill": 0.3,
+       "head": 2.5,
+       "src": "max2a"
       },
       {
        "id": "o2",
@@ -45,13 +54,13 @@
        "side": 1
       },
       {
-       "id": "o3",
+       "id": "os3",
        "type": "window",
-       "at": 9.6103,
-       "w": 5.1612,
-       "sill": 1.0,
-       "head": 3.0,
-       "src": "569"
+       "at": 9.9146,
+       "w": 4.5669,
+       "sill": 0.3,
+       "head": 2.5,
+       "src": "max3a"
       }
      ],
      "src": "616+741"
@@ -1004,22 +1013,13 @@
      "off": -0.185,
      "ops": [
       {
-       "id": "o26",
+       "id": "os4",
        "type": "window",
-       "at": 0.01,
-       "w": 5.6005,
-       "sill": 0.0,
-       "head": 3.5,
-       "src": "691"
-      },
-      {
-       "id": "o27",
-       "type": "window",
-       "at": 6.2845,
-       "w": 0.7992,
-       "sill": 0.0,
-       "head": 3.5,
-       "src": "863"
+       "at": 0.3,
+       "w": 6.4827,
+       "sill": 0.1,
+       "head": 2.3,
+       "src": "max1b"
       },
       {
        "id": "o28",
@@ -1032,22 +1032,22 @@
        "side": 1
       },
       {
-       "id": "o29",
+       "id": "os5",
        "type": "window",
-       "at": 8.2036,
-       "w": 3.0119,
-       "sill": 0.5,
-       "head": 3.5,
-       "src": "856"
+       "at": 8.3364,
+       "w": 2.6155,
+       "sill": 0.1,
+       "head": 2.3,
+       "src": "max2b"
       },
       {
-       "id": "o30",
+       "id": "os6",
        "type": "window",
-       "at": 11.408,
-       "w": 3.4321,
-       "sill": 0.0,
-       "head": 3.5,
-       "src": "770"
+       "at": 11.6719,
+       "w": 2.8782,
+       "sill": 0.1,
+       "head": 2.3,
+       "src": "max3b"
       }
      ],
      "src": "748+641"
@@ -2117,12 +2117,13 @@
      "id": "f57",
      "kind": "bookcase",
      "x": -4.5121,
-     "y": 6.2755,
+     "y": 5.2755,
      "w": 1.2957,
      "d": 0.5,
      "a": 1.5708,
      "h": 2.0,
-     "src": "706"
+     "src": "706",
+     "moved": "off the south glass"
     },
     {
      "id": "f58",
@@ -2902,7 +2903,13 @@
    "a": -1.5708,
    "top": 3.0,
    "src": "626"
-  }
+  },
+  "bounds": [
+   -12.9543,
+   -12.6841,
+   9.3101,
+   10.8712
+  ]
  },
  "ichijo": {
   "v": 1,
@@ -2911,14 +2918,17 @@
   "gymDrop": 0.2,
   "buildUp": 0.45,
   "h2": 2.4,
-  "view": "n",
-  "slopeDepth": 3.9,
+  "view": "e",
+  "slopeDepth": 4.6892,
   "slopeMaxArea": 22,
   "pitch": 3.5,
   "roofClear": 0.15,
   "roofTh": 0.34,
   "overhang": 0.6,
-  "heightLimit": 10,
+  "heightLimit": 12,
+  "northH": 5,
+  "northK": 1.25,
+  "viewWall": "s",
   "winMaxH": 2.2,
   "winCeilGap": 0.1,
   "transomH": 0.3,

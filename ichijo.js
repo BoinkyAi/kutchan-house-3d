@@ -6,13 +6,15 @@
    choices (catalog.json ids). derive() turns that into the model the 3D builds:
      heights  1F clear h1 (2.6), the gym floor -gymDrop when gymSunken (2.8 clear),
               2F floor h1 + buildUp (3.05), 2F flat ceiling h2 (2.4)
-     sloped   zone = the part of the living nearest its view glass (ichijo.view),
-              slopeDepth deep (capped so it is <= slopeMaxArea m2); its ceiling rises
-              from h2 at the zone's inner edge toward the glass at `pitch` sun (寸/10;
-              default 3.5 = Ichijo standard: its sheet has 3.5寸 roof materials only);
-              the roof is ONE mono-pitch plane over the whole 2F at that pitch, high on
-              the view side: the lowest such plane that clears every 2F ceiling by
-              roofClear (so the sloped ceiling runs parallel under it)
+     roof     ONE mono-pitch plane over the whole 2F at `pitch` sun (寸/10; default 3.5 =
+              Ichijo standard: its sheet has 3.5寸 roof materials only), high on side
+              ichijo.view ('e' = the living wing's end, sloping down to the kitchen;
+              'n' = the carport side; 's' = the big-glass side): the lowest such plane
+              that clears every flat 2F ceiling by roofClear (the low end governs)
+     sloped   zone = the part of the living nearest its high-side wall, slopeDepth deep
+              (capped so it is <= slopeMaxArea m2); its ceiling IS the roof's underside
+              (Ichijo's 勾配天井 follows the rafters), a bulkhead closes it off from the
+              flat ceilings
      windows  head = min(drawn head, sill + winMaxH, ceiling - winCeilGap); wider than
               maxWindowW -> n equal units with `mullion` between; a transom
               (transomH x <= transomMaxW, over a transomGap strip) where the ceiling
@@ -22,7 +24,9 @@
               placed in the room's clear rectangle, with a fit verdict
    info (returned with the model) = readouts, window schedule, fit verdicts, the
    fitted pieces' footprints (for the editor) and the ceilings (for the 3D).
-   The panel checks the ridge (info.roof.ridge) against heightLimit (zoning, 10 m). */
+   The panel checks the roof's highest point (info.roof.maxH) against heightLimit (lot 9:
+   12 m), the north-side slope limit (northH + northK x the distance to the site's north
+   boundary, at the roof's north edge) and totals the glass on the view facade (viewWall). */
 'use strict';
 import { levelGraph, inPoly, polyArea } from './refplan.js?v=5';
 
@@ -30,10 +34,13 @@ const r4 = (v) => Math.round(v * 1e4) / 1e4;
 const PITCH_STD = 3.5;                                           /* sun: Ichijo's standard roof pitch (the panel labels it) */
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const SIDE = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
+/* lot 9 (plan2.json site, the model's frame: -y = north): the fallback when a model has no site.bounds */
+const SITE9 = [-12.9543, -12.6841, 9.3101, 10.8712];
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 export const ICHIJO_DEFAULTS = {
   h1: 2.6, gymSunken: true, gymDrop: 0.2, buildUp: 0.45, h2: 2.4,
-  view: 'n', slopeDepth: 3.9, slopeMaxArea: 22, pitch: 3.5, roofClear: 0.15, roofTh: 0.34, overhang: 0.6, heightLimit: 10,
+  view: 'e', slopeDepth: 99, slopeMaxArea: 22, pitch: 3.5, roofClear: 0.15, roofTh: 0.34, overhang: 0.6,
+  heightLimit: 12, northH: 5, northK: 1.25, viewWall: 's', viewGap: 0.1,
   winMaxH: 2.2, winCeilGap: 0.1, transomH: 0.3, transomMaxW: 1.8, transomGap: 0.15, transomTopGap: 0.1,
   maxWindowW: 2.6, mullion: 0.1, transom: {}, doorH: 2.0,
   ubMargin: 0.15, walkway: 0.85, cupboardD: 0.45, toiletZone: 0.8, vanityStand: 0.6, endPassage: 0.85, needsMax: 0.3,
@@ -194,7 +201,8 @@ export function derive(model, cat, lang) {
   const FL2 = L2 ? L2.base : I.h1 + I.buildUp;
   info.heights = { h1: I.h1, gym: I.gymSunken ? r4(I.h1 + I.gymDrop) : I.h1, fl2: FL2, h2: I.h2, ground: M.ground === undefined ? -0.585 : M.ground };
   const G2 = L2 ? levelGraph(L2) : null;
-  /* ---- the sloped zone (2F living, nearest its view glass) */
+  /* ---- the roof (one plane over the whole 2F, high on side ichijo.view) and the
+     sloped zone of the living under it (its ceiling = the roof's underside) */
   const k = I.pitch / 10;
   let zone = null;
   if (L2) {
@@ -202,7 +210,7 @@ export function derive(model, cat, lang) {
     if (fl) {
       const xs = fl.poly.map(p => p[0]), ys = fl.poly.map(p => p[1]);
       const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-      /* sides of the living bounded by an outside wall (a glass wall can be the view side) */
+      /* sides of the living bounded by an outside wall: the roof's possible high sides */
       const extSide = (s) => (L2.walls || []).some(w => {
         if (!(w.t >= 0.3)) return false;
         const F = wallFrame(w), c = { n: bb[1], s: bb[3], w: bb[0], e: bb[2] }[s], hor = s === 'n' || s === 's';
@@ -210,45 +218,62 @@ export function derive(model, cat, lang) {
         const lo = hor ? Math.min(w.a[0], w.b[0]) : Math.min(w.a[1], w.b[1]), hi = hor ? Math.max(w.a[0], w.b[0]) : Math.max(w.a[1], w.b[1]);
         return lo < (hor ? bb[0] : bb[1]) + 0.1 && hi > (hor ? bb[2] : bb[3]) - 0.1;
       });
-      const avail = ['n', 'e', 's', 'w'].filter(extSide);
-      const view = avail.includes(I.view) ? I.view : (avail[0] || 'n');
+      const avail = ['e', 'n', 's', 'w'].filter(extSide);
+      const view = avail.includes(I.view) ? I.view : (avail[0] || 'e');
       const hor = view === 'n' || view === 's';
+      /* the roof: the lowest plane at this pitch whose underside clears the flat 2F ceilings
+         by roofClear; it rises from the low side's inner face, so that end governs */
+      const pts = G2.rooms.flatMap(f => f.poly);
+      const B2 = [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))];
+      const t = Math.max(0.1, ...(L2.walls || []).filter(w => w.t > 0).map(w => w.t));
+      const low = OPP[view], sideOf = (s, b) => ({ n: b[1], s: b[3], w: b[0], e: b[2] })[s];
+      const lowIn = sideOf(low, B2), hiIn = sideOf(view, B2);
+      const h0 = r4(FL2 + I.h2 + I.roofClear);                     /* underside at the low side's inner face */
+      const span = Math.abs(hiIn - lowIn);
+      const up = (x, z) => view === 'n' ? lowIn - z : view === 's' ? z - lowIn : view === 'e' ? x - lowIn : lowIn - x;   /* metres up-slope */
+      const under = (x, z) => h0 + k * up(x, z);                       /* the roof's underside (absolute) */
+      const underD = (dd) => h0 + k * dd;
+      const rf = { id: 'ichijo', levels: [1], custom: 1, k, th: I.roofTh, over: { n: I.overhang, s: I.overhang, e: I.overhang, w: I.overhang },
+        rect: [r4(B2[0] - t), r4(B2[1] - t), r4(B2[2] + t), r4(B2[3] + t)] };
+      if (hor) Object.assign(rf, { low: low === 's' ? 's' : 'n', y0: lowIn, h0 });
+      else Object.assign(rf, { axis: 'x', low, x0: lowIn, h0 });
+      const gnd = info.heights.ground;
+      /* north-side slope (northH + northK x the distance to the site's north boundary, from
+         the ground): the margin is linear over the roof, so its minimum is at a corner of the
+         roof's outline (the 2F faces grown by wall + overhang), on the north edge */
+      const SB = (M.site && M.site.bounds) || SITE9, d = t + I.overhang;
+      const hg = { e: [k, 0], w: [-k, 0], n: [0, -k], s: [0, k] }[view], mg = [-hg[0], I.northK - hg[1]];
+      let nb = null;
+      for (const p of pts) {
+        const c = [p[0] - d * Math.sign(mg[0]), p[1] - d * Math.sign(mg[1])];
+        const h = under(c[0], c[1]) + I.roofTh - gnd, lim = I.northH + I.northK * (c[1] - SB[1]);
+        if (!nb || lim - h < nb.margin) nb = { at: c, h, lim, margin: lim - h };
+      }
+      info.roof = { k, pitch: I.pitch, pitchDeg: r4(Math.atan(k) * 180 / Math.PI), view, span: r4(span),
+        eave: r4(underD(-t) + I.roofTh - gnd),                                  /* top of the roof at the low side's outer wall face */
+        maxH: r4(underD(span + t + I.overhang) + I.roofTh - gnd),              /* its top edge at the end of the high-side overhang */
+        ridge: r4(underD(span + t) + I.roofTh - gnd),
+        maxUnder: r4(underD(span + t + I.overhang) - FL2),
+        north: nb && { h: r4(nb.h), lim: r4(nb.lim), margin: r4(nb.margin), ok: nb.margin >= -0.005, dist: r4(nb.at[1] - SB[1]), at: nb.at.map(r4), base: I.northH, per: I.northK } };
+      M.roofs = [rf];
+      info.roofPlane = rf;
+      /* the zone: the living's part nearest the high-side wall */
       const width = hor ? bb[2] - bb[0] : bb[3] - bb[1], depthAll = hor ? bb[3] - bb[1] : bb[2] - bb[0];
       const maxD = Math.min(depthAll, I.slopeMaxArea / width);
-      const d = Math.max(0.3, Math.min(I.slopeDepth, maxD));
+      const dz = Math.max(0.3, Math.min(I.slopeDepth > 0 ? I.slopeDepth : maxD, maxD));
       let rect;
-      if (view === 'n') rect = [bb[0], bb[1], bb[2], bb[1] + d];
-      else if (view === 's') rect = [bb[0], bb[3] - d, bb[2], bb[3]];
-      else if (view === 'e') rect = [bb[2] - d, bb[1], bb[2], bb[3]];
-      else rect = [bb[0], bb[1], bb[0] + d, bb[3]];
-      const inner = { n: rect[3], s: rect[1], e: rect[0], w: rect[2] }[view];
-      const dist = (x, z) => view === 'n' ? inner - z : view === 's' ? z - inner : view === 'e' ? x - inner : inner - x;
-      zone = { room: fl.room.id, rect: rect.map(r4), view, avail, width: r4(width), depth: r4(d), maxDepth: r4(maxD), area: r4(width * d), k, inner,
-        y: (x, z) => FL2 + I.h2 + k * Math.max(0, dist(x, z)), peak: r4(I.h2 + k * d), pitchDeg: r4(Math.atan(k) * 180 / Math.PI) };
+      if (view === 'n') rect = [bb[0], bb[1], bb[2], bb[1] + dz];
+      else if (view === 's') rect = [bb[0], bb[3] - dz, bb[2], bb[3]];
+      else if (view === 'e') rect = [bb[2] - dz, bb[1], bb[2], bb[3]];
+      else rect = [bb[0], bb[1], bb[0] + dz, bb[3]];
+      const inner = { n: rect[3], s: rect[1], e: rect[0], w: rect[2] }[view], outer = { n: rect[1], s: rect[3], e: rect[2], w: rect[0] }[view];
+      const along = (c) => hor ? under(0, c) : under(c, 0);
+      const lo = r4(along(inner) - FL2), hi = r4(along(outer) - FL2);
+      zone = { room: fl.room.id, rect: rect.map(r4), view, avail, width: r4(width), depth: r4(dz), maxDepth: r4(maxD), area: r4(width * dz), k, inner,
+        y: under, low: lo, high: hi, peak: hi, pitchDeg: r4(Math.atan(k) * 180 / Math.PI) };
     }
   }
   info.zone = zone && Object.assign({}, zone, { y: undefined });
-  /* ---- the roof: one plane over the whole 2F, high on the view side */
-  if (L2 && zone) {
-    const pts = G2.rooms.flatMap(f => f.poly);
-    const bb = [Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1])), Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))];
-    const t = Math.max(0.1, ...(L2.walls || []).filter(w => w.t > 0).map(w => w.t));
-    const v = zone.view, low = OPP[v];
-    const lowIn = { n: bb[1], s: bb[3], w: bb[0], e: bb[2] }[low], hiIn = { n: bb[1], s: bb[3], w: bb[0], e: bb[2] }[v];
-    const h0 = r4(FL2 + I.h2 + I.roofClear);                       /* underside at the low side's inner face */
-    const span = Math.abs(hiIn - lowIn);
-    const rf = { id: 'ichijo', levels: [1], custom: 1, k, th: I.roofTh, over: { n: I.overhang, s: I.overhang, e: I.overhang, w: I.overhang },
-      rect: [r4(bb[0] - t), r4(bb[1] - t), r4(bb[2] + t), r4(bb[3] + t)] };
-    if (v === 'n' || v === 's') Object.assign(rf, { low: low === 's' ? 's' : 'n', y0: lowIn, h0 });
-    else Object.assign(rf, { axis: 'x', low, x0: lowIn, h0 });
-    const under = (dd) => h0 + k * dd;                              /* underside at dd metres up-slope from the low inner face */
-    const gnd = info.heights.ground;
-    info.roof = { k, pitch: I.pitch, pitchDeg: r4(Math.atan(k) * 180 / Math.PI), view: v,
-      ridge: r4(under(span + t) + I.roofTh - gnd), eave: r4(under(-t) + I.roofTh - gnd),
-      gap: r4(I.roofClear + k * Math.abs(zone.inner - lowIn)), span: r4(span), maxUnder: r4(under(span + t + I.overhang) - FL2) };
-    M.roofs = [rf];
-    info.roofPlane = rf;
-  }
   /* ---- ceiling height at a point (above the level's floor) */
   const ceilAt = (li, x, z) => {
     if (li === 0) return I.h1;
@@ -256,21 +281,28 @@ export function derive(model, cat, lang) {
     return I.h2;
   };
   info.ceilAt = ceilAt;
-  info.ceilings = { fl2: FL2, h2: I.h2, zone: zone && { rect: zone.rect, view: zone.view, inner: zone.inner, k } };
-  /* ---- windows + doors */
+  info.ceilings = { fl2: FL2, h2: I.h2, zone: zone && { rect: zone.rect, view: zone.view, inner: zone.inner, k, low: zone.low, high: zone.high } };
+  /* ---- windows + doors (+ the glass on the view facade: info.south) */
   const DH = doorHeight(cat, I);
+  const south = { dir: I.viewWall, glass: 0, wall: 0, pct: 0, windows: 0 };
   M.levels.forEach((L, li) => {
     const G = li === 1 ? G2 : levelGraph(L);
     for (const w of L.walls || []) {
-      if (!(w.t > 0) || !w.ops) continue;
+      if (!(w.t > 0)) continue;
       const F = wallFrame(w), isExt = w.t >= 0.3;
+      if (!w.ops && !isExt) continue;
       /* outward side of an outside wall: where there is no room */
-      let outN = 0;
+      let outN = 0, wdir = '';
       if (isExt) {
         const m = [w.a[0] + F.u[0] * F.L / 2, w.a[1] + F.u[1] * F.L / 2], dd = Math.max(Math.abs(F.q0), Math.abs(F.q1)) + 0.05;
         const inRoom = (p) => G.rooms.some(f => inPoly(f.poly, p[0], p[1]));
         outN = !inRoom([m[0] + F.n[0] * dd, m[1] + F.n[1] * dd]) ? 1 : -1;
+        const dv = [F.n[0] * outN, F.n[1] * outN];
+        wdir = Math.abs(dv[0]) > Math.abs(dv[1]) ? (dv[0] > 0 ? 'e' : 'w') : (dv[1] > 0 ? 's' : 'n');
+        /* the view facade's wall area: each floor up to its flat ceiling */
+        if (wdir === I.viewWall) south.wall += F.L * (li === 0 ? I.h1 : I.h2);
       }
+      if (!w.ops) continue;
       const ops = [];
       for (const o of w.ops) {
         if (o.type === 'window' && isExt) {
@@ -287,7 +319,7 @@ export function derive(model, cat, lang) {
             if (f) hits.set(f, (hits.get(f) || 0) + 1);
           }
           const room = [...hits.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0])[0];
-          const dirv = [F.n[0] * outN, F.n[1] * outN], dir = Math.abs(dirv[0]) > Math.abs(dirv[1]) ? (dirv[0] > 0 ? 'e' : 'w') : (dirv[1] > 0 ? 's' : 'n');
+          const dir = wdir;
           const rec = { id: o.id, src: o.src || o.id, level: li, room: room && room.room ? { id: room.room.id, name: room.room.name, ja: room.room.ja } : null, dir,
             drawn: { w: r4(o.w), sill: r4(o.sill), head: r4(o.head) }, n, unitW: r4(uw), units: [], transomOn: I.transom[o.id] !== false };
           for (let i = 0; i < n; i++) {
@@ -303,6 +335,8 @@ export function derive(model, cat, lang) {
           rec.head = rec.units[0].head;
           rec.transomFits = rec.units.some(u => u.fits);
           rec.transoms = rec.units.filter(u => u.transom).length;
+          rec.glass = r4(rec.units.reduce((a, u) => a + u.w * (u.head - u.sill) + (u.transom ? Math.min(u.w, I.transomMaxW) * I.transomH : 0), 0));
+          if (dir === I.viewWall) { south.glass += rec.glass; south.windows++; }
           info.windows.push(rec);
         } else if (/door|double|sliding|slide|entry/.test(o.type)) {
           if (!isExt) ops.push(Object.assign({}, o, { head: r4(DH) }));
@@ -316,6 +350,8 @@ export function derive(model, cat, lang) {
     }
   });
   info.doorH = DH;
+  south.glass = r4(south.glass); south.wall = r4(south.wall); south.pct = south.wall > 0 ? r4(100 * south.glass / south.wall) : 0;
+  info.south = south;
   /* ---- fittings */
   M.levels.forEach((L, li) => {
     const G = li === 1 ? G2 : levelGraph(L);
@@ -370,8 +406,11 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
       if (o.x - hx < R[0] + 0.15) score.w += 2 * hy; if (o.x + hx > R[2] - 0.15) score.e += 2 * hy;
       if (o.y - hy < R[1] + 0.15) score.n += 2 * hx; if (o.y + hy > R[3] - 0.15) score.s += 2 * hx;
     }
-    const cand = ['w', 'e', 'n', 's'].filter(s => !geo.sides[s].open && !geo.sides[s].div);
-    const back = (cand.length ? cand : ['w']).sort((a, b) => score[b] - score[a])[0];
+    /* never against the view wall (an outside wall facing ichijo.viewWall: the south glass) */
+    const isView = (s) => s === I.viewWall && !!geo.sides[s] && !!geo.sides[s].ext;
+    const usable = (s) => !geo.sides[s].open && !geo.sides[s].div && !isView(s);
+    const cand = ['w', 'e', 'n', 's'].filter(usable);
+    const back = (cand.length ? cand : ['w', 'e', 'n', 's'].filter(s => !isView(s))).sort((a, b) => score[b] - score[a])[0];
     drop(old);
     const alongX = back === 'n' || back === 's';
     const run = alongX ? W : D, depthAv = alongX ? D : W;
@@ -382,7 +421,7 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
     const ends = alongX ? ['w', 'e'] : ['n', 's'];
     if (needR > run + 1e-6) shorts.push({ cm: Math.round((needR - run) * 100), side: moveSide(geo.sides, ends[0], ends[1]) });
     if (needD > depthAv + 1e-6) shorts.push({ cm: Math.round((needD - depthAv) * 100), side: OPP[back] });
-    const verdict = verdictOf(shorts, I);
+    let verdict = verdictOf(shorts, I);
     /* placement: I against the back wall, cupboard across the walkway; peninsula / island: cupboard on the back wall */
     const nIn = SIDE[OPP[back]];                                   /* pointing into the room from the back wall */
     const wallC = { n: R[1], s: R[3], w: R[0], e: R[2] }[back];
@@ -390,19 +429,28 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
     const P = (dAlong, dIn) => alongX ? [dAlong, wallC + nIn[1] * dIn] : [wallC + nIn[0] * dIn, dAlong];
     const aRun = lay === 'I' ? backA[back] : backA[OPP[back]];      /* the run's fronts face into the room (I) / the cook (peninsula, island) */
     let runC = (along0 + along1) / 2;
-    if (lay === 'peninsula') {                                      /* one end against the end wall nearer the drawn kitchen's corner */
-      const e0 = ends[0], e1 = ends[1], endWall = !geo.sides[e0].open && !geo.sides[e0].div ? e0 : e1;
+    if (lay === 'peninsula') {                                      /* one end against an end wall (never the view wall) */
+      const e0 = ends[0], e1 = ends[1], endWall = usable(e0) ? e0 : usable(e1) ? e1 : isView(e0) ? e1 : e0;
       runC = endWall === ends[0] ? along0 + kw / 2 : along1 - kw / 2;
+    } else if (lay === 'I' && kw < run && isView(ends[0]) !== isView(ends[1])) {
+      runC = isView(ends[0]) ? along1 - kw / 2 : along0 + kw / 2;   /* I: slid to the end away from the view wall */
     }
     const cupW = Math.min(kw, run), cupC = runC;
     let kc, cc;
     if (lay === 'I') { kc = P(runC, kd / 2); cc = P(cupC, kd + I.walkway + I.cupboardD / 2); }
     else { cc = P(cupC, I.cupboardD / 2); kc = P(runC, I.cupboardD + I.walkway + kd / 2); }
+    /* a run or cupboard that would still stand against the view wall: NO */
+    const aCup = lay === 'I' ? backA[OPP[back]] : backA[back];
+    const box = (c, w, dd, a) => { const q = Math.abs(Math.sin(a)) > 0.5, hx = (q ? dd : w) / 2, hy = (q ? w : dd) / 2; return [c[0] - hx, c[1] - hy, c[0] + hx, c[1] + hy]; };
+    const gapTo = (b, sd) => sd === 'n' ? b[1] - R[1] : sd === 's' ? R[3] - b[3] : sd === 'w' ? b[0] - R[0] : R[2] - b[2];
+    const vs = ['n', 's', 'w', 'e'].find(sd => isView(sd) && [box(kc, kw, kd, aRun), box(cc, cupW, I.cupboardD, aCup)].some(b => gapTo(b, sd) < I.viewGap));
+    if (vs) shorts.push({ cm: 0, side: vs, view: true });
+    if (!cand.length && !vs) shorts.push({ cm: 0, side: I.viewWall, view: true });
+    if (shorts.some(x => x.view)) verdict = 'NO';
     const ghost = verdict === 'NO' || (verdict === 'NEEDS' && Math.max(...shorts.map(x => x.cm)) > 10);
     const lbl = (it ? catLabel(it, lang, true, true) : '?') + ' · ' + LAYOUT[lang][lay];
     if (ghost) piece(verdict === 'NO' ? 'ghostNo' : 'ghostNeeds', kc[0], kc[1], kw, kd, aRun, { h: 0.9 });
     else piece('island', kc[0], kc[1], kw, kd, aRun, { h: 0.85, kitchen: lay });
-    const aCup = lay === 'I' ? backA[OPP[back]] : backA[back];
     piece('tall', cc[0], cc[1], cupW, I.cupboardD, aCup, { h: lay === 'I' ? 0.9 : 2.2 });
     foot('kitchen', kc[0], kc[1], kw, kd, aRun, verdict, lbl);
     foot('cupboard', cc[0], cc[1], cupW, I.cupboardD, aCup, 'INFO', STR[lang].cupboard);
@@ -590,10 +638,15 @@ export const STR = {
   ja: {
     title: '一条仕様 / Ichijo spec', show: '一条仕様', hide: '閉じる',
     heights: '高さ', h1: '1階天井', gym: 'ジム床を下げる（土間）', fl2: '2階床', h2: '2階天井',
-    slope: '勾配天井（リビング）', view: '眺望側（高い側）', depth: '奥行', pitch: '勾配', area: '面積',
-    peak: (v) => 'ガラス側の天井高 ' + v.toFixed(2) + 'm（2階床から）', roofRead: (r, e) => '棟 ' + r.toFixed(1) + 'm・軒 ' + e.toFixed(1) + 'm（地面から）',
-    gap: (g) => '勾配天井と屋根の間 ' + g.toFixed(2) + 'm', sun: (p, d) => p.toFixed(1) + '寸（' + d.toFixed(1) + '°）', pitchStd: '一条標準',
-    hlim: '高さ制限（低層住居専用地域）', hlOver: (r) => '高さ制限超過（棟 ' + r.toFixed(2) + 'm）', hlOk: (r) => '高さ制限内（棟 ' + r.toFixed(2) + 'm）',
+    slope: '屋根・勾配天井（リビング）', view: '屋根の高い側', depth: '奥行', pitch: '勾配', area: '面積',
+    sides: { e: 'リビング棟の端（キッチン側へ下る）', n: 'カーポート側', s: '大開口側（羊蹄山側）', w: '西側' },
+    ceil: (lo, hi) => 'リビングの天井高 ' + lo.toFixed(2) + 'm（勾配の始まり）〜 ' + hi.toFixed(2) + 'm（ガラス側）・2階床から',
+    eave: (e) => '軒の高さ ' + e.toFixed(2) + 'm（地面から）', maxH: (h) => '最高高さ ' + h.toFixed(2) + 'm（地面から）',
+    sun: (p, d) => p.toFixed(1) + '寸（' + d.toFixed(1) + '°）', pitchStd: '一条標準',
+    hlim: '高さ制限（低層住居専用地域）', hlOver: (h, l) => '最高高さ ' + h.toFixed(2) + 'm ＞ 制限（' + (h - l).toFixed(2) + 'm 超過）', hlOk: (h) => '最高高さ ' + h.toFixed(2) + 'm ≤ 制限',
+    north: (N) => '北側斜線' + (N.ok ? ' OK' : ' ' + (-N.margin).toFixed(2) + 'm 超過') + '：屋根の北端 ' + N.h.toFixed(2) + 'm ' + (N.ok ? '≤' : '＞') + ' ' + N.lim.toFixed(2) + 'm（' + N.base + 'm＋' + N.per + '×' + N.dist.toFixed(2) + 'm）',
+    south: (S) => '南面（眺望側）のガラス ' + S.glass.toFixed(1) + '㎡・南面の壁（床〜平天井）の' + Math.round(S.pct) + '%',
+    viewFix: '眺望側（南）の壁の前には置けない',
     slopeNote: '勾配天井の価格はカタログでは4坪（13.2㎡）まで・22㎡は要確認',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: '北', s: '南', e: '東', w: '西' },
@@ -610,10 +663,15 @@ export const STR = {
   en: {
     title: '一条仕様 / Ichijo spec', show: 'Ichijo spec', hide: 'Close',
     heights: 'HEIGHTS', h1: '1F ceiling', gym: 'Gym floor sunk (slab)', fl2: '2F floor', h2: '2F ceiling',
-    slope: 'SLOPED CEILING (LIVING)', view: 'View / high side', depth: 'Depth', pitch: 'Pitch', area: 'Area',
-    peak: (v) => 'Ceiling at the glass ' + v.toFixed(2) + ' m (above the 2F floor)', roofRead: (r, e) => 'Ridge ' + r.toFixed(1) + ' m · eave ' + e.toFixed(1) + ' m above ground',
-    gap: (g) => 'Roof is ' + g.toFixed(2) + ' m above the sloped ceiling', sun: (p, d) => p.toFixed(1) + ' sun (' + d.toFixed(1) + '°)', pitchStd: 'Ichijo std',
-    hlim: 'Height limit (low-rise zone)', hlOver: (r) => 'Ridge ' + r.toFixed(2) + ' m > limit', hlOk: (r) => 'Ridge ' + r.toFixed(2) + ' m ≤ limit',
+    slope: 'ROOF · SLOPED CEILING (LIVING)', view: 'Roof high side', depth: 'Depth', pitch: 'Pitch', area: 'Area',
+    sides: { e: 'Living-wing end (slopes down to the kitchen)', n: 'Carport side', s: 'Big-glass side (Mt Yotei)', w: 'West side' },
+    ceil: (lo, hi) => 'Living ceiling ' + lo.toFixed(2) + ' m at the zone edge → ' + hi.toFixed(2) + ' m at the glass (above the 2F floor)',
+    eave: (e) => 'Eave ' + e.toFixed(2) + ' m above ground', maxH: (h) => 'Max height ' + h.toFixed(2) + ' m above ground',
+    sun: (p, d) => p.toFixed(1) + ' sun (' + d.toFixed(1) + '°)', pitchStd: 'Ichijo std',
+    hlim: 'Height limit (low-rise zone)', hlOver: (h, l) => 'Max height ' + h.toFixed(2) + ' m > limit (+' + (h - l).toFixed(2) + ' m)', hlOk: (h) => 'Max height ' + h.toFixed(2) + ' m ≤ limit',
+    north: (N) => 'North-side slope: ' + (N.ok ? 'OK' : 'exceeded by ' + (-N.margin).toFixed(2) + ' m') + ' — roof\u2019s north edge ' + N.h.toFixed(2) + ' m ' + (N.ok ? '≤' : '>') + ' ' + N.lim.toFixed(2) + ' m (' + N.base + ' + ' + N.per + ' × ' + N.dist.toFixed(2) + ' m)',
+    south: (S) => 'South (view) glass ' + S.glass.toFixed(1) + ' m² · ' + Math.round(S.pct) + '% of the south walls (floor to flat ceiling)',
+    viewFix: 'not in front of the view (south) wall',
     slopeNote: 'Sloped-ceiling price in the sheet covers up to 4 tsubo (13.2 m²); 22 m² needs a quote',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: 'N', s: 'S', e: 'E', w: 'W' },
@@ -635,7 +693,7 @@ export function verdictText(f, lang) {
 }
 export function fixText(f, lang) {
   if (!f.shorts || !f.shorts.length) return '';
-  return f.shorts.map(s => STR[lang].fix(s.cm, s.text)).join(lang === 'ja' ? '、' : '; ');
+  return f.shorts.map(s => s.view ? STR[lang].viewFix : STR[lang].fix(s.cm, s.text)).join(lang === 'ja' ? '、' : '; ');
 }
 
 /* ------------------------------------------------------------- panel (DOM, both pages) */
@@ -720,38 +778,40 @@ export function mountPanel(host, o) {
     const cb = E('input', { type: 'checkbox', id: 'ichGym' }); cb.checked = !!I.gymSunken;
     cb.addEventListener('change', () => set(m => { m.ichijo.gymSunken = cb.checked; }));
     el.appendChild(E('div', { class: 'row' }, [cb, E('label', { for: 'ichGym', text: T.gym + ' −' + I.gymDrop.toFixed(2) + ' m → ' + H.gym.toFixed(2) + ' m' })]));
-    /* sloped zone */
+    /* roof + sloped zone */
     const Z = info.zone, RF = info.roof;
     if (Z) {
       el.appendChild(E('h5', { text: T.slope }));
-      el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.view }), select(Z.avail.map(s => [s, T.dirs[s]]), Z.view, (v) => set(m => { m.ichijo.view = v; }))]));
-      const dIn = E('input', { type: 'range', min: '0.5', max: String(Math.max(0.6, Z.maxDepth).toFixed(2)), step: '0.05', value: String(Math.min(I.slopeDepth, Z.maxDepth)) });
+      el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.view }), select(Z.avail.map(s => [s, T.sides[s] || T.dirs[s]]), Z.view, (v) => set(m => { m.ichijo.view = v; }))]));
+      const dIn = E('input', { type: 'range', min: '0.5', max: String(Math.max(0.6, Z.maxDepth).toFixed(2)), step: '0.05', value: String(Math.min(I.slopeDepth > 0 ? I.slopeDepth : Z.maxDepth, Z.maxDepth)) });
       const dV = E('b', { text: Z.depth.toFixed(2) + ' m' });
       dIn.addEventListener('input', () => { dV.textContent = (+dIn.value).toFixed(2) + ' m'; set(m => { m.ichijo.slopeDepth = +dIn.value; }, true); });
       el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.depth }), dIn, dV]));
       el.appendChild(E('div', { class: 'rd', html: T.area + ' <b>' + T.areaRead(Z.area, I.slopeMaxArea) + '</b>' }));
-      const pIn = E('input', { type: 'range', min: '2.5', max: '6', step: '0.5', value: String(I.pitch) });
+      const pIn = E('input', { type: 'range', min: '1', max: '6', step: '0.5', value: String(I.pitch) });
       const pV = E('b', { text: T.sun(I.pitch, Z.pitchDeg) });
       pIn.addEventListener('input', () => { pV.textContent = T.sun(+pIn.value, Math.atan(+pIn.value / 10) * 180 / Math.PI); set(m => { m.ichijo.pitch = +pIn.value; }, true); });
       /* 3.5 sun = Ichijo standard (its sheet: 3.5寸 roof materials only): marked + labelled under the slider */
       const fr = (PITCH_STD - +pIn.min) / (+pIn.max - +pIn.min);
       const std = E('span', { class: 'std', text: T.pitchStd, style: 'left:calc(10px + (100% - 20px) * ' + fr.toFixed(4) + ')' });
       el.appendChild(E('div', { class: 'row pitch' }, [E('label', { text: T.pitch }), E('span', { class: 'pw' }, [pIn, std]), pV]));
-      el.appendChild(E('div', { class: 'rd', html: '<b>' + T.peak(Z.peak) + '</b>' }));
+      el.appendChild(E('div', { class: 'rd ceil', html: '<b>' + T.ceil(Z.low, Z.high) + '</b>' }));
       if (RF) {
-        el.appendChild(E('div', { class: 'rd', html: '<b>' + T.roofRead(RF.ridge, RF.eave) + '</b>' }));
-        /* zoning: the same ridge value against heightLimit, to the cm shown */
+        el.appendChild(E('div', { class: 'rd eave', html: '<b>' + T.eave(RF.eave) + '</b>' }));
+        el.appendChild(E('div', { class: 'rd maxh', html: '<b>' + T.maxH(RF.maxH) + '</b>' }));
+        /* zoning: the roof's highest point against heightLimit, to the cm shown */
         const hl = E('input', { type: 'number', class: 'hlim', min: '1', max: '60', step: '0.5', value: String(I.heightLimit) });
         hl.addEventListener('change', () => { const v = +hl.value; if (v > 0) set(m => { m.ichijo.heightLimit = v; }); });
         el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.hlim }), hl, 'm']));
-        const over = Math.round(RF.ridge * 100) > Math.round(I.heightLimit * 100);
-        el.appendChild(E('div', { class: 'rd hlflag' + (over ? ' over' : ''), text: over ? T.hlOver(RF.ridge) : T.hlOk(RF.ridge) }));
-        el.appendChild(E('div', { class: 'rd', text: T.gap(RF.gap) }));
+        const over = Math.round(RF.maxH * 100) > Math.round(I.heightLimit * 100);
+        el.appendChild(E('div', { class: 'rd hlflag' + (over ? ' over' : ''), text: over ? T.hlOver(RF.maxH, I.heightLimit) : T.hlOk(RF.maxH) }));
+        if (RF.north) el.appendChild(E('div', { class: 'rd hlflag north' + (RF.north.ok ? '' : ' over'), text: T.north(RF.north) }));
       }
       el.appendChild(E('div', { class: 'note', text: T.slopeNote }));
     }
     /* windows */
     el.appendChild(E('h5', { text: T.windows }));
+    if (info.south && info.south.wall > 0) el.appendChild(E('div', { class: 'rd south', html: '<b>' + T.south(info.south) + '</b>' }));
     const mw = E('input', { type: 'number', min: '0.6', max: '6', step: '0.1', value: String(I.maxWindowW) });
     mw.addEventListener('change', () => { const v = +mw.value; if (v >= 0.6) set(m => { m.ichijo.maxWindowW = v; }); });
     el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.maxW + ' (m)' }), mw]));

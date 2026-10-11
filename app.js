@@ -62,8 +62,8 @@ const REFS = {
   3: { url: 'ref-model.json?v=1', key: 'h3dRefModel', edit: 'edit.html' },
   4: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
   5: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
-  6: { url: 'ref-model-d.json?v=1', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
-  7: { url: 'ref-model-e.json?v=2', key: 'h3dRefModelE', edit: 'edit.html?plan=e' },
+  6: { url: 'ref-model-d.json?v=2', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
+  7: { url: 'ref-model-e.json?v=3', key: 'h3dRefModelE', edit: 'edit.html?plan=e' },
 };
 const REF = REFS[HOUSE] || REFS[3];
 /* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
@@ -76,7 +76,7 @@ const TXT = {
     h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', h4: '土屋 改案', h4t: '土屋参考プランの改案：1階ジム＋温泉、2階LDK・専用シャワー室付き寝室・書斎、ロフトに専用シャワー室付き寝室・書斎', hsegt: 'プランB（倶知安の計画）と土屋建設の参考プラン・改案、プランB 縮小版',
     h5: 'プランB 縮小版', h5t: 'プランB 縮小版：プランBをコンパクトにしてコストを抑えた案（13.65×9.1mの総2階・長辺が眺望側、1階ジム＋温泉、2階LDK・専用シャワー室付き寝室2・書斎2）',
     origt5: 'プランB 縮小版の最初の間取りを表示（編集はそのまま残ります）',
-    h6: 'プランC', h6t: 'L字型：リビングとジムが眺望側に突き出た翼棟', origt6: 'プランCの最初の間取りを表示（編集はそのまま残ります）',
+    h6: 'プランC', h6t: 'L字型：リビングとジムの翼棟、眺望側（南）は12.74mの平らな壁面', origt6: 'プランCの最初の間取りを表示（編集はそのまま残ります）',
     edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: '土屋建設の元の図面を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
@@ -94,7 +94,7 @@ const TXT = {
     hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
     loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
     doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー', doc3: '土屋建設 参考プラン — 3Dウォークスルー', doc4: '土屋建設 参考プラン 改案 — 3Dウォークスルー', doc5: '倶知安 住宅計画 プランB 縮小版 — 3D', doc6: '倶知安 住宅計画 プランC — 3D',
-    geo6: 'プランC：プランB 縮小版のL字型案です。12.74×8.19mの母屋の東端から、眺望側（北）へ5.46×4.55mの翼棟が突き出し、全体を片流れ屋根1枚（北側が高い）で覆います。1階（天井高2.8m）：翼棟にジム（3面ガラス）、温泉ゾーンに浴室（ひのき浴槽2つ）・浴室から入るサウナ・脱衣室・その奥のラウンジ、南側に玄関・スキー/ギア室・トイレ・洗濯室・収納・機械室。2階：翼棟にリビング（3面とも床から天井までのガラス・薪ストーブ）、その奥にダイニング・キッチン、主寝室（クローゼット・専用シャワー室付き）とオープンな書斎、南側に寝室2（専用シャワー室付き）・書斎2・洗濯・収納。3Dは確認用の簡易表示です。「間取りを編集」で壁を動かせます。',
+    geo6: 'プランC：プランB 縮小版のL字型案です。12.74×8.19mの母屋の南端から、東へ5.46×4.55mの翼棟が突き出し、全体を片流れ屋根1枚（東側＝翼棟の端が高い）で覆います。南面（眺望側）は母屋の端と翼棟の側面がそろった12.74mの1枚の壁で、部屋が許す限り窓です。1階（天井高2.8m）：翼棟にジム（3面ガラス）、温泉ゾーンに浴室（ひのき浴槽2つ）・浴室から入るサウナ・脱衣室・その奥のラウンジ、西側に玄関・スキー/ギア室・トイレ・洗濯室・収納・機械室。2階：翼棟にリビング（3面とも床から天井までのガラス・薪ストーブ）、その奥にダイニング・キッチン（南面はガラス、冷蔵庫と収納はパントリー側の壁）、主寝室（クローゼット・専用シャワー室付き）とオープンな書斎、西側に寝室2（専用シャワー室付き）・書斎2・洗濯・収納。3Dは確認用の簡易表示です。「間取りを編集」で壁を動かせます。',
     geo5: 'プランB 縮小版：プランB（2階建て・片流れ屋根）をコンパクトにしてコストを抑えた案です。13.65×9.1mの長方形の総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（眺望側の北側が高い）、外部階段・2階の外部出入口・吹抜けなし、直階段1本。1階（天井高2.8m）：北側の大開口（大きなFIX窓3枚）に沿ってジム（ストレッチコーナー付き、ホールとつながる）、ひのき浴槽2つの浴室（浴槽の上に大きな窓）と浴室から入るサウナ、脱衣室（ジムから引き戸）とその奥のラウンジ。南側に玄関・スキー/ギア室・トイレ・洗濯/機械室。2階：北側にリビング・ダイニング（床から天井までのガラス）と主寝室（ウォークインクローゼット・専用シャワー室付き）、中央にキッチンとオープンな書斎、南側に寝室2（専用シャワー室付き）・書斎2・洗濯・トイレ。ユニットバスは使いません。3Dは確認用の簡易表示です。「間取りを編集」で壁を動かせます。',
     geo4: '土屋建設の参考プランの改案：母屋を東側（旧風除室・物置の位置）まで延ばし、3層とも10.9×7.3m、片流れ屋根（4/10勾配・眺望側の北側が高い）は同じです。1階（天井高2.8m）：北側に大きな窓2つのジム（ホールに開放）、ひのき浴槽2つとウォークインシャワーの浴室、浴室から入るサウナ、ホールと浴室の間の脱衣・休憩室、トイレ、洗濯・機械室、カーポート側の玄関。2階：北側にLDK（リビングは吹抜け・床から天井までのガラス・薪ストーブ）、寝室1室（ウォークインクローゼット・専用シャワー室付き）、階段の吹抜けに面したオープンな書斎。ロフト：天井高を取れる北側に専用シャワー室付きの寝室と書斎。ユニットバスは使わず、シャワーユニットのみ。仕上げはイメージで、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
     geo3: '土屋建設の参考住宅プラン（図面PDFのCAD寸法どおり）：2階建て＋ロフト、片流れ屋根1枚（4/10勾配・北側が高い）、リビングは吹抜け、窓・扉・階段は図面どおり。仕上げはパンフレットのイメージ（赤松の床・白い壁・梁）に近づけていますが、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
@@ -115,7 +115,7 @@ const TXT = {
     h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", h4: 'Tsuchiya rev.', h4t: 'Revision of the Tsuchiya plan: gym + onsen 1F; LDK, an ensuite bedroom + a den 2F; an ensuite bedroom + a den in the loft', hsegt: 'Plan B (the Kutchan house), the Tsuchiya Kensetsu reference house and its revision, Plan B compact',
     h5: 'Plan B compact', h5t: 'Plan B compact: the compact, cheaper version of Plan B (13.65 x 9.1 m box on 2 floors, long side on the view: gym + onsen 1F; LDK, 2 ensuite bedrooms + 2 dens 2F)',
     origt5: 'Show Plan B compact as first drawn (your edits stay saved)',
-    h6: 'Plan C', h6t: 'L-shaped: living + gym wing projecting toward the view', origt6: 'Show Plan C as first drawn (your edits stay saved)',
+    h6: 'Plan C', h6t: 'L-shaped: a living + gym wing; the south (view) side is one flush 12.74 m wall', origt6: 'Show Plan C as first drawn (your edits stay saved)',
     edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: "Show Tsuchiya Kensetsu's original drawings (your edits stay saved)", loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
@@ -133,7 +133,7 @@ const TXT = {
     hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
     loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
     doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough', doc3: 'Tsuchiya Kensetsu reference house — 3D walkthrough', doc4: 'Tsuchiya Kensetsu reference house, revised — 3D walkthrough', doc5: 'Kutchan house — Plan B compact — 3D', doc6: 'Kutchan house — Plan C — 3D',
-    geo6: "Plan C: the L-shaped version of Plan B compact. A 12.74 x 8.19 m bar with a 5.46 x 4.55 m wing projecting from its east end toward the view (north), all under one mono-pitch roof plane, high on the north. 1F (2.8 m ceilings): the gym in the wing, glass on its three outside faces; the onsen zone: bath (two hinoki tubs) with the sauna opening into it, the changing room and a lounge off it; entrance, ski / gear room, WC, laundry, storage and plant room along the south. 2F: the living in the wing, floor-to-ceiling glass on all three faces, with the wood stove; dining + kitchen behind it, the master bedroom (closet + ensuite) and an open den; bedroom 2 (ensuite), a second den, laundry and storage along the south. The 3D is a quick check, not a finished walkthrough. 'Edit plan' lets you move the walls.",
+    geo6: "Plan C: the L-shaped version of Plan B compact. A 12.74 x 8.19 m bar with a 5.46 x 4.55 m wing projecting east from its south end, all under one mono-pitch roof plane, high on the east (the wing end). The south side, on the view, is one flush 12.74 m wall (the bar's end and the wing's side), glass wherever the rooms allow. 1F (2.8 m ceilings): the gym in the wing, glass on its three outside faces; the onsen zone: bath (two hinoki tubs) with the sauna opening into it, the changing room and a lounge off it; entrance, ski / gear room, WC, laundry, storage and plant room along the west. 2F: the living in the wing, floor-to-ceiling glass on all three faces, with the wood stove; dining + kitchen behind it (glass on the south, the fridge and tall units on the pantry wall), the master bedroom (closet + ensuite) and an open den; bedroom 2 (ensuite), a second den, laundry and storage along the west. The 3D is a quick check, not a finished walkthrough. 'Edit plan' lets you move the walls.",
     geo5: "Plan B compact: the compact, cheaper version of Plan B (2 floors under one sloped roof). One simple 13.65 x 9.1 m rectangle on both floors (15 x 10 modules of 910 mm), its long side along the view, under one mono-pitch roof, high on the north (the view side); no outside stair, no 2F outside door, no void, one straight stair. 1F (2.8 m ceilings): the gym along the north glass (three big fixed panes) with a stretching alcove, open to the hall; the bath (two hinoki tubs under a big pane) with the sauna opening into it, the changing room (a sliding door from the gym) and a lounge off it; entrance, ski / gear room, WC, laundry + plant room along the south. 2F: living + dining behind floor-to-ceiling glass and the master bedroom (walk-in closet + ensuite) on the north side, kitchen and an open den in the middle, bedroom 2 (ensuite), a second den, laundry and WC along the south. No unit baths. The 3D is a quick check, not a finished walkthrough. 'Edit plan' lets you move the walls.",
     geo4: "A revision of Tsuchiya Kensetsu's reference house: the main block runs east over the old porch and storage, so all three levels are 10.9 x 7.3 m, under the same sloped roof (4/10 pitch, high on the north, the view side). 1F (2.8 m ceilings): gym with two big north windows, open to the hall; a bath with two hinoki tubs and a walk-in shower, the sauna (it opens into the bath), a changing + rest room between the hall and the bath, WC, laundry + plant room and the entrance facing the carport. 2F: living, dining and kitchen along the north side (the living double height behind floor-to-ceiling glass, with the wood stove), one bedroom with a walk-in closet and an ensuite shower room, and an open den / office by the stair void. Loft, in the north strip where the roof is high enough: a bedroom with its own ensuite shower room, and a den / office. No unit baths, shower units only. Finishes are indicative only. 'Edit plan' lets you move the walls.",
     geo3: "Tsuchiya Kensetsu's reference house, built from the CAD dimensions in their drawings: 2 floors + a loft under one sloped roof (4/10 pitch, high on the north), double-height living room, every window, door and stair as drawn. Finishes follow their brochure loosely (red pine floors, white walls, timber beams) and are indicative only. 'Edit plan' lets you move the walls.",
@@ -154,12 +154,12 @@ const TXT = {
 Object.assign(TXT.ja, {
   h7: 'プランB 一条版', h7t: 'プランB 一条版：一条工務店の仕様（1階天井2.6m・2階2.4m＋リビングの勾配天井・窓の高さ最大2.2m）とカタログの設備（キッチン・ユニットバス・洗面・トイレ・室内ドア）を選べる版',
   origt7: 'プランB 一条版の最初の間取りを表示（編集・選択はそのまま残ります）', doc7: '倶知安 住宅計画 プランB 一条版 — 3D', ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備を選ぶパネル',
-  geo7: 'プランB 一条版：プランBの間取り（トビアスさんの寸法のまま）に一条工務店の制約をかけた版です。1階の天井高2.6m（ジムは床を0.2m下げて2.8m）、床の構成0.45mで2階床3.05m、2階は天井2.4mのフラット＋リビングだけ勾配天井（22m²以内・リビングの眺望側のガラスから）。屋根は2階全体に片流れ1枚（眺望側が高い）。窓は高さ最大2.2m、幅の広い窓は分割、天井に余裕がある所は欄間窓。階段は新しい階高で再計算。キッチン・ユニットバス・洗面化粧台・トイレ・室内ドアは「一条仕様」パネルでカタログから選べ、各部屋に収まるか（収まる／+○cm 必要／収まらない）と、収めるために動かす壁を表示します。［仮］はカタログ未確認の暫定値。「間取りを編集」で壁を動かせます。',
+  geo7: 'プランB 一条版：プランBの間取り（トビアスさんの寸法のまま）に一条工務店の制約をかけた版です。1階の天井高2.6m（ジムは床を0.2m下げて2.8m）、床の構成0.45mで2階床3.05m、2階は天井2.4mのフラット＋リビングだけ屋根なりの勾配天井（22m²以内・リビング棟の端から）。屋根は2階全体に片流れ1枚で、リビング棟の端が高く、キッチン側（西）へ下がります（雪は西の軒から落ち、カーポートには落ちません）。窓は高さ最大2.2m、幅の広い窓は分割、天井に余裕がある所は欄間窓。南面（羊蹄山側）は角・間仕切り・扉の間を0.3mの壁だけ残してすべて窓。階段は新しい階高で再計算。キッチン・ユニットバス・洗面化粧台・トイレ・室内ドアは「一条仕様」パネルでカタログから選べ、各部屋に収まるか（収まる／+○cm 必要／収まらない）と、収めるために動かす壁を表示します。［仮］はカタログ未確認の暫定値。「間取りを編集」で壁を動かせます。',
 });
 Object.assign(TXT.en, {
   h7: 'Plan B — Ichijo', h7t: "Plan B — Ichijo: Plan B under Ichijo Komuten's limits (1F 2.6 m, 2F 2.4 m with a sloped living ceiling, windows max 2.2 m tall), with catalogue fittings to choose (kitchen, unit bath, vanity, toilet, interior doors)",
   origt7: 'Show Plan B — Ichijo as first drawn (your edits and choices stay saved)', doc7: 'Kutchan house — Plan B — Ichijo — 3D', ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings",
-  geo7: "Plan B — Ichijo: Plan B's layout (Toby's dimensions) under Ichijo Komuten's limits. 1F ceilings 2.6 m (the gym floor sunk 0.2 m: 2.8 m), a 0.45 m floor build-up so the 2F floor is at 3.05 m, 2F ceilings 2.4 m flat except a sloped ceiling over at most 22 m² of the living, from its view glass. One mono-pitch roof over the whole 2F, high on the view side. Windows max 2.2 m tall, wide ones split into units, a transom where the ceiling leaves room. The stairs are recomputed for the new floor height. Kitchen, unit baths, vanities, toilets and the interior door height are chosen from the catalogue in the 'Ichijo spec' panel, with a verdict per room (FITS / NEEDS +x cm / NO) and the wall to move. [provisional] = not yet confirmed by a catalogue. 'Edit plan' lets you move the walls.",
+  geo7: "Plan B — Ichijo: Plan B's layout (Toby's dimensions) under Ichijo Komuten's limits. 1F ceilings 2.6 m (the gym floor sunk 0.2 m: 2.8 m), a 0.45 m floor build-up so the 2F floor is at 3.05 m, 2F ceilings 2.4 m flat except the living, whose ceiling follows the roof over at most 22 m² from the living wing's end. One mono-pitch roof over the whole 2F, high at the living wing's end and falling west toward the kitchen (snow slides off the west eave, not onto the carport). Windows max 2.2 m tall, wide ones split into units, a transom where the ceiling leaves room; the south (Mt Yotei) facade is glass wherever the wall allows (0.3 m piers at corners, partitions and doors). The stairs are recomputed for the new floor height. Kitchen, unit baths, vanities, toilets and the interior door height are chosen from the catalogue in the 'Ichijo spec' panel, with a verdict per room (FITS / NEEDS +x cm / NO) and the wall to move. [provisional] = not yet confirmed by a catalogue. 'Edit plan' lets you move the walls.",
 });
 const T = (k) => (TXT[LANG][k] !== undefined ? TXT[LANG][k] : TXT.en[k]);
 /* preset + room-label names: English is the key (goView tests 'Doll'), Japanese looked up */
@@ -187,7 +187,7 @@ const JA_NAMES = {
   '1F — Wash room + bath': '1F — 洗面所・浴室', '1F — Porch': '1F — 風除室', '2F — Living, stove corner': '2F — リビング（薪ストーブ側）',
   '2F — Kitchen + dining': '2F — キッチン・ダイニング', '2F — From the dining table': '2F — ダイニングから', '2F — Veranda room': '2F — 広縁',
   '2F — Hall, ensuite door': '2F — ホール・専用バスルーム', '2F — Top of the stairs': '2F — 階段の上', 'Loft': 'ロフト', 'Loft — over the void': 'ロフト — 吹抜けを見下ろす',
-  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', 'Outside — north-east': '外観 — 北東', '1F — Lounge (open to the hall)': '1F — ラウンジ（ホールとつながる）', '1F — Changing + rest room': '1F — 脱衣・休憩室', 'Outside — north-east (view side)': '外観 — 北東（眺望側）', '2F — Living wing': '2F — リビング（翼棟）', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
+  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', 'Outside — north-east': '外観 — 北東', '1F — Lounge (open to the hall)': '1F — ラウンジ（ホールとつながる）', '1F — Changing + rest room': '1F — 脱衣・休憩室', 'Outside — south-east (view side)': '外観 — 南東（眺望側）', '2F — Living wing': '2F — リビング（翼棟）', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
   '2F — Living (north glass, stove)': '2F — リビング（北側の大開口・薪ストーブ）', '2F — Dining + loft stair': '2F — ダイニング・ロフトへの階段', '2F — Master bedroom': '2F — 主寝室', '2F — Den / office 2': '2F — 書斎2',
   '2F — Ensuite': '2F — 専用シャワー室', 'Loft — Hall, top of the stairs': 'ロフト — ホール（階段の上）', 'Loft — Bedroom A + ensuite': 'ロフト — 寝室A・専用シャワー室', 'Loft — Den / office 1': 'ロフト — 書斎1',
 };
@@ -2824,7 +2824,8 @@ let IJ = null, CATALOG = null, ICH = null, ICHP = null, MODEL7 = null;
 function buildIchijo7(plan) {
   const info = ICH.info, I = info.opts, L0 = LV[0], L1 = LV[1];
   const gy = PLAN.ground;
-  /* 2F ceilings: flat at h2, the sloped zone parallel to the roof */
+  /* 2F ceilings: flat at h2; in the sloped zone the ceiling is the roof's own underside
+     (buildRoof7 draws it), closed off from the flat ceilings by a bulkhead */
   if (L1) {
     const Z = info.ceilings.zone, FL2 = L1.base, gc = G.ceil[1];
     const inZ = (x, z) => Z && x > Z.rect[0] && x < Z.rect[2] && z > Z.rect[1] && z < Z.rect[3];
@@ -2833,19 +2834,19 @@ function buildIchijo7(plan) {
     if (Z) { xs.push(Z.rect[0], Z.rect[2]); zs.push(Z.rect[1], Z.rect[3]); }
     const flatR = gridRects(xs, zs, (x, z) => polys.some(p => inside(p, x, z)) && !inZ(x, z));
     slabRects(gc, flatR, FL2 + I.h2 + 0.03, 0.03, MAT.ceiling, MAT.ceiling, MAT.white);
-    if (Z) {
-      const v = Z.view, k = Z.k, h0 = FL2 + I.h2;
-      const zp = mkRoof3(v === 'n' ? { low: 's', y0: Z.inner, h0, k } : v === 's' ? { low: 'n', y0: Z.inner, h0, k } : v === 'e' ? { axis: 'x', low: 'w', x0: Z.inner, h0, k } : { axis: 'x', low: 'e', x0: Z.inner, h0, k });
-      slopedSlab(gc, [Z.rect], 0, 0.03, MAT.ceiling, MAT.white, () => MAT.ceiling, zp);
-      /* the zone's sides along the slope: a wall from the flat ceiling up to the slope where no outside wall stands */
-      const sides = v === 'n' || v === 's' ? [[Z.rect[0], 'x'], [Z.rect[2], 'x']] : [[Z.rect[1], 'z'], [Z.rect[3], 'z']];
+    const R = ROOFS3.find(r => r.custom);
+    if (Z && R) {
+      const v = Z.view, h0 = FL2 + I.h2, hor = v === 'n' || v === 's';
+      /* the bulkhead along the zone's inner edge + the zone's sides along the slope, from the
+         flat ceiling up to the roof, wherever no outside wall stands there */
+      const lines = [[Z.inner, hor ? 'z' : 'x'], ...(hor ? [[Z.rect[0], 'x'], [Z.rect[2], 'x']] : [[Z.rect[1], 'z'], [Z.rect[3], 'z']])];
       const Q = Quads(MAT.plaster);
-      for (const [c, ax] of sides) {
+      for (const [c, ax] of lines) {
         const onExt = L1.walls.some(w => w.kind === 'ext' && (ax === 'x' ? Math.abs(w.a[0] - c) < 0.01 && Math.abs(w.b[0] - c) < 0.01 : Math.abs(w.a[1] - c) < 0.01 && Math.abs(w.b[1] - c) < 0.01));
         if (onExt) continue;
         const [t0, t1] = ax === 'x' ? [Z.rect[1], Z.rect[3]] : [Z.rect[0], Z.rect[2]];
         const P = (t, y) => ax === 'x' ? [c, y, t] : [t, y, c];
-        const yp = (t) => ax === 'x' ? zp.y(c, t) : zp.y(t, c);
+        const yp = (t) => (ax === 'x' ? R.y(c, t) : R.y(t, c)) + 0.002;
         for (const sg of [1, -1]) {
           const nrm = ax === 'x' ? [sg, 0, 0] : [0, 0, sg];
           quad(Q, P(t0, h0), P(t1, h0), P(t1, yp(t1)), P(t0, yp(t0)), nrm, (q) => [ax === 'x' ? q[2] : q[0], q[1]]);
@@ -2966,9 +2967,10 @@ function views7() {
   view('1F — Stair hall + stair', 0, face(0, /^stair hall/i), [0.96, 0.12], [0.05, 0.85], 0.05);
   const Z = ICH.info.zone, lv = face(1, /^living/i);
   if (lv && Z) {
-    /* from the low side of the slope, looking up it at the view glass and its transoms */
-    const E = { n: [0.12, 0.62], s: [0.12, 0.38], e: [0.38, 0.12], w: [0.62, 0.12] }[Z.view], Tg = { n: [1.0, 0.08], s: [1.0, 0.92], e: [0.92, 1.0], w: [0.08, 1.0] }[Z.view];
-    view('2F — Living (sloped ceiling)', 1, lv, E, Tg, 0.24);
+    /* from the low side of the slope, looking up it at the view glass and its transoms ('e': from
+       the high end by the glass, looking back down the slope at the bulkhead, the south glass on the left) */
+    const E = { n: [0.12, 0.62], s: [0.12, 0.38], e: [0.89, 0.14], w: [0.62, 0.12] }[Z.view], Tg = { n: [1.0, 0.08], s: [1.0, 0.92], e: [0.17, 0.77], w: [0.08, 1.0] }[Z.view];
+    view('2F — Living (sloped ceiling)', 1, lv, E, Tg, Z.view === 'e' ? 0.42 : 0.24);
   }
   const din = face(1, /^dining/i), kit = face(1, /^kitchen/i);
   if (din && kit) {
@@ -3123,9 +3125,10 @@ const VIEWS5 = [
   ['Outside — north-east', 9.5, -13.0, 2.5, 0.12, null, 1.8],
   ['Doll-house from above', 0.0, 2.9, 0.0, -1.38, null, 18.4],
 ];
-/* house 6 presets (Plan C, L-shaped: x east, z south, the L's bounding square centred) */
+/* house 6 presets (Plan C, L-shaped: model x, z with the L's bounding square centred; v17: its texts call
+   the x = +6.37 facade SOUTH (the view), so model -z = east, +x = south, +z = west, -x = north) */
 const VIEWS6 = [
-  ['Outside — north-east (view side)', 15.0, -17.0, 2.43, 0.1, null, 1.8],
+  ['Outside — south-east (view side)', 15.0, -17.0, 2.43, 0.1, null, 1.8],
   ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
   ['2F — Living wing', 1.55, -2.1, -0.62, 0.0, 1],
 ];
@@ -3663,7 +3666,7 @@ const texturesReady = new Promise((res) => { LM.onLoad = res; });
 applyLang();   /* static UI text + titles before the house loads */
 loadMsg(T('loading'));
 const planReady = MOVED ? new Promise(() => {})   /* ?house=1: leaving for kutchan-house-plan-a, build nothing */
-  : HOUSE === 7 ? Promise.all([import('./ichijo.js?v=2'), loadModel(REF.url, REF.key)]).then(async ([ij, { model, from }]) => {
+  : HOUSE === 7 ? Promise.all([import('./ichijo.js?v=3'), loadModel(REF.url, REF.key)]).then(async ([ij, { model, from }]) => {
     IJ = ij; CATALOG = await ij.loadCatalog('catalog.json?v=1');
     MODEL_SRC = from; MODEL7 = model; window.__model = model;
     ICH = ij.derive(model, CATALOG, LANG);
