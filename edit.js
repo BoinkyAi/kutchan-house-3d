@@ -5,7 +5,9 @@
    ?plan=b = the revised plan (ref-model-b.json, 3D: index.html?house=4) and
    ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5) and
    ?plan=d = Plan C, L-shaped (ref-model-d.json, 3D: index.html?house=6), each
-   saved under its own key; without ?plan everything is as before. */
+   saved under its own key; without ?plan everything is as before.
+   v20: a model's "carport" (plan d, outside the house) is drawn on the 1F as a
+   dashed outline with its posts, and counted in the fit-to-screen. */
 'use strict';
 import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=5';
 
@@ -14,7 +16,7 @@ const PLANS = {
   a: { url: 'ref-model.json?v=1', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' },
   b: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
-  d: { url: 'ref-model-d.json?v=3', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
+  d: { url: 'ref-model-d.json?v=4', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
   e: { url: 'ref-model-e.json?v=4', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e' },
 };
 const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
@@ -142,11 +144,11 @@ const TXD = {
   en: { title: 'Plan editor · Plan C', resetQ: 'Throw away your changes and go back to Plan C as first drawn?',
     fGranite: TXB.en.fGranite, fHinoki: TXB.en.fHinoki, fRubber: TXB.en.fRubber,
     help: TXC.en.help.replace('<b>Reset</b> goes back to Plan B compact as first drawn.', '<b>Reset</b> goes back to Plan C as first drawn.')
-      .replace('Plan B compact: the compact, cheaper version of Plan B. One 13.65 x 9.1 m box (15 x 10 modules of 910 mm), its long side on the view, under one sloped roof (high on the north): gym + onsen on 1F; living + dining, kitchen, 2 ensuite bedrooms and 2 dens on 2F.', 'Plan C: the L-shaped version of Plan B compact, for more frontage and glass toward the view. A 12.74 x 8.19 m bar (14 x 9 modules of 910 mm) with a 5.46 x 4.55 m wing projecting east at its south end, under one sloped roof plane (high on the east, the wing end); the south side, on the view, is one flush 12.74 m wall, glass wherever the rooms allow: gym in the wing + onsen on 1F; living in the wing (glass on 3 sides), dining + kitchen, 2 ensuite bedrooms and 2 dens on 2F.') },
+      .replace('Plan B compact: the compact, cheaper version of Plan B. One 13.65 x 9.1 m box (15 x 10 modules of 910 mm), its long side on the view, under one sloped roof (high on the north): gym + onsen on 1F; living + dining, kitchen, 2 ensuite bedrooms and 2 dens on 2F.', 'Plan C: the L-shaped version of Plan B compact, for more frontage and glass toward the view. A 12.74 x 8.19 m bar (14 x 9 modules of 910 mm) with a 5.46 x 4.55 m wing projecting east at its south end, under one sloped roof plane (high on the east, the wing end); the south side, on the view, is one flush 12.74 m wall, glass wherever the rooms allow: gym in the wing + onsen on 1F, the entrance in the L\u2019s inner corner under a carport (dashed), the ski / gear room beside it; living in the wing (glass on 3 sides), dining + kitchen, 2 ensuite bedrooms and 2 dens on 2F.') },
   ja: { title: '間取り編集・プランC', resetQ: '変更をすべて破棄して、プランCの最初の間取りに戻しますか？',
     fGranite: TXB.ja.fGranite, fHinoki: TXB.ja.fHinoki, fRubber: TXB.ja.fRubber,
     help: TXC.ja.help.replace('<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。', '<b>元の図面に戻す</b>でプランCの最初の間取りに戻ります。')
-      .replace('プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。13.65×9.1mの総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（北側が高い）。1階ジム＋温泉、2階リビング・ダイニング、キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。', 'プランC：プランB 縮小版のL字版。眺望側の間口と窓を増やした案。12.74×8.19mの棟（910mmモジュールで14×9）の南端から、5.46×4.55mの翼が東へ張り出す総2階、片流れ屋根1面（東側＝翼の端が高い）。南面（眺望側）は12.74mの1枚の壁で、部屋が許す限り窓。1階は翼にジム＋温泉、2階は翼にリビング（3面ガラス）、ダイニング・キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。') },
+      .replace('プランB 縮小版：プランBをコンパクトにしてコストを抑えた案。13.65×9.1mの総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（北側が高い）。1階ジム＋温泉、2階リビング・ダイニング、キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。', 'プランC：プランB 縮小版のL字版。眺望側の間口と窓を増やした案。12.74×8.19mの棟（910mmモジュールで14×9）の南端から、5.46×4.55mの翼が東へ張り出す総2階、片流れ屋根1面（東側＝翼の端が高い）。南面（眺望側）は12.74mの1枚の壁で、部屋が許す限り窓。1階は翼にジム＋温泉、玄関はL字の内側の角でカーポート（破線）の下、隣にスキー・ギア室。2階は翼にリビング（3面ガラス）、ダイニング・キッチン、専用シャワー室付き寝室2、書斎2。壁は910mmグリッドの芯です。') },
 };
 /* Plan B — Ichijo (?plan=e) */
 const TXE = {
@@ -229,6 +231,8 @@ const toS = (p) => [(p[0] - S.view.cx) * S.view.s + W / 2, (p[1] - S.view.cy) * 
 const toW = (x, y) => [(x - W / 2) / S.view.s + S.view.cx, (y - H / 2) / S.view.s + S.view.cy];
 function fit() {
   const pts = S.model.levels.flatMap(L => L.walls.flatMap(w => [w.a, w.b]));
+  const cp = S.model.carport;
+  if (cp && cp.rect) pts.push([cp.rect[0], cp.rect[1]], [cp.rect[2], cp.rect[3]]);
   if (!pts.length) return;
   const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), y1 = Math.max(...pts.map(p => p[1]));
   const mobile = W < 640;
@@ -271,6 +275,8 @@ function draw() {
     if (fin === 'void') hatch(c, f);
     if (S.sel && S.sel.type === 'room' && f.room && f.room.id === S.sel.id) { c.fillStyle = 'rgba(90,200,250,.18)'; path(c, f.poly, f.holes); c.fill('evenodd'); }
   }
+  /* the carport (plan d: outside the house, on the 1F): dashed roof outline, posts, name */
+  if (S.lvl === 0 && S.model.carport && S.model.carport.rect) drawCarport(c, S.model.carport);
   /* stairs (the flights that start on this floor, and the ones arriving here shown dashed) */
   for (const st of S.model.stairs || []) {
     if (st.from === S.lvl) drawStair(c, st, false);
@@ -322,6 +328,21 @@ function draw() {
   }
   if (S.tool === 'wall' && S.mouse) { const e = snapPoint(S.mouse, S.wallStart); const q = toS(e.p); c.fillStyle = e.kind === 'free' ? '#888' : '#1d7fb8'; c.beginPath(); c.arc(q[0], q[1], 5, 0, 7); c.fill(); }
   if (S.drag && S.drag.info) { c.font = '600 12px sans-serif'; c.fillStyle = '#1d7fb8'; c.textAlign = 'left'; c.fillText(S.drag.info, (S.drag.sx || 0) + 14, (S.drag.sy || 0) - 14); }
+}
+function drawCarport(c, cp) {
+  const [x0, y0, x1, y1] = cp.rect, A = toS([x0, y0]), Bq = toS([x1, y1]);
+  c.save();
+  c.fillStyle = 'rgba(160,160,160,.12)'; c.fillRect(A[0], A[1], Bq[0] - A[0], Bq[1] - A[1]);
+  c.setLineDash([7, 5]); c.strokeStyle = '#8a8f96'; c.lineWidth = 1.3; c.strokeRect(A[0], A[1], Bq[0] - A[0], Bq[1] - A[1]);
+  c.setLineDash([]); c.fillStyle = '#6b6f75';
+  const ps = Math.max(3, 0.12 * S.view.s);
+  for (const p of cp.posts || []) { const q = toS(p); c.fillRect(q[0] - ps / 2, q[1] - ps / 2, ps, ps); }
+  c.font = '600 12px -apple-system,Segoe UI,Roboto,"Hiragino Sans",sans-serif'; c.fillStyle = '#5d6268'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const nm = LANG === 'ja' ? (cp.ja || cp.name || 'カーポート') : (cp.name || 'Carport');
+  c.fillText(nm, (A[0] + Bq[0]) / 2, (A[1] + Bq[1]) / 2 - 7);
+  c.font = '11px -apple-system,Segoe UI,Roboto,sans-serif'; c.fillStyle = '#7a7f86';
+  c.fillText(((x1 - x0) * 1000).toFixed(0) + ' × ' + ((y1 - y0) * 1000).toFixed(0), (A[0] + Bq[0]) / 2, (A[1] + Bq[1]) / 2 + 8);
+  c.restore();
 }
 function path(c, poly, holes) {
   c.beginPath();

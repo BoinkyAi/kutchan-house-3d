@@ -56,13 +56,16 @@ const HOUSE = _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : _qHouse === '5' ? 5 : 
    v12: a 13.65 x 9.1 m box along the view, north = the roof's high side;
    ref-model-c.json, the editor's ?plan=c), same path. House 6 = Plan C
    (Toby 2026-10-10: the L-shaped version of Plan B compact, more frontage +
-   glass on the view; ref-model-d.json, the editor's ?plan=d), same path. */
+   glass on the view; ref-model-d.json, the editor's ?plan=d), same path.
+   v20 (Toby 2026-10-11): Plan C's entrance moved to the L's inner corner under a
+   carport (the model's "carport" entry: a low-pitch roof on posts, built by the
+   house-3 roof code but outside the house, so it neither splits nor clips walls). */
 const H3 = HOUSE === 3 || HOUSE === 4 || HOUSE === 5 || HOUSE === 6 || HOUSE === 7;   /* house 7 = Plan B — Ichijo (ref-model-e.json via ichijo.js, see the house 7 section) */
 const REFS = {
   3: { url: 'ref-model.json?v=1', key: 'h3dRefModel', edit: 'edit.html' },
   4: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
   5: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
-  6: { url: 'ref-model-d.json?v=3', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
+  6: { url: 'ref-model-d.json?v=4', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   7: { url: 'ref-model-e.json?v=4', key: 'h3dRefModelE', edit: 'edit.html?plan=e' },
 };
 const REF = REFS[HOUSE] || REFS[3];
@@ -94,7 +97,7 @@ const TXT = {
     hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
     loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
     doc1: '倶知安 住宅計画 プランA — 3Dウォークスルー', doc2: '倶知安 住宅計画 プランB — 3Dウォークスルー', doc3: '土屋建設 参考プラン — 3Dウォークスルー', doc4: '土屋建設 参考プラン 改案 — 3Dウォークスルー', doc5: '倶知安 住宅計画 プランB 縮小版 — 3D', doc6: '倶知安 住宅計画 プランC — 3D',
-    geo6: 'プランC：プランB 縮小版のL字型案です。12.74×8.19mの母屋の南端から、東へ5.46×4.55mの翼棟が突き出し、全体を片流れ屋根1枚（東側＝翼棟の端が高い）で覆います。南面（眺望側）は母屋の端と翼棟の側面がそろった12.74mの1枚の壁で、部屋が許す限り窓です。1階（天井高2.8m）：翼棟にジム（3面ガラス）、温泉ゾーンに浴室（ひのき浴槽2つ）・浴室から入るサウナ・脱衣室・その奥のラウンジ、西側に玄関・スキー/ギア室・トイレ・洗濯室・収納・機械室。2階：翼棟にリビング（3面とも床から天井までのガラス・薪ストーブ）、その奥にダイニング・キッチン（南面はガラス、冷蔵庫と収納はパントリー側の壁）、主寝室（クローゼット・専用シャワー室付き）とオープンな書斎、西側に寝室2（専用シャワー室付き）・書斎2・洗濯・収納。3Dは確認用の簡易表示です。「間取りを編集」で壁を動かせます。',
+    geo6: 'プランC：プランB 縮小版のL字型案です。12.74×8.19mの母屋の南端から、東へ5.46×4.55mの翼棟が突き出し、全体を片流れ屋根1枚（東側＝翼棟の端が高い）で覆います。南面（眺望側）は母屋の端と翼棟の側面がそろった12.74mの1枚の壁で、部屋が許す限り窓です。1階（天井高2.8m）：玄関はL字の内側の角（北東の庭）、カーポートの下にあり、隣にスキー/ギア室、正面の玄関ホールから階段へ（ジムを通りません）。ジムは翼棟（外側3面ガラス）と南面（眺望側）の全長、温泉ゾーンに浴室（ひのき浴槽2つ）・浴室から入るサウナ・脱衣室とそれに続くラウンジ（ホールから引き戸）、西側にトイレ・洗濯室・収納・機械室。2階：翼棟にリビング（3面とも床から天井までのガラス・薪ストーブ）、その奥にダイニング・キッチン（南面はガラス、冷蔵庫と収納はパントリー側の壁）、主寝室（クローゼット・専用シャワー室付き）とオープンな書斎、西側に寝室2（専用シャワー室付き）・書斎2・洗濯・収納。3Dは確認用の簡易表示です。「間取りを編集」で壁を動かせます。',
     geo5: 'プランB 縮小版：プランB（2階建て・片流れ屋根）をコンパクトにしてコストを抑えた案です。13.65×9.1mの長方形の総2階（910mmモジュールで15×10、長辺が眺望側）、片流れ屋根1枚（眺望側の北側が高い）、外部階段・2階の外部出入口・吹抜けなし、直階段1本。1階（天井高2.8m）：北側の大開口（大きなFIX窓3枚）に沿ってジム（ストレッチコーナー付き、ホールとつながる）、ひのき浴槽2つの浴室（浴槽の上に大きな窓）と浴室から入るサウナ、脱衣室（ジムから引き戸）とその奥のラウンジ。南側に玄関・スキー/ギア室・トイレ・洗濯/機械室。2階：北側にリビング・ダイニング（床から天井までのガラス）と主寝室（ウォークインクローゼット・専用シャワー室付き）、中央にキッチンとオープンな書斎、南側に寝室2（専用シャワー室付き）・書斎2・洗濯・トイレ。ユニットバスは使いません。3Dは確認用の簡易表示です。「間取りを編集」で壁を動かせます。',
     geo4: '土屋建設の参考プランの改案：母屋を東側（旧風除室・物置の位置）まで延ばし、3層とも10.9×7.3m、片流れ屋根（4/10勾配・眺望側の北側が高い）は同じです。1階（天井高2.8m）：北側に大きな窓2つのジム（ホールに開放）、ひのき浴槽2つとウォークインシャワーの浴室、浴室から入るサウナ、ホールと浴室の間の脱衣・休憩室、トイレ、洗濯・機械室、カーポート側の玄関。2階：北側にLDK（リビングは吹抜け・床から天井までのガラス・薪ストーブ）、寝室1室（ウォークインクローゼット・専用シャワー室付き）、階段の吹抜けに面したオープンな書斎。ロフト：天井高を取れる北側に専用シャワー室付きの寝室と書斎。ユニットバスは使わず、シャワーユニットのみ。仕上げはイメージで、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
     geo3: '土屋建設の参考住宅プラン（図面PDFのCAD寸法どおり）：2階建て＋ロフト、片流れ屋根1枚（4/10勾配・北側が高い）、リビングは吹抜け、窓・扉・階段は図面どおり。仕上げはパンフレットのイメージ（赤松の床・白い壁・梁）に近づけていますが、仕様を示すものではありません。「間取りを編集」で壁を動かせます。',
@@ -133,7 +136,7 @@ const TXT = {
     hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
     loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
     doc1: 'Kutchan house — Plan A — 3D walkthrough', doc2: 'Kutchan house — Plan B — 3D walkthrough', doc3: 'Tsuchiya Kensetsu reference house — 3D walkthrough', doc4: 'Tsuchiya Kensetsu reference house, revised — 3D walkthrough', doc5: 'Kutchan house — Plan B compact — 3D', doc6: 'Kutchan house — Plan C — 3D',
-    geo6: "Plan C: the L-shaped version of Plan B compact. A 12.74 x 8.19 m bar with a 5.46 x 4.55 m wing projecting east from its south end, all under one mono-pitch roof plane, high on the east (the wing end). The south side, on the view, is one flush 12.74 m wall (the bar's end and the wing's side), glass wherever the rooms allow. 1F (2.8 m ceilings): the gym in the wing, glass on its three outside faces; the onsen zone: bath (two hinoki tubs) with the sauna opening into it, the changing room and a lounge off it; entrance, ski / gear room, WC, laundry, storage and plant room along the west. 2F: the living in the wing, floor-to-ceiling glass on all three faces, with the wood stove; dining + kitchen behind it (glass on the south, the fridge and tall units on the pantry wall), the master bedroom (closet + ensuite) and an open den; bedroom 2 (ensuite), a second den, laundry and storage along the west. The 3D is a quick check, not a finished walkthrough. 'Edit plan' lets you move the walls.",
+    geo6: "Plan C: the L-shaped version of Plan B compact. A 12.74 x 8.19 m bar with a 5.46 x 4.55 m wing projecting east from its south end, all under one mono-pitch roof plane, high on the east (the wing end). The south side, on the view, is one flush 12.74 m wall (the bar's end and the wing's side), glass wherever the rooms allow. 1F (2.8 m ceilings): the entrance is in the L's inner corner (the north-east yard), under a carport, with the ski / gear room beside it and the hall + stair straight ahead (you don't pass the gym); the gym takes the wing (glass on its three outside faces) and the whole south (view) side; the onsen zone: bath (two hinoki tubs) with the sauna opening into it, the changing room and a lounge off it (sliding door from the hall); WC, laundry, storage and plant room along the west. 2F: the living in the wing, floor-to-ceiling glass on all three faces, with the wood stove; dining + kitchen behind it (glass on the south, the fridge and tall units on the pantry wall), the master bedroom (closet + ensuite) and an open den; bedroom 2 (ensuite), a second den, laundry and storage along the west. The 3D is a quick check, not a finished walkthrough. 'Edit plan' lets you move the walls.",
     geo5: "Plan B compact: the compact, cheaper version of Plan B (2 floors under one sloped roof). One simple 13.65 x 9.1 m rectangle on both floors (15 x 10 modules of 910 mm), its long side along the view, under one mono-pitch roof, high on the north (the view side); no outside stair, no 2F outside door, no void, one straight stair. 1F (2.8 m ceilings): the gym along the north glass (three big fixed panes) with a stretching alcove, open to the hall; the bath (two hinoki tubs under a big pane) with the sauna opening into it, the changing room (a sliding door from the gym) and a lounge off it; entrance, ski / gear room, WC, laundry + plant room along the south. 2F: living + dining behind floor-to-ceiling glass and the master bedroom (walk-in closet + ensuite) on the north side, kitchen and an open den in the middle, bedroom 2 (ensuite), a second den, laundry and WC along the south. No unit baths. The 3D is a quick check, not a finished walkthrough. 'Edit plan' lets you move the walls.",
     geo4: "A revision of Tsuchiya Kensetsu's reference house: the main block runs east over the old porch and storage, so all three levels are 10.9 x 7.3 m, under the same sloped roof (4/10 pitch, high on the north, the view side). 1F (2.8 m ceilings): gym with two big north windows, open to the hall; a bath with two hinoki tubs and a walk-in shower, the sauna (it opens into the bath), a changing + rest room between the hall and the bath, WC, laundry + plant room and the entrance facing the carport. 2F: living, dining and kitchen along the north side (the living double height behind floor-to-ceiling glass, with the wood stove), one bedroom with a walk-in closet and an ensuite shower room, and an open den / office by the stair void. Loft, in the north strip where the roof is high enough: a bedroom with its own ensuite shower room, and a den / office. No unit baths, shower units only. Finishes are indicative only. 'Edit plan' lets you move the walls.",
     geo3: "Tsuchiya Kensetsu's reference house, built from the CAD dimensions in their drawings: 2 floors + a loft under one sloped roof (4/10 pitch, high on the north), double-height living room, every window, door and stair as drawn. Finishes follow their brochure loosely (red pine floors, white walls, timber beams) and are indicative only. 'Edit plan' lets you move the walls.",
@@ -187,7 +190,7 @@ const JA_NAMES = {
   '1F — Wash room + bath': '1F — 洗面所・浴室', '1F — Porch': '1F — 風除室', '2F — Living, stove corner': '2F — リビング（薪ストーブ側）',
   '2F — Kitchen + dining': '2F — キッチン・ダイニング', '2F — From the dining table': '2F — ダイニングから', '2F — Veranda room': '2F — 広縁',
   '2F — Hall, ensuite door': '2F — ホール・専用バスルーム', '2F — Top of the stairs': '2F — 階段の上', 'Loft': 'ロフト', 'Loft — over the void': 'ロフト — 吹抜けを見下ろす',
-  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', 'Outside — north-east': '外観 — 北東', '1F — Lounge (open to the hall)': '1F — ラウンジ（ホールとつながる）', '1F — Changing + rest room': '1F — 脱衣・休憩室', 'Outside — south-east (view side)': '外観 — 南東（眺望側）', '2F — Living wing': '2F — リビング（翼棟）', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
+  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', 'Outside — north-east': '外観 — 北東', '1F — Lounge (open to the hall)': '1F — ラウンジ（ホールとつながる）', '1F — Changing + rest room': '1F — 脱衣・休憩室', 'Outside — south-east (view side)': '外観 — 南東（眺望側）', 'Outside — carport + entrance (inner corner)': '外観 — カーポート・玄関（L字の内側の角）', '1F — Entrance (genkan)': '1F — 玄関', '2F — Living wing': '2F — リビング（翼棟）', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
   '2F — Living (north glass, stove)': '2F — リビング（北側の大開口・薪ストーブ）', '2F — Dining + loft stair': '2F — ダイニング・ロフトへの階段', '2F — Master bedroom': '2F — 主寝室', '2F — Den / office 2': '2F — 書斎2',
   '2F — Ensuite': '2F — 専用シャワー室', 'Loft — Hall, top of the stairs': 'ロフト — ホール（階段の上）', 'Loft — Bedroom A + ensuite': 'ロフト — 寝室A・専用シャワー室', 'Loft — Den / office 1': 'ロフト — 書斎1',
 };
@@ -777,7 +780,7 @@ function wallRun(G, w, lvl, L) {
         const qb = L.base + Math.min(q.bottom, hIn);
         rk = q === bands[bands.length - 1] ? rakeOf(q, s, e) : null;
         const qt = rk ? Math.min(rk(s), rk(e)) : !roof ? L.base + Math.min(q.top, hIn) : (q.full ? Infinity : Math.min(L.base + Math.min(q.top, hIn), roofMin(s, e) - ROOF_HEAD));
-        if (qb > y + 0.01) { solid(s, e, y, qb); if (y === yB) skirt(s, e); }
+        if (qb > y + 0.01) { solid(s, e, y, qb); if (y === yB && qb > L.base + 0.01) skirt(s, e); }   /* no skirting across a door (house 6's front door + fanlight) */
         let qs = s, qe = e;                            /* house 7: a transom narrower than its window, wall either side */
         if (HOUSE === 7) {
           qs = Math.max(s, q.off); qe = Math.min(e, q.off + q.w);
@@ -2294,7 +2297,7 @@ function mkRoof3(r) {
 }
 function roofFor(w, lvl) {
   const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2;
-  return ROOFS3.find(r => r.levels.includes(lvl) && mx > r.rect[0] - 0.01 && mx < r.rect[2] + 0.01 && mz > r.rect[1] - 0.01 && mz < r.rect[3] + 0.01) || null;
+  return ROOFS3.find(r => !r.outside && r.levels.includes(lvl) && mx > r.rect[0] - 0.01 && mx < r.rect[2] + 0.01 && mz > r.rect[1] - 0.01 && mz < r.rect[3] + 0.01) || null;
 }
 /* the ceiling over a point on a level: the floor above (flat) or a roof */
 let CEIL7 = null;                                    /* house 7: the Ichijo ceilings (flat + the sloped zone), ichijo.js */
@@ -2303,7 +2306,7 @@ function ceilAt3(x, z, lvl) {
   const L = LV[lvl], U = LV[lvl + 1];
   if (U && onRects(FLOOR_RECTS[lvl + 1], x, z, 0)) return L.base + L.h;
   let y = Infinity;
-  for (const r of ROOFS3) if (x > r.rect[0] - 0.01 && x < r.rect[2] + 0.01 && z > r.rect[1] - 0.01 && z < r.rect[3] + 0.01) y = Math.min(y, r.y(x, z));
+  for (const r of ROOFS3) if (!r.outside && x > r.rect[0] - 0.01 && x < r.rect[2] + 0.01 && z > r.rect[1] - 0.01 && z < r.rect[3] + 0.01) y = Math.min(y, r.y(x, z));
   return y === Infinity ? L.base + L.h : y;
 }
 
@@ -2625,10 +2628,20 @@ function buildRoofs3() {
         mk(G.ext, B(0.12, H, 0.12, MAT.timber, 'y'), MAT.timber, px, PLAN.ground + H / 2, pz);
         addCollBox(px, pz, 0.12, 0.12, 0, PLAN.ground, PLAN.ground + H);
       }
-      const zA = Math.min(...r.posts.map(p => p[1])) - 0.3, zB = Math.max(...r.posts.map(p => p[1])) + 0.3, px = r.posts[0][0];
-      const yA = r.y(px, zA), yB = r.y(px, zB), Lb = zB - zA;
-      const bm = mk(G.ext, B(0.12, 0.24, Math.hypot(Lb, yB - yA), MAT.timber, 'z'), MAT.timber, px, (yA + yB) / 2 - 0.12, (zA + zB) / 2);
-      bm.rotation.x = Math.atan2(yA - yB, Lb);
+      if (r.beams) {
+        /* house 6: a beam along each line of posts ([x0, z0, x1, z1], along x or z), its top on the underside */
+        for (const [x0, z0, x1, z1] of r.beams) {
+          const yA = r.y(x0, z0), yB = r.y(x1, z1), alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0), Lb = alongX ? Math.abs(x1 - x0) : Math.abs(z1 - z0);
+          const geo = alongX ? B(Math.hypot(Lb, yB - yA), 0.24, 0.12, MAT.timber, 'x') : B(0.12, 0.24, Math.hypot(Lb, yB - yA), MAT.timber, 'z');
+          const bm = mk(G.ext, geo, MAT.timber, (x0 + x1) / 2, (yA + yB) / 2 - 0.12, (z0 + z1) / 2);
+          if (alongX) bm.rotation.z = Math.atan2(yB - yA, x1 - x0); else bm.rotation.x = Math.atan2(yA - yB, z1 - z0);
+        }
+      } else {
+        const zA = Math.min(...r.posts.map(p => p[1])) - 0.3, zB = Math.max(...r.posts.map(p => p[1])) + 0.3, px = r.posts[0][0];
+        const yA = r.y(px, zA), yB = r.y(px, zB), Lb = zB - zA;
+        const bm = mk(G.ext, B(0.12, 0.24, Math.hypot(Lb, yB - yA), MAT.timber, 'z'), MAT.timber, px, (yA + yB) / 2 - 0.12, (zA + zB) / 2);
+        bm.rotation.x = Math.atan2(yA - yB, Lb);
+      }
     }
   }
 }
@@ -2672,7 +2685,17 @@ function buildSite3() {
   }
   const flatOn = (m) => { m.castShadow = false; return m; };
   const car = ROOFS3.find(r => r.posts && r.posts.length);
-  if (car) {
+  if (car && car.pad) {
+    /* house 6: pad, drive and porch step as the model gives them ([x0, z0, x1, z1], porch + its top) */
+    const [px0, pz0, px1, pz1] = car.pad;
+    flatOn(mk(E, B(px1 - px0, 0.05, pz1 - pz0, MAT.pad), MAT.pad, (px0 + px1) / 2, gy + 0.005, (pz0 + pz1) / 2));
+    if (car.drive) { const [dx0, dz0, dx1, dz1] = car.drive; flatOn(mk(E, B(dx1 - dx0, 0.04, dz1 - dz0, MAT.packed), MAT.packed, (dx0 + dx1) / 2, gy, (dz0 + dz1) / 2)); }
+    if (car.porch) {
+      const [sx0, sz0, sx1, sz1, top] = car.porch;
+      flatOn(mk(E, B(sx1 - sx0, top - gy, sz1 - sz0, MAT.pad), MAT.pad, (sx0 + sx1) / 2, (gy + top) / 2, (sz0 + sz1) / 2));
+      if (FLOOR_RECTS[0]) FLOOR_RECTS[0].push([sx0, sz0, sx1, sz1, top]);   /* walkable: pad -> porch -> genkan */
+    }
+  } else if (car) {
     const x0 = Math.max(...LV[0].rooms.flatMap(f => f.poly.map(q => q[0]))) + 0.12, x1 = car.rect[2] - 0.2, z0 = car.rect[1] + 0.3, z1 = car.rect[3] - 0.1;
     flatOn(mk(E, B(x1 - x0, 0.05, z1 - z0, MAT.pad), MAT.pad, (x0 + x1) / 2, gy + 0.005, (z0 + z1) / 2));
     flatOn(mk(E, B(x1 - x0 + 1.0, 0.04, 9.0, MAT.packed), MAT.packed, (x0 + x1) / 2, gy, z1 + 4.5));      /* drive out to the south */
@@ -2693,7 +2716,7 @@ function lights3() {
       const lit = LIT3.test(f.name) && f.area > (HOUSE >= 4 ? 2 : 3);
       const sloped = !(LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0)) && y !== L.base + L.h;
       const q = new THREE.Quaternion();
-      const r = ROOFS3.find(rr => x > rr.rect[0] && x < rr.rect[2] && z > rr.rect[1] && z < rr.rect[3]);
+      const r = ROOFS3.find(rr => !rr.outside && x > rr.rect[0] && x < rr.rect[2] && z > rr.rect[1] && z < rr.rect[3]);
       if (sloped && r) q.setFromUnitVectors(new V(0, 0, 1), r.n.clone().negate()); else q.setFromUnitVectors(new V(0, 0, 1), new V(0, -1, 0));
       if (lit) { const pl = new THREE.PointLight(0xffdcb0, f.area > 20 ? 8 : 5, 9, 1.5); pl.position.set(x, y - 0.3, z); G.furn[i].add(pl); }
       const yl = y - (HOUSE >= 4 && f.floor === 'hinoki' ? 0.021 : 0);
@@ -2781,6 +2804,10 @@ function lineRooms3() {
 function buildHouse3(plan) {
   PLAN = plan; LV = plan.levels; STAIRS = [];
   ROOFS3 = (plan.roofs || []).map(mkRoof3);
+  /* house 6 (v20): the model's carport, a low-pitch roof on posts outside the house; outside =
+     it clips no wall, sets no ceiling (roofFor / ceilAt3 / lights3 skip it) */
+  const cp = plan.model && plan.model.carport;
+  if (cp && cp.rect) ROOFS3.push(mkRoof3(Object.assign({ levels: [0], over: { n: 0, s: 0, e: 0, w: 0 } }, cp, { outside: 1 })));
   root.add(G.ext); root.add(G.roof);
   const FM = FLOORMAT3();
   LV.forEach((L, i) => {
@@ -3131,7 +3158,9 @@ const VIEWS5 = [
    the x = +6.37 facade SOUTH (the view), so model -z = east, +x = south, +z = west, -x = north) */
 const VIEWS6 = [
   ['Outside — south-east (view side)', 15.0, -17.0, 2.43, 0.1, null, 1.8],
+  ['Outside — carport + entrance (inner corner)', -6.6, -12.9, -2.593, 0.02, null, 1.5],
   ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
+  ['1F — Entrance (genkan)', -0.55, 1.75, -0.33, -0.06, 0],
   ['2F — Living wing', 1.55, -2.1, -0.62, 0.0, 1],
 ];
 /* Collapse single-material static meshes into one mesh per material. */
