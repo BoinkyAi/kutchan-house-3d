@@ -36,10 +36,16 @@ const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
 /* Which house. The Floor Plan Creator share holds two: house 1 (3 floors,
    flat roof: plan.json, the original walkthrough) and house 2 (2 floors,
    1F 3.5 m, 2F under one mono-pitch roof: plan2.json, re-centred on itself).
-   ?house=2 opens house 2; the switcher reloads with it, so each house is
-   built from a clean start (house 1 renders exactly as it did before). */
+   ?house=N opens house N; the switcher reloads with it, so each house is
+   built from a clean start. v14 (2026-10-11): house 1 (Plan A) moved to its
+   own app, kutchan-house-plan-a, so this site no longer shows it; ?house=1
+   goes there (index.html does it first) and house 2 (Plan B) is the
+   default. The house-1 code paths below are unused here. */
 const _qHouse = new URLSearchParams(location.search).get('house');
-const HOUSE = _qHouse === '2' ? 2 : _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : _qHouse === '5' ? 5 : _qHouse === '6' ? 6 : 1;
+const PLAN_A_URL = 'https://boinkyai.github.io/kutchan-house-plan-a/';
+const MOVED = _qHouse === '1';
+if (MOVED) location.replace(PLAN_A_URL);
+const HOUSE = _qHouse === '3' ? 3 : _qHouse === '4' ? 4 : _qHouse === '5' ? 5 : _qHouse === '6' ? 6 : 2;
 /* house 3 = Tsuchiya Kensetsu's reference house plan: built
    from the editable model (ref-model.json, or the plan editor's saved copy /
    a shared #m= link) through refplan.js. House 4 = its revision (Toby
@@ -66,7 +72,7 @@ let LANG = (_qLang === 'en' || _qLang === 'ja') ? _qLang : (localStorage.getItem
 const TXT = {
   ja: {
     title: '倶知安 住宅計画', h1: 'プランA', h2: 'プランB', h3: '土屋 参考プラン',
-    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', h4: '土屋 改案', h4t: '土屋参考プランの改案：1階ジム＋温泉、2階LDK・専用シャワー室付き寝室・書斎、ロフトに専用シャワー室付き寝室・書斎', hsegt: 'プランA・B（倶知安の計画）と土屋建設の参考プラン・改案、プランB 縮小版',
+    h1t: 'プランA：3階建て・陸屋根', h2t: 'プランB：2階建て・片流れ屋根', h3t: '土屋建設の参考住宅プラン', h4: '土屋 改案', h4t: '土屋参考プランの改案：1階ジム＋温泉、2階LDK・専用シャワー室付き寝室・書斎、ロフトに専用シャワー室付き寝室・書斎', hsegt: 'プランB（倶知安の計画）と土屋建設の参考プラン・改案、プランB 縮小版',
     h5: 'プランB 縮小版', h5t: 'プランB 縮小版：プランBをコンパクトにしてコストを抑えた案（13.65×9.1mの総2階・長辺が眺望側、1階ジム＋温泉、2階LDK・専用シャワー室付き寝室2・書斎2）',
     origt5: 'プランB 縮小版の最初の間取りを表示（編集はそのまま残ります）',
     h6: 'プランC', h6t: 'L字型：リビングとジムが眺望側に突き出た翼棟', origt6: 'プランCの最初の間取りを表示（編集はそのまま残ります）',
@@ -105,7 +111,7 @@ const TXT = {
   },
   en: {
     title: 'Kutchan house', h1: 'Plan A', h2: 'Plan B', h3: 'Tsuchiya ref.',
-    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", h4: 'Tsuchiya rev.', h4t: 'Revision of the Tsuchiya plan: gym + onsen 1F; LDK, an ensuite bedroom + a den 2F; an ensuite bedroom + a den in the loft', hsegt: 'Plans A + B (the Kutchan house), the Tsuchiya Kensetsu reference house and its revision, Plan B compact',
+    h1t: 'Plan A: 3 floors, flat roof', h2t: 'Plan B: 2 floors, sloped (shed) roof', h3t: "Tsuchiya Kensetsu's reference house plan", h4: 'Tsuchiya rev.', h4t: 'Revision of the Tsuchiya plan: gym + onsen 1F; LDK, an ensuite bedroom + a den 2F; an ensuite bedroom + a den in the loft', hsegt: 'Plan B (the Kutchan house), the Tsuchiya Kensetsu reference house and its revision, Plan B compact',
     h5: 'Plan B compact', h5t: 'Plan B compact: the compact, cheaper version of Plan B (13.65 x 9.1 m box on 2 floors, long side on the view: gym + onsen 1F; LDK, 2 ensuite bedrooms + 2 dens 2F)',
     origt5: 'Show Plan B compact as first drawn (your edits stay saved)',
     h6: 'Plan C', h6t: 'L-shaped: living + gym wing projecting toward the view', origt6: 'Show Plan C as first drawn (your edits stay saved)',
@@ -3317,9 +3323,9 @@ const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return 
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
 applyLang();   /* static UI text + titles before the house loads */
 loadMsg(T('loading'));
-const planReady = H3
-  ? loadModel(REF.url, REF.key).then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
-  : fetch(HOUSE === 2 ? 'plan2.json?v=7' : 'plan.json').then(r => r.json());
+const planReady = MOVED ? new Promise(() => {})   /* ?house=1: leaving for kutchan-house-plan-a, build nothing */
+  : H3 ? loadModel(REF.url, REF.key).then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
+  : fetch('plan2.json?v=7').then(r => r.json());
 planReady.then(async (plan) => {
   let t = performance.now();
   buildMaterials(); t = mark('materials', t);
