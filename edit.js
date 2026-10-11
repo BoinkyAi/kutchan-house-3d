@@ -14,7 +14,7 @@ const PLANS = {
   a: { url: 'ref-model.json?v=1', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' },
   b: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
-  d: { url: 'ref-model-d.json?v=2', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
+  d: { url: 'ref-model-d.json?v=3', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
   e: { url: 'ref-model-e.json?v=3', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e' },
 };
 const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();

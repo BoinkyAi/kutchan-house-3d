@@ -62,7 +62,7 @@ const REFS = {
   3: { url: 'ref-model.json?v=1', key: 'h3dRefModel', edit: 'edit.html' },
   4: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
   5: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
-  6: { url: 'ref-model-d.json?v=2', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
+  6: { url: 'ref-model-d.json?v=3', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   7: { url: 'ref-model-e.json?v=3', key: 'h3dRefModelE', edit: 'edit.html?plan=e' },
 };
 const REF = REFS[HOUSE] || REFS[3];
