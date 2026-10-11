@@ -63,7 +63,7 @@ const REFS = {
   4: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
   5: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=1', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
-  7: { url: 'ref-model-e.json?v=1', key: 'h3dRefModelE', edit: 'edit.html?plan=e' },
+  7: { url: 'ref-model-e.json?v=2', key: 'h3dRefModelE', edit: 'edit.html?plan=e' },
 };
 const REF = REFS[HOUSE] || REFS[3];
 /* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
@@ -3663,7 +3663,7 @@ const texturesReady = new Promise((res) => { LM.onLoad = res; });
 applyLang();   /* static UI text + titles before the house loads */
 loadMsg(T('loading'));
 const planReady = MOVED ? new Promise(() => {})   /* ?house=1: leaving for kutchan-house-plan-a, build nothing */
-  : HOUSE === 7 ? Promise.all([import('./ichijo.js?v=1'), loadModel(REF.url, REF.key)]).then(async ([ij, { model, from }]) => {
+  : HOUSE === 7 ? Promise.all([import('./ichijo.js?v=2'), loadModel(REF.url, REF.key)]).then(async ([ij, { model, from }]) => {
     IJ = ij; CATALOG = await ij.loadCatalog('catalog.json?v=1');
     MODEL_SRC = from; MODEL7 = model; window.__model = model;
     ICH = ij.derive(model, CATALOG, LANG);

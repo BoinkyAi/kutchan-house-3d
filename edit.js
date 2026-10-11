@@ -15,7 +15,7 @@ const PLANS = {
   b: { url: 'ref-model-b.json?v=3', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=3', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=1', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
-  e: { url: 'ref-model-e.json?v=1', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e' },
+  e: { url: 'ref-model-e.json?v=2', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e' },
 };
 const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
 const PLAN = PLANS[_qPlan] ? _qPlan : 'a';
@@ -1144,7 +1144,7 @@ function ichijoOverlay(c) {
   }
 }
 async function ichijoStart() {
-  const mod = await import('./ichijo.js?v=1');
+  const mod = await import('./ichijo.js?v=2');
   ICH.mod = mod; ICH.cat = await mod.loadCatalog('catalog.json?v=1');
   const top = $('top');
   const b = el('button', { id: 'bIch', class: 'go', text: T('ich') }); b.title = T('icht');

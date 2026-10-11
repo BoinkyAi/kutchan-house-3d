@@ -8,7 +8,8 @@
               2F floor h1 + buildUp (3.05), 2F flat ceiling h2 (2.4)
      sloped   zone = the part of the living nearest its view glass (ichijo.view),
               slopeDepth deep (capped so it is <= slopeMaxArea m2); its ceiling rises
-              from h2 at the zone's inner edge toward the glass at `pitch` sun (寸/10);
+              from h2 at the zone's inner edge toward the glass at `pitch` sun (寸/10;
+              default 3.5 = Ichijo standard: its sheet has 3.5寸 roof materials only);
               the roof is ONE mono-pitch plane over the whole 2F at that pitch, high on
               the view side: the lowest such plane that clears every 2F ceiling by
               roofClear (so the sloped ceiling runs parallel under it)
@@ -20,17 +21,19 @@
      fittings kitchen (I / peninsula / island), unit bath or shower, vanity, toilet:
               placed in the room's clear rectangle, with a fit verdict
    info (returned with the model) = readouts, window schedule, fit verdicts, the
-   fitted pieces' footprints (for the editor) and the ceilings (for the 3D). */
+   fitted pieces' footprints (for the editor) and the ceilings (for the 3D).
+   The panel checks the ridge (info.roof.ridge) against heightLimit (zoning, 10 m). */
 'use strict';
 import { levelGraph, inPoly, polyArea } from './refplan.js?v=5';
 
 const r4 = (v) => Math.round(v * 1e4) / 1e4;
+const PITCH_STD = 3.5;                                           /* sun: Ichijo's standard roof pitch (the panel labels it) */
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const SIDE = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 export const ICHIJO_DEFAULTS = {
   h1: 2.6, gymSunken: true, gymDrop: 0.2, buildUp: 0.45, h2: 2.4,
-  view: 'n', slopeDepth: 3.9, slopeMaxArea: 22, pitch: 4, roofClear: 0.15, roofTh: 0.34, overhang: 0.6,
+  view: 'n', slopeDepth: 3.9, slopeMaxArea: 22, pitch: 3.5, roofClear: 0.15, roofTh: 0.34, overhang: 0.6, heightLimit: 10,
   winMaxH: 2.2, winCeilGap: 0.1, transomH: 0.3, transomMaxW: 1.8, transomGap: 0.15, transomTopGap: 0.1,
   maxWindowW: 2.6, mullion: 0.1, transom: {}, doorH: 2.0,
   ubMargin: 0.15, walkway: 0.85, cupboardD: 0.45, toiletZone: 0.8, vanityStand: 0.6, endPassage: 0.85, needsMax: 0.3,
@@ -589,10 +592,12 @@ export const STR = {
     heights: '高さ', h1: '1階天井', gym: 'ジム床を下げる（土間）', fl2: '2階床', h2: '2階天井',
     slope: '勾配天井（リビング）', view: '眺望側（高い側）', depth: '奥行', pitch: '勾配', area: '面積',
     peak: (v) => 'ガラス側の天井高 ' + v.toFixed(2) + 'm（2階床から）', roofRead: (r, e) => '棟 ' + r.toFixed(1) + 'm・軒 ' + e.toFixed(1) + 'm（地面から）',
-    gap: (g) => '勾配天井と屋根の間 ' + g.toFixed(2) + 'm', sun: (p, d) => p.toFixed(1) + '寸（' + d.toFixed(1) + '°）',
+    gap: (g) => '勾配天井と屋根の間 ' + g.toFixed(2) + 'm', sun: (p, d) => p.toFixed(1) + '寸（' + d.toFixed(1) + '°）', pitchStd: '一条標準',
+    hlim: '高さ制限（低層住居専用地域）', hlOver: (r) => '高さ制限超過（棟 ' + r.toFixed(2) + 'm）', hlOk: (r) => '高さ制限内（棟 ' + r.toFixed(2) + 'm）',
+    slopeNote: '勾配天井の価格はカタログでは4坪（13.2㎡）まで・22㎡は要確認',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: '北', s: '南', e: '東', w: '西' },
-    windows: '窓（高さ最大2.2m）', maxW: '最大幅', schedule: '窓リスト', transom: '欄間', noRoom: '天井が低く不可',
+    windows: '窓（高さ最大2.2m）', maxW: '最大幅', transomNote: '欄間窓（0.3×1.8 m）は久坂氏の口頭説明のみ・カタログ未掲載', schedule: '窓リスト', transom: '欄間', noRoom: '天井が低く不可',
     winRow: (w) => w.n > 1 ? w.n + '枚 × ' + Math.round(w.unitW * 1000) + '（方立100）' : Math.round(w.unitW * 1000) + '',
     fittings: '設備', kitchen: 'キッチン', layout: '型', ub: 'ユニットバス', vanity: '洗面化粧台', toilet: 'トイレ', door: '室内ドアの高さ', allDoors: 'すべての室内ドア',
     hinoki: 'ひのき浴槽（図面どおり・造作）', showerOnly: 'シャワーのみ', cupboard: 'カップボード', summary: 'カタログ適合',
@@ -607,10 +612,12 @@ export const STR = {
     heights: 'HEIGHTS', h1: '1F ceiling', gym: 'Gym floor sunk (slab)', fl2: '2F floor', h2: '2F ceiling',
     slope: 'SLOPED CEILING (LIVING)', view: 'View / high side', depth: 'Depth', pitch: 'Pitch', area: 'Area',
     peak: (v) => 'Ceiling at the glass ' + v.toFixed(2) + ' m (above the 2F floor)', roofRead: (r, e) => 'Ridge ' + r.toFixed(1) + ' m · eave ' + e.toFixed(1) + ' m above ground',
-    gap: (g) => 'Roof is ' + g.toFixed(2) + ' m above the sloped ceiling', sun: (p, d) => p.toFixed(1) + ' sun (' + d.toFixed(1) + '°)',
+    gap: (g) => 'Roof is ' + g.toFixed(2) + ' m above the sloped ceiling', sun: (p, d) => p.toFixed(1) + ' sun (' + d.toFixed(1) + '°)', pitchStd: 'Ichijo std',
+    hlim: 'Height limit (low-rise zone)', hlOver: (r) => 'Ridge ' + r.toFixed(2) + ' m > limit', hlOk: (r) => 'Ridge ' + r.toFixed(2) + ' m ≤ limit',
+    slopeNote: 'Sloped-ceiling price in the sheet covers up to 4 tsubo (13.2 m²); 22 m² needs a quote',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: 'N', s: 'S', e: 'E', w: 'W' },
-    windows: 'WINDOWS (max 2.2 m tall)', maxW: 'Max width', schedule: 'Window schedule', transom: 'Transom', noRoom: 'ceiling too low',
+    windows: 'WINDOWS (max 2.2 m tall)', maxW: 'Max width', transomNote: 'Transom (0.3 × 1.8 m) per Hisasaka verbally — not in the catalogue, confirm in writing', schedule: 'Window schedule', transom: 'Transom', noRoom: 'ceiling too low',
     winRow: (w) => w.n > 1 ? w.n + ' × ' + Math.round(w.unitW * 1000) + ' (100 mullions)' : Math.round(w.unitW * 1000) + '',
     fittings: 'FITTINGS', kitchen: 'Kitchen', layout: 'Layout', ub: 'Unit bath', vanity: 'Vanity', toilet: 'Toilet', door: 'Interior door height', allDoors: 'all interior doors',
     hinoki: 'Hinoki tubs as drawn (custom)', showerOnly: 'Shower only', cupboard: 'Cupboard', summary: 'CATALOGUE FIT',
@@ -661,6 +668,12 @@ const CSS = `
 .ichp .thumb{height:34px;border-radius:4px;background:#fff;margin-left:4px;vertical-align:middle}
 .ichp details summary{cursor:pointer;opacity:.8;margin:3px 0}
 .ichp .note{font-size:10px;opacity:.55;margin-top:6px}
+.ichp .hlflag.over{color:#ff6b6b;font-weight:600}
+.ichp .row.pitch{margin-bottom:12px}
+.ichp .pw{position:relative;display:inline-flex}
+.ichp .pw input{margin:2px}
+.ichp .pw .std{position:absolute;top:100%;margin-top:1px;transform:translateX(-50%);font-size:9.5px;line-height:1;opacity:.75;white-space:nowrap;pointer-events:none}
+.ichp .pw .std::before{content:'';position:absolute;left:50%;top:-4px;height:3px;border-left:1px solid currentColor}
 @media (max-width:640px){.ichp{width:auto;left:6px!important;right:6px!important;max-height:52vh}}
 `;
 export function mountPanel(host, o) {
@@ -720,12 +733,22 @@ export function mountPanel(host, o) {
       const pIn = E('input', { type: 'range', min: '2.5', max: '6', step: '0.5', value: String(I.pitch) });
       const pV = E('b', { text: T.sun(I.pitch, Z.pitchDeg) });
       pIn.addEventListener('input', () => { pV.textContent = T.sun(+pIn.value, Math.atan(+pIn.value / 10) * 180 / Math.PI); set(m => { m.ichijo.pitch = +pIn.value; }, true); });
-      el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.pitch }), pIn, pV]));
+      /* 3.5 sun = Ichijo standard (its sheet: 3.5寸 roof materials only): marked + labelled under the slider */
+      const fr = (PITCH_STD - +pIn.min) / (+pIn.max - +pIn.min);
+      const std = E('span', { class: 'std', text: T.pitchStd, style: 'left:calc(10px + (100% - 20px) * ' + fr.toFixed(4) + ')' });
+      el.appendChild(E('div', { class: 'row pitch' }, [E('label', { text: T.pitch }), E('span', { class: 'pw' }, [pIn, std]), pV]));
       el.appendChild(E('div', { class: 'rd', html: '<b>' + T.peak(Z.peak) + '</b>' }));
       if (RF) {
         el.appendChild(E('div', { class: 'rd', html: '<b>' + T.roofRead(RF.ridge, RF.eave) + '</b>' }));
+        /* zoning: the same ridge value against heightLimit, to the cm shown */
+        const hl = E('input', { type: 'number', class: 'hlim', min: '1', max: '60', step: '0.5', value: String(I.heightLimit) });
+        hl.addEventListener('change', () => { const v = +hl.value; if (v > 0) set(m => { m.ichijo.heightLimit = v; }); });
+        el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.hlim }), hl, 'm']));
+        const over = Math.round(RF.ridge * 100) > Math.round(I.heightLimit * 100);
+        el.appendChild(E('div', { class: 'rd hlflag' + (over ? ' over' : ''), text: over ? T.hlOver(RF.ridge) : T.hlOk(RF.ridge) }));
         el.appendChild(E('div', { class: 'rd', text: T.gap(RF.gap) }));
       }
+      el.appendChild(E('div', { class: 'note', text: T.slopeNote }));
     }
     /* windows */
     el.appendChild(E('h5', { text: T.windows }));
@@ -752,6 +775,7 @@ export function mountPanel(host, o) {
     }
     det.appendChild(tb);
     el.appendChild(det);
+    el.appendChild(E('div', { class: 'note', text: T.transomNote }));
     /* fittings: one block per room */
     el.appendChild(E('h5', { text: T.fittings }));
     const rooms = M.levels.flatMap((L, li) => (L.rooms || []).filter(r => r.fit).map(r => ({ r, li })));
