@@ -1,5 +1,7 @@
 /* Ichijo Komuten (一条工務店) rules + catalogue fittings for "Plan B — Ichijo"
-   (index.html?house=7, edit.html?plan=e). Shared by app.js and edit.js.
+   (index.html?house=7, edit.html?plan=e) and its variants "compact" (house 8, plan f,
+   ref-model-f.json) and "3 up, 1 down" (house 9, plan g, ref-model-g.json): everything
+   here works from the model it is given. Shared by app.js and edit.js.
 
    The model (ref-model-e.json, refplan.js format) keeps Plan B as drawn by Toby;
    model.ichijo holds the builder's rules and room.fit the per-room catalogue
@@ -30,7 +32,7 @@
    12 m), the north-side slope limit (northH + northK x the distance to the site's north
    boundary, at the roof's north edge) and totals the glass on the view facade (viewWall). */
 'use strict';
-import { levelGraph, inPoly, polyArea } from './refplan.js?v=5';
+import { levelGraph, inPoly, polyArea } from './refplan.js?v=6';
 
 const r4 = (v) => Math.round(v * 1e4) / 1e4;
 const PITCH_STD = 3.5;                                           /* sun: Ichijo's standard roof pitch (the panel labels it) */
@@ -849,6 +851,7 @@ const CSS = `
 .ichp .note{font-size:10px;opacity:.55;margin-top:6px}
 .ichp .hlflag.over{color:#ff6b6b;font-weight:600}
 .ichp .row.pitch{margin-bottom:12px}
+.ichp .note.pnote{margin:-4px 0 4px}
 .ichp .pw{position:relative;display:inline-flex}
 .ichp .pw input{margin:2px}
 .ichp .pw .std{position:absolute;top:100%;margin-top:1px;transform:translateX(-50%);font-size:9.5px;line-height:1;opacity:.75;white-space:nowrap;pointer-events:none}
@@ -916,6 +919,9 @@ export function mountPanel(host, o) {
       const fr = (PITCH_STD - +pIn.min) / (+pIn.max - +pIn.min);
       const std = E('span', { class: 'std', text: T.pitchStd, style: 'left:calc(10px + (100% - 20px) * ' + fr.toFixed(4) + ')' });
       el.appendChild(E('div', { class: 'row pitch' }, [E('label', { text: T.pitch }), E('span', { class: 'pw' }, [pIn, std]), pV]));
+      /* v21: the model's caveat about its pitch (a string, or { en, ja }) as a small grey line under the slider */
+      const pn = M.ichijo && M.ichijo.pitchNote, pnText = pn && (typeof pn === 'string' ? pn : (pn[lang] || pn.en || ''));
+      if (pnText) el.appendChild(E('div', { class: 'note pnote', text: pnText }));
       el.appendChild(E('div', { class: 'rd ceil', html: '<b>' + T.ceil(Z.low, Z.high) + '</b>' }));
       if (RF) {
         el.appendChild(E('div', { class: 'rd eave', html: '<b>' + T.eave(RF.eave) + '</b>' }));

@@ -8,7 +8,8 @@
         `off` along the line's normal (-dy, dx); t = 0 = room divider (no wall,
         it only splits rooms: an entrance step, a stair foot)
         ops[] { id, type: window|door|double|sliding|slide|entry|hole, at
-          (start, metres from a along a->b), w, sill, head (from the floor), leaves? }
+          (start, metres from a along a->b), w, sill, head (from the floor), leaves?,
+          frost? | frosted? (obscured glass: milky in 3D, dotted in the editor) }
      rooms[] { id, name, ja, at:[x,y], floor: oak|tile|stone|concrete|void, dz? }
         a room is the region the walls close round its `at` point
      items[] { id, kind, x, y, w, d, a, ... } }
@@ -452,7 +453,7 @@ export function toPlan(model) {
           const a0 = Math.max(o.at, sA), a1 = Math.min(o.at + o.w, sB);
           if (a1 - a0 < 0.02) continue;
           const kind = OP_KIND[o.type] || 'WINDOW';
-          ops.push({ kind, off: r4(a0 - sA), w: r4(a1 - a0), top: o.head, bottom: o.sill, id: o.id, solid: (o.type === 'entry' || o.solid) ? 1 : 0, leaves: o.leaves || 0, style: o.style || '' });
+          ops.push({ kind, off: r4(a0 - sA), w: r4(a1 - a0), top: o.head, bottom: o.sill, id: o.id, solid: (o.type === 'entry' || o.solid) ? 1 : 0, leaves: o.leaves || 0, style: o.style || '', frost: (o.frost || o.frosted) ? 1 : 0 });
         }
         /* lowest floor beside this run (a sunken entrance / porch): the wall starts there */
         let y0 = 0;

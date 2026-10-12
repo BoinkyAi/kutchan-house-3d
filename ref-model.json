@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "title": "Tsuchiya Kensetsu — reference house plan",
  "ja": "土屋建設 参考プラン",
  "source": "Tsuchiya Kensetsu reference house plan drawings (1F, 2F, loft, elevations; dated 2026-01-30)",
@@ -30,9 +30,10 @@
        "type": "window",
        "at": 5.7685,
        "w": 1.19,
-       "sill": 0.83,
-       "head": 1.8,
-       "style": "awning"
+       "sill": 0.7,
+       "head": 2.0,
+       "style": "awning",
+       "frost": 1
       }
      ]
     },
@@ -52,10 +53,10 @@
       {
        "id": "o2",
        "type": "slide",
-       "at": 0.411,
-       "w": 1.68,
+       "at": 0.366,
+       "w": 1.7677,
        "sill": -0.45,
-       "head": 1.38
+       "head": 2.1
       },
       {
        "id": "o3",
@@ -63,7 +64,7 @@
        "at": 2.75,
        "w": 2.0,
        "sill": -0.45,
-       "head": 1.58
+       "head": 2.3
       }
      ]
     },
@@ -96,10 +97,10 @@
       {
        "id": "o4",
        "type": "window",
-       "at": 0.5705,
-       "w": 0.74,
-       "sill": 1.03,
-       "head": 2.0,
+       "at": 0.366,
+       "w": 1.1345,
+       "sill": 0.9,
+       "head": 2.35,
        "style": "awning"
       }
      ]
@@ -122,9 +123,19 @@
        "type": "window",
        "at": 2.1315,
        "w": 1.19,
-       "sill": 0.83,
-       "head": 1.8,
-       "style": "awning"
+       "sill": 0.7,
+       "head": 2.0,
+       "style": "awning",
+       "frost": 1
+      },
+      {
+       "id": "o35",
+       "type": "window",
+       "at": 5.986,
+       "w": 2.738,
+       "sill": 1.0,
+       "head": 2.35,
+       "style": "fixAwning"
       }
      ]
     },
@@ -144,20 +155,20 @@
       {
        "id": "o6",
        "type": "window",
-       "at": 1.874,
-       "w": 1.19,
-       "sill": 1.03,
-       "head": 2.0,
-       "style": "awning"
+       "at": 0.366,
+       "w": 2.606,
+       "sill": 0.35,
+       "head": 2.35,
+       "style": "fixAwning"
       },
       {
        "id": "o7",
        "type": "window",
-       "at": 4.631,
-       "w": 1.19,
-       "sill": 1.03,
-       "head": 2.0,
-       "style": "awning"
+       "at": 4.306,
+       "w": 2.6,
+       "sill": 0.35,
+       "head": 2.35,
+       "style": "fixAwning"
       }
      ]
     },
@@ -793,19 +804,10 @@
       {
        "id": "o17",
        "type": "window",
-       "at": 0.9615,
-       "w": 1.65,
-       "sill": 1.23,
-       "head": 2.0,
-       "style": "fixAwning"
-      },
-      {
-       "id": "o18",
-       "type": "window",
-       "at": 3.6885,
-       "w": 1.65,
-       "sill": 1.23,
-       "head": 2.0,
+       "at": 0.366,
+       "w": 4.734,
+       "sill": 0.6,
+       "head": 2.35,
        "style": "fixAwning"
       }
      ]
@@ -828,8 +830,8 @@
        "type": "window",
        "at": 3.524,
        "w": 0.74,
-       "sill": 1.23,
-       "head": 2.0,
+       "sill": 0.5,
+       "head": 2.55,
        "style": "awning"
       }
      ]
@@ -850,28 +852,28 @@
       {
        "id": "o20",
        "type": "window",
-       "at": 2.132,
-       "w": 1.19,
-       "sill": 0.83,
-       "head": 2.0,
-       "style": "awning"
+       "at": 2.184,
+       "w": 2.904,
+       "sill": 0.1,
+       "head": 2.3,
+       "style": "fix"
       },
       {
        "id": "o21",
        "type": "window",
-       "at": 7.329,
-       "w": 1.676,
-       "sill": 0.469,
-       "head": 2.299,
+       "at": 5.82,
+       "w": 3.185,
+       "sill": 0.1,
+       "head": 2.3,
        "style": "fix"
       },
       {
        "id": "o22",
        "type": "window",
-       "at": 7.329,
-       "w": 1.676,
-       "sill": 2.509,
-       "head": 4.079,
+       "at": 5.82,
+       "w": 3.185,
+       "sill": 2.5,
+       "head": 5.5,
        "style": "fix"
       }
      ]
@@ -894,8 +896,8 @@
        "type": "window",
        "at": 0.079,
        "w": 1.676,
-       "sill": 0.469,
-       "head": 2.299,
+       "sill": 0.1,
+       "head": 2.3,
        "style": "fix"
       },
       {
@@ -903,8 +905,8 @@
        "type": "window",
        "at": 0.079,
        "w": 1.676,
-       "sill": 2.509,
-       "head": 4.079,
+       "sill": 2.5,
+       "head": 5.5,
        "style": "fix"
       },
       {
@@ -912,18 +914,27 @@
        "type": "window",
        "at": 1.8885,
        "w": 1.657,
-       "sill": 0.469,
-       "head": 2.299,
+       "sill": 0.1,
+       "head": 2.3,
+       "style": "fix"
+      },
+      {
+       "id": "o36",
+       "type": "window",
+       "at": 1.8885,
+       "w": 1.657,
+       "sill": 2.5,
+       "head": 5.5,
        "style": "fix"
       },
       {
        "id": "o26",
        "type": "window",
-       "at": 4.598,
-       "w": 1.19,
-       "sill": 0.83,
-       "head": 2.0,
-       "style": "awning"
+       "at": 3.8455,
+       "w": 3.0605,
+       "sill": 0.6,
+       "head": 2.5,
+       "style": "fixAwning"
       }
      ]
     },
@@ -1454,11 +1465,11 @@
       {
        "id": "o33",
        "type": "window",
-       "at": 2.1315,
-       "w": 1.19,
-       "sill": 0.23,
-       "head": 1.4,
-       "style": "awning"
+       "at": 1.29,
+       "w": 3.798,
+       "sill": 0.1,
+       "head": 2.6,
+       "style": "fix"
       }
      ]
     },
