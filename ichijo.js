@@ -30,7 +30,19 @@
    fitted pieces' footprints (for the editor) and the ceilings (for the 3D).
    The panel checks the roof's highest point (info.roof.maxH) against heightLimit (lot 9:
    12 m), the north-side slope limit (northH + northK x the distance to the site's north
-   boundary, at the roof's north edge) and totals the glass on the view facade (viewWall). */
+   boundary, at the roof's north edge) and totals the glass on the view facade (viewWall).
+   v22 opt-ins (absent = everything above unchanged; plan e v7 sets them):
+     ichijo.roofMode 'flatMain+wing'  the main block under a flat parapet roof (top roofClear +
+              roofTh over the flat 2F ceiling, parapet parapetH), the living's wing under one
+              mono-pitch roof rising toward ichijo.view from the junction with the main block,
+              its low edge flush with the flat roof (snow lands on it); run vs roofRunMax (Ichijo:
+              9 x 910 mm), sloped ceiling <= slopeMaxRun along the slope (5 x 910) and
+              slopeMaxArea (12.5 jo); see flatWing()
+     ichijo.highWin <catalogue window id>  a high FIX (e.g. JF5915) over each window unit where
+              the sloped ceiling leaves room (highTopGap under the ceiling, highGap over the
+              window / transom below), within highMaxRun of the slope's low edge (7 x 910)
+     room.fit.cupboard 'max' | <catalogue cupboard id>  Ichijo's cupboard with a worktop and wall
+              units along the kitchen's back wall instead of the tall units (fitRoom) */
 'use strict';
 import { levelGraph, inPoly, polyArea } from './refplan.js?v=6';
 
@@ -41,6 +53,9 @@ const SIDE = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
 /* lot 9 (plan2.json site, the model's frame: -y = north): the fallback when a model has no site.bounds */
 const SITE9 = [-12.9543, -12.6841, 9.3101, 10.8712];
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
+const MASU = 0.91;                                               /* Ichijo's grid module (910 mm) */
+/* option with a fallback that is NOT in ICHIJO_DEFAULTS (v22 opt-ins: info.opts of older models stays as it was) */
+const opt = (I, k, d) => (I[k] !== undefined && I[k] !== null ? I[k] : d);
 export const ICHIJO_DEFAULTS = {
   h1: 2.6, gymSunken: true, gymDrop: 0.2, buildUp: 0.45, h2: 2.4,
   view: 'e', slopeDepth: 99, slopeMaxArea: 22, pitch: 3.5, roofClear: 0.15, roofTh: 0.34, overhang: 0.6,
@@ -199,6 +214,69 @@ function verdictOf(shorts, I) {
 /* item angle with its back (local -y) against side s (see refplan itemToProp / makeProp) */
 const backA = { n: 0, s: Math.PI, w: -Math.PI / 2, e: Math.PI / 2 };
 
+/* ------------------------------------------------------------- v22 roof mode 'flatMain+wing' */
+/* The main block under a flat (parapet) roof and the living's wing under ONE mono-pitch roof rising
+   toward `view` from the junction: the main block's inner face across the slope nearest the living
+   on its low side (plan e: the main block's east wall line, x 0.84). Both roofs have their underside
+   roofClear over the flat 2F ceiling at the junction and are roofTh thick, so the wing's low edge is
+   flush with the flat roof's top and its snow slides onto the flat roof. The flat roof sits between
+   the main block's outside walls' inner faces (inset, so app.js / refplan.js leave those walls uncut
+   and unclipped: postPlan runs them up as the parapet, parapetH over the roof); the wing roof covers
+   the wing out to its outside walls' outer faces, `overhang` past the high end, wingVerge (default 0)
+   at its two sides, flush (1.5 cm lap) onto the flat roof. Both are plain app.js roofs (not custom).
+   Returns { under(x, z), al(x, z) = metres up-slope of the junction, roof: info.roof, roofs } or null. */
+function flatWing(M, L2, I, bb, view, B2, t, h0, k, FL2, gnd, pts) {
+  const AL = { e: [1, 0], w: [-1, 0], s: [0, 1], n: [0, -1] }[view], AC = [Math.abs(AL[1]), Math.abs(AL[0])];
+  const al = (x, z) => x * AL[0] + z * AL[1], ac = (x, z) => x * AC[0] + z * AC[1];
+  const srt = (a, b) => a < b ? [a, b] : [b, a];
+  const la = srt(al(bb[0], bb[1]), al(bb[2], bb[3])), lc = srt(ac(bb[0], bb[1]), ac(bb[2], bb[3]));
+  let aj = -Infinity;
+  for (const w of L2.walls || []) {
+    if (!(w.t >= 0.3)) continue;
+    const F = wallFrame(w);
+    if (Math.abs(F.u[0] * AL[0] + F.u[1] * AL[1]) > 1e-3) continue;              /* runs across the slope */
+    const f = Math.min(al(w.a[0] + F.n[0] * F.q0, w.a[1] + F.n[1] * F.q0), al(w.a[0] + F.n[0] * F.q1, w.a[1] + F.n[1] * F.q1));
+    if (f < la[0] - 0.01 && f > aj) aj = f;
+  }
+  const ba = srt(al(B2[0], B2[1]), al(B2[2], B2[3])), bc = srt(ac(B2[0], B2[1]), ac(B2[2], B2[3]));
+  if (!(aj > ba[0] + 1)) return null;                                            /* no main block on the low side */
+  const toXY = (a0, a1, c0, c1) => (view === 'e' ? [a0, c0, a1, c1] : view === 'w' ? [-a1, c0, -a0, c1] : view === 's' ? [c0, a0, c1, a1] : [c0, -a1, c1, -a0]).map(r4);
+  /* every 2F face corner must lie under one of the two roofs (else: not a main block + wing plan: keep the single plane) */
+  const inA = (x, z, a0, a1, c0, c1, e) => { const a = al(x, z), c = ac(x, z); return a > a0 - e && a < a1 + e && c > c0 - e && c < c1 + e; };
+  if (!pts.every(p => inA(p[0], p[1], ba[0], aj, bc[0], bc[1], 0.05) || inA(p[0], p[1], aj, la[1], lc[0], lc[1], 0.05))) return null;
+  const th = I.roofTh, ins = 0.015, PH = opt(I, 'parapetH', 0.4), verge = opt(I, 'wingVerge', 0);
+  const hiOut = la[1] + t, run = hiOut - aj, dmax = run + I.overhang;
+  const under = (x, z) => h0 + k * (al(x, z) - aj);
+  const over = { n: verge, s: verge, e: verge, w: verge };
+  over[view] = I.overhang; over[OPP[view]] = ins;
+  const wing = { id: 'ichijo-wing', levels: [1], k, th, over, rect: toXY(aj, hiOut, lc[0] - t, lc[1] + t), zone: 1, wing: 1 };
+  if (view === 'n' || view === 's') Object.assign(wing, { low: OPP[view], y0: r4(view === 's' ? aj : -aj), h0 });
+  else Object.assign(wing, { axis: 'x', low: OPP[view], x0: r4(view === 'e' ? aj : -aj), h0 });
+  const fr = toXY(ba[0] + ins, aj - ins, bc[0] + ins, bc[1] - ins);
+  const fo2 = { n: 0.1, s: 0.1, e: 0.1, w: 0.1 };
+  fo2[view] = ins;                                                                /* the slab runs on into the parapets, meets the wing */
+  const flat = { id: 'ichijo-flat', levels: [1], k: 0, th, over: fo2, rect: fr, low: 'n', y0: fr[1], h0, flat: 1, parapet: PH };
+  const top = h0 + th;
+  /* north-side slope: the worst corner of the two outlines (the flat part at its parapet top) */
+  const SB = (M.site && M.site.bounds) || SITE9;
+  const fo = toXY(ba[0] - t, aj + t, bc[0] - t, bc[1] + t), wr = wing.rect;
+  const wo = [wr[0] - over.w, wr[1] - over.n, wr[2] + over.e, wr[3] + over.s];
+  let nb = null;
+  const test = (c, h) => { const lim = I.northH + I.northK * (c[1] - SB[1]); if (!nb || lim - h < nb.margin) nb = { at: c, h, lim, margin: lim - h }; };
+  for (const c of [[fo[0], fo[1]], [fo[2], fo[1]], [fo[0], fo[3]], [fo[2], fo[3]]]) test(c, top + PH - gnd);
+  for (const c of [[wo[0], wo[1]], [wo[2], wo[1]], [wo[0], wo[3]], [wo[2], wo[3]]]) test(c, under(c[0], c[1]) + th - gnd);
+  const roof = { mode: 'flatMain+wing', k, pitch: I.pitch, pitchDeg: r4(Math.atan(k) * 180 / Math.PI), view, masu: MASU,
+    span: r4(la[1] - aj), run: r4(run), runMax: r4(opt(I, 'roofRunMax', 9 * MASU)),
+    eave: r4(top - gnd),                                                          /* the wing's low edge = the flat roof's top */
+    ridge: r4(h0 + k * run + th - gnd),                                            /* the wing's top over its high outside wall */
+    maxH: r4(h0 + k * dmax + th - gnd),                                            /* ... at the end of the high overhang */
+    maxUnder: r4(h0 + k * dmax - FL2),
+    flat: { top: r4(top - gnd), parapet: r4(top + PH - gnd), build: r4(top - FL2 - I.h2), parapetH: PH },
+    parapet: { top: r4(top + PH - FL2), wing: wr.slice() },
+    north: nb && { h: r4(nb.h), lim: r4(nb.lim), margin: r4(nb.margin), ok: nb.margin >= -0.005, dist: r4(nb.at[1] - SB[1]), at: nb.at.map(r4), base: I.northH, per: I.northK } };
+  return { under, al: (x, z) => al(x, z) - aj, roof, roofs: [flat, wing] };
+}
+
 /* ------------------------------------------------------------- derive */
 export function derive(model, cat, lang) {
   lang = lang || 'en';
@@ -216,7 +294,7 @@ export function derive(model, cat, lang) {
   /* ---- the roof (one plane over the whole 2F, high on side ichijo.view) and the
      sloped zone of the living under it (its ceiling = the roof's underside) */
   const k = I.pitch / 10;
-  let zone = null;
+  let zone = null, FW = null;
   if (L2) {
     const fl = G2.rooms.find(f => f.room && (f.room.living || /^living/i.test(f.room.name)));
     if (fl) {
@@ -243,7 +321,9 @@ export function derive(model, cat, lang) {
       const h0 = r4(FL2 + I.h2 + I.roofClear);                     /* underside at the low side's inner face */
       const span = Math.abs(hiIn - lowIn);
       const up = (x, z) => view === 'n' ? lowIn - z : view === 's' ? z - lowIn : view === 'e' ? x - lowIn : lowIn - x;   /* metres up-slope */
-      const under = (x, z) => h0 + k * up(x, z);                       /* the roof's underside (absolute) */
+      /* v22 roofMode 'flatMain+wing': a flat main block + the wing's own mono-pitch roof (null: no junction found) */
+      FW = I.roofMode === 'flatMain+wing' ? flatWing(M, L2, I, bb, view, B2, t, h0, k, FL2, info.heights.ground, pts) : null;
+      const under = FW ? FW.under : (x, z) => h0 + k * up(x, z);       /* the roof's underside (absolute) */
       const underD = (dd) => h0 + k * dd;
       const rf = { id: 'ichijo', levels: [1], custom: 1, k, th: I.roofTh, over: { n: I.overhang, s: I.overhang, e: I.overhang, w: I.overhang },
         rect: [r4(B2[0] - t), r4(B2[1] - t), r4(B2[2] + t), r4(B2[3] + t)] };
@@ -269,9 +349,10 @@ export function derive(model, cat, lang) {
         north: nb && { h: r4(nb.h), lim: r4(nb.lim), margin: r4(nb.margin), ok: nb.margin >= -0.005, dist: r4(nb.at[1] - SB[1]), at: nb.at.map(r4), base: I.northH, per: I.northK } };
       M.roofs = [rf];
       info.roofPlane = rf;
-      /* the zone: the living's part nearest the high-side wall */
+      if (FW) { info.roof = FW.roof; M.roofs = FW.roofs; info.roofPlane = FW.roofs[1]; }
+      /* the zone: the living's part nearest the high-side wall (v22: at most slopeMaxRun along the slope) */
       const width = hor ? bb[2] - bb[0] : bb[3] - bb[1], depthAll = hor ? bb[3] - bb[1] : bb[2] - bb[0];
-      const maxD = Math.min(depthAll, I.slopeMaxArea / width);
+      const maxD = Math.min(depthAll, I.slopeMaxArea / width, I.slopeMaxRun > 0 ? I.slopeMaxRun : Infinity);
       const dz = Math.max(0.3, Math.min(I.slopeDepth > 0 ? I.slopeDepth : maxD, maxD));
       let rect;
       if (view === 'n') rect = [bb[0], bb[1], bb[2], bb[1] + dz];
@@ -283,6 +364,13 @@ export function derive(model, cat, lang) {
       const lo = r4(along(inner) - FL2), hi = r4(along(outer) - FL2);
       zone = { room: fl.room.id, rect: rect.map(r4), view, avail, width: r4(width), depth: r4(dz), maxDepth: r4(maxD), area: r4(width * dz), k, inner,
         y: under, low: lo, high: hi, peak: hi, pitchDeg: r4(Math.atan(k) * 180 / Math.PI) };
+      if (FW) {
+        /* v22: Ichijo's sloped-ceiling checks: run along the slope / width across it vs 5 modules, area vs
+           slopeMaxArea, its position from the slope's low edge (within modules 1-9) */
+        const P0 = hor ? [bb[0], inner] : [inner, bb[1]], P1 = hor ? [bb[0], outer] : [outer, bb[1]];
+        Object.assign(zone, { mode: FW.roof.mode, run: r4(dz), runMax: r4(opt(I, 'slopeMaxRun', 5 * MASU)), side: r4(width), sideMax: r4(5 * MASU),
+          areaMax: r4(I.slopeMaxArea), from: r4(FW.al(P0[0], P0[1])), to: r4(FW.al(P1[0], P1[1])), masu: MASU });
+      }
     }
   }
   info.zone = zone && Object.assign({}, zone, { y: undefined });
@@ -297,6 +385,9 @@ export function derive(model, cat, lang) {
   /* ---- windows + doors (+ the glass on the view facade: info.south) */
   const DH = doorHeight(cat, I);
   const south = { dir: I.viewWall, glass: 0, wall: 0, pct: 0, windows: 0 };
+  /* v22 ichijo.highWin: the catalogue FIX put high over a window unit (its size; JF5915 1,653 x 467 if not found) */
+  const hwIt = I.highWin && cat && cat.byId ? cat.byId.get(I.highWin) : null;
+  const HW = I.highWin ? { w: hwIt && hwIt.width_mm ? hwIt.width_mm / 1000 : 1.653, h: hwIt && hwIt.height_mm ? hwIt.height_mm / 1000 : 0.467 } : null;
   M.levels.forEach((L, li) => {
     const G = li === 1 ? G2 : levelGraph(L);
     for (const w of L.walls || []) {
@@ -338,11 +429,25 @@ export function derive(model, cat, lang) {
             const at = o.at + i * (uw + m), cs = ceilSpan(at, at + uw);
             const head = r4(Math.max(o.sill + 0.3, Math.min(o.head, o.sill + I.winMaxH, cs - I.winCeilGap)));
             const tw = Math.min(uw, I.transomMaxW), ts = head + I.transomGap, tt = ts + I.transomH;
-            const fits = cs - tt >= I.transomTopGap - 1e-6;
+            let fits = cs - tt >= I.transomTopGap - 1e-6, tAt = at + (uw - tw) / 2;
+            /* v22 'flatMain+wing': a unit reaching past the sloped zone's edge keeps its transom slid to one end of the
+               unit where the transom's own span is under the sloped ceiling */
+            if (!fits && FW && tw < uw - 1e-6) for (const s of [at, at + uw - tw]) if (ceilSpan(s, s + tw) - tt >= I.transomTopGap - 1e-6) { fits = true; tAt = s; break; }
             const u = { at: r4(at), w: r4(uw), sill: o.sill, head, ceil: r4(cs), transom: fits && rec.transomOn, fits };
             rec.units.push(u);
             ops.push(Object.assign({}, o, { id: o.id + (n > 1 ? '_' + i : ''), at: r4(at), w: r4(uw), head, style: o.style || '' }));
-            if (u.transom) ops.push({ id: o.id + '_t' + i, type: 'window', style: 'transom', at: r4(at + (uw - tw) / 2), w: r4(tw), sill: r4(ts), head: r4(tt), src: o.src });
+            if (u.transom) ops.push({ id: o.id + '_t' + i, type: 'window', style: 'transom', at: r4(tAt), w: r4(tw), sill: r4(ts), head: r4(tt), src: o.src });
+            /* v22: a high FIX centred over the unit, highTopGap under the (sloped) ceiling, >= highGap over the unit
+               or its transom, within highMaxRun of the slope's low edge; style 'transom' = app.js stacks it over the unit */
+            if (HW && li === 1) {
+              const hh = r4(cs - opt(I, 'highTopGap', 0.15)), hs = r4(hh - HW.h), hat = at + (uw - HW.w) / 2;
+              const reach = FW ? Math.max(...[hat, hat + HW.w].map(s => FW.al(w.a[0] + F.u[0] * s, w.a[1] + F.u[1] * s))) : 0;
+              if (HW.w <= uw + 1e-6 && hs >= (u.transom ? r4(tt) : head) + opt(I, 'highGap', 0.15) - 1e-6 && reach <= opt(I, 'highMaxRun', 7 * MASU) + 1e-6) {
+                const hid = o.id + '_h' + i;
+                ops.push({ id: hid, type: 'window', style: 'transom', high: 1, at: r4(hat), w: r4(HW.w), sill: hs, head: hh, src: o.src });
+                (rec.highs = rec.highs || []).push({ id: hid, at: r4(hat), w: r4(HW.w), sill: hs, head: hh, ceil: r4(cs), reach: r4(reach) });
+              }
+            }
           }
           rec.head = rec.units[0].head;
           rec.transomFits = rec.units.some(u => u.fits);
@@ -350,6 +455,14 @@ export function derive(model, cat, lang) {
           rec.glass = r4(rec.units.reduce((a, u) => a + u.w * (u.head - u.sill) + (u.transom ? Math.min(u.w, I.transomMaxW) * I.transomH : 0), 0));
           if (dir === I.viewWall) { south.glass += rec.glass; south.windows++; }
           info.windows.push(rec);
+          /* v22: each high FIX as its own schedule row (no transom) */
+          for (const h of rec.highs || []) {
+            const hr = { id: h.id, src: (o.src || o.id) + ' ↑', level: li, room: rec.room, dir, drawn: { w: h.w, sill: h.sill, head: h.head }, n: 1, unitW: h.w,
+              units: [{ at: h.at, w: h.w, sill: h.sill, head: h.head, ceil: h.ceil, transom: false, fits: false }], transomOn: false,
+              head: h.head, transomFits: false, transoms: 0, glass: r4(h.w * (h.head - h.sill)), high: 1, reach: h.reach, model: I.highWin };
+            if (dir === I.viewWall) { south.glass += hr.glass; south.windows++; }
+            info.windows.push(hr);
+          }
         } else if (/door|double|sliding|slide|entry/.test(o.type)) {
           if (!isExt) ops.push(Object.assign({}, o, { head: r4(DH) }));
           else {
@@ -455,7 +568,47 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
     const aCup = lay === 'I' ? backA[OPP[back]] : backA[back];
     const box = (c, w, dd, a) => { const q = Math.abs(Math.sin(a)) > 0.5, hx = (q ? dd : w) / 2, hy = (q ? w : dd) / 2; return [c[0] - hx, c[1] - hy, c[0] + hx, c[1] + hy]; };
     const gapTo = (b, sd) => sd === 'n' ? b[1] - R[1] : sd === 's' ? R[3] - b[3] : sd === 'w' ? b[0] - R[0] : R[2] - b[2];
-    const vs = ['n', 's', 'w', 'e'].find(sd => isView(sd) && [box(kc, kw, kd, aRun), box(cc, cupW, I.cupboardD, aCup)].some(b => gapTo(b, sd) < I.viewGap));
+    /* v22 fit.cupboard ('max' | catalogue id; peninsula / island): Ichijo's cupboard with a worktop + wall units on the
+       back wall instead of the tall units: from the end the kitchen run stands at (an island: the end away from the view
+       wall) toward the other end, stopping viewGap short of a view wall and 5 cm short of a door or a window lower than
+       the wall units; 'max' = the longest run of one or two catalogue units that fits. Base cupboardD deep (Ichijo's
+       450 type: the 650 one would narrow the walkway), worktop cupH, wall units cupWallD deep, cupWallH tall, cupWallGap
+       over the worktop (Grace: 350 deep, 600 over the worktop) */
+    let CUP = null;
+    if (F.cupboard && F.cupboard !== 'none' && lay !== 'I') {
+      const sEnd = lay === 'peninsula' ? (usable(ends[0]) ? ends[0] : usable(ends[1]) ? ends[1] : isView(ends[0]) ? ends[1] : ends[0]) : (isView(ends[0]) ? ends[1] : ends[0]);
+      const fEnd = sEnd === ends[0] ? ends[1] : ends[0], dir = sEnd === ends[0] ? 1 : -1;
+      const s0 = sEnd === ends[0] ? along0 : along1, s1 = (fEnd === ends[0] ? along0 : along1) + dir * (isView(fEnd) ? -I.viewGap : 0);
+      const wallTop = opt(I, 'cupH', 0.85) + opt(I, 'cupWallGap', 0.6) + opt(I, 'cupWallH', 0.7);
+      let avail = (s1 - s0) * dir;
+      for (const d of geo.doors.concat(geo.windows.filter(x => x.sill < wallTop))) {
+        const cAcr = alongX ? d.c[1] : d.c[0], cAl = alongX ? d.c[0] : d.c[1];
+        if (Math.abs(cAcr - wallC) > 0.35) continue;                               /* not on the back wall */
+        const near = Math.min((cAl - d.w / 2 - s0) * dir, (cAl + d.w / 2 - s0) * dir), farE = Math.max((cAl - d.w / 2 - s0) * dir, (cAl + d.w / 2 - s0) * dir);
+        if (farE > 0) avail = Math.min(avail, Math.max(0, near - 0.05));
+      }
+      const list = listOf(cat, 'cupboard', e => e.maker === 'ichijo' && e.width_mm > 0).sort((a, b) => b.width_mm - a.width_mm || (a.id < b.id ? -1 : 1));
+      const one = cat && cat.byId && cat.byId.get(F.cupboard);
+      let units = [];
+      if (one && one.category === 'cupboard') units = [one];
+      else {
+        let best = null;
+        for (let i = 0; i < list.length; i++) for (let j = i - 1; j < list.length; j++) {
+          const set = j < i ? [list[i]] : [list[i], list[j]], tot = set.reduce((a, e) => a + e.width_mm, 0) / 1000;
+          if (tot > avail + 1e-6) continue;
+          if (!best || tot > best.tot + 1e-6 || (Math.abs(tot - best.tot) < 1e-6 && set.length < best.set.length)) best = { tot, set };
+        }
+        units = best ? best.set : list.slice(-1);
+      }
+      const tot = units.reduce((a, e) => a + e.width_mm, 0) / 1000;
+      const sh = [];
+      if (tot > avail + 0.005) sh.push({ cm: Math.round((tot - avail) * 100), side: fEnd });
+      let o = 0;
+      const pl = units.map(e => { const w = e.width_mm / 1000, c = s0 + dir * (o + w / 2); o += w; return { e, w, at: c, c: P(c, I.cupboardD / 2), cw: P(c, opt(I, 'cupWallD', 0.35) / 2) }; });
+      CUP = { units: pl, tot, avail: Math.max(0, avail), sh, wallTop };
+    }
+    const cupBoxes = CUP ? CUP.units.map(u => box(u.c, u.w, I.cupboardD, aCup)) : [box(cc, cupW, I.cupboardD, aCup)];
+    const vs = ['n', 's', 'w', 'e'].find(sd => isView(sd) && [box(kc, kw, kd, aRun), ...cupBoxes].some(b => gapTo(b, sd) < I.viewGap));
     if (vs) shorts.push({ cm: 0, side: vs, view: true });
     if (!cand.length && !vs) shorts.push({ cm: 0, side: I.viewWall, view: true });
     if (shorts.some(x => x.view)) verdict = 'NO';
@@ -463,10 +616,25 @@ function fitRoom(M, L, li, G, f, r, cat, I, info, lang) {
     const lbl = (it ? catLabel(it, lang, true, true) : '?') + ' · ' + LAYOUT[lang][lay];
     if (ghost) piece(verdict === 'NO' ? 'ghostNo' : 'ghostNeeds', kc[0], kc[1], kw, kd, aRun, { h: 0.9 });
     else piece('island', kc[0], kc[1], kw, kd, aRun, { h: 0.85, kitchen: lay });
-    piece('tall', cc[0], cc[1], cupW, I.cupboardD, aCup, { h: lay === 'I' ? 0.9 : 2.2 });
+    if (!CUP) piece('tall', cc[0], cc[1], cupW, I.cupboardD, aCup, { h: lay === 'I' ? 0.9 : 2.2 });
+    else {
+      /* the base units (worktop) and, over them, the wall units (app.js draws kind 'beam' as a box `depth` tall under h) */
+      const cv = verdictOf(CUP.sh, I), real = cv === 'FITS' || (cv === 'NEEDS' && Math.max(...CUP.sh.map(x => x.cm)) <= 10);
+      const cupH = opt(I, 'cupH', 0.85), wallD = opt(I, 'cupWallD', 0.35), wallH = opt(I, 'cupWallH', 0.7);
+      for (const u of CUP.units) {
+        if (real) {
+          piece('kitchen.cabinet', u.c[0], u.c[1], u.w, I.cupboardD, aCup, { h: cupH, cupboard: u.e.id });
+          piece('beam', u.cw[0], u.cw[1], u.w, wallD, aCup, { h: r4(CUP.wallTop), depth: wallH, wallUnit: 1 });
+        } else piece(cv === 'NO' ? 'ghostNo' : 'ghostNeeds', u.c[0], u.c[1], u.w, I.cupboardD, aCup, { h: cupH });
+      }
+      CUP.verdict = cv;
+    }
     foot('kitchen', kc[0], kc[1], kw, kd, aRun, verdict, lbl);
-    foot('cupboard', cc[0], cc[1], cupW, I.cupboardD, aCup, 'INFO', STR[lang].cupboard);
+    if (!CUP) foot('cupboard', cc[0], cc[1], cupW, I.cupboardD, aCup, 'INFO', STR[lang].cupboard);
+    else for (const u of CUP.units) foot('cupboard', u.c[0], u.c[1], u.w, I.cupboardD, aCup, CUP.verdict, 'W' + u.e.width_mm.toLocaleString('en-US'));
     add({ fit: 'kitchen', set: it ? it.id : null, label: lbl, layout: lay, need: [r4(needR), r4(needD)], verdict, shorts: shorts.map(s => Object.assign(s, { text: sideLabel(geo.sides[s.side], s.side, lang, STR) })) });
+    if (CUP) add({ fit: 'cupboard', set: F.cupboard, units: CUP.units.map(u => u.e.id), label: cupLabel(CUP, lang), run: r4(CUP.tot), avail: r4(CUP.avail),
+      need: [r4(CUP.tot), r4(I.cupboardD)], verdict: CUP.verdict, shorts: CUP.sh.map(s => Object.assign(s, { text: sideLabel(geo.sides[s.side], s.side, lang, STR) })) });
   }
   /* ---------------- bathrooms (v19): in a line along one long wall (wallS), from the far end
      (away from the door): the unit (shower room / unit bath), the toilet zone, the vanity; a
@@ -720,8 +888,11 @@ export function postPlan(plan, D) {
     }
     plan.stairs3.push(...plan.ichijo.porches);
   }
-  /* 2F outside walls run up to the roof (wallRun clips them to the plane) */
-  if (L1 && info.roof) for (const w of L1.walls) if (w.kind === 'ext') w.top = r4(info.roof.maxUnder + 0.5);
+  /* 2F outside walls run up to the roof (wallRun clips them to the plane); v22 roofMode 'flatMain+wing':
+     those not under the wing roof (app.js roofFor's test) end at the flat roof's parapet top instead */
+  const PP = info.roof && info.roof.parapet;
+  const underWing = (w) => { const R = PP.wing, x = (w.a[0] + w.b[0]) / 2, z = (w.a[1] + w.b[1]) / 2; return x > R[0] - 0.01 && x < R[2] + 0.01 && z > R[1] - 0.01 && z < R[3] + 0.01; };
+  if (L1 && info.roof) for (const w of L1.walls) if (w.kind === 'ext') w.top = PP && !underWing(w) ? PP.top : r4(info.roof.maxUnder + 0.5);
   plan.carport7 = M.site && M.site.carport ? Object.assign({}, M.site.carport) : null;
   return plan;
 }
@@ -752,6 +923,15 @@ export function catLabel(e, lang, short, noLayout) {
   const price = e.standard ? (ja ? ' 標準' : ' std') : (e.price_jpy_low ? (list ? (ja ? ' 定価¥' : ' list ¥') + Math.round(e.price_jpy_low).toLocaleString('en-US') : ' ' + yen(e.price_jpy_low)) : '');
   return (mk + ' ' + line + ' ' + size + lay).replace(/\s+/g, ' ').trim() + price + tag;
 }
+/* v22: a cupboard run (fit.cupboard) in one line: maker cupboard B225 + B090 = W3,150 + wall units [price] */
+function cupLabel(C, lang) {
+  const ja = lang === 'ja', e0 = C.units[0] && C.units[0].e;
+  const mk = e0 ? (ja ? MAKER_JA[e0.maker] || e0.maker : MAKER_EN[e0.maker] || e0.maker) : '';
+  const line = e0 && /grace|グレイス/i.test((e0.line || '') + (e0.line_en || '')) ? (ja ? 'グレイスカップボード' : 'Grace cupboard') : (ja ? 'カップボード' : 'cupboard');
+  const codes = C.units.map(u => u.e.size_code || ('W' + u.e.width_mm)), tot = 'W' + Math.round(C.tot * 1000).toLocaleString('en-US');
+  const p = C.units.reduce((a, u) => a + (u.e.price_jpy_low || 0), 0);
+  return (mk + ' ' + line + ' ' + (codes.length > 1 ? codes.join(ja ? '＋' : ' + ') + (ja ? '＝' : ' = ') + tot : codes[0] + ' ' + tot) + (ja ? '・吊戸棚付き' : ' + wall units')) + (p ? ' ' + yen(p) : '');
+}
 export const STR = {
   ja: {
     title: '一条仕様 / Ichijo spec', show: '一条仕様', hide: '閉じる',
@@ -766,6 +946,13 @@ export const STR = {
     south: (S) => '南面（眺望側）のガラス ' + S.glass.toFixed(1) + '㎡・南面の壁（床〜平天井）の' + Math.round(S.pct) + '%',
     viewFix: '眺望側（南）の壁の前には置けない',
     slopeNote: '勾配天井の価格はカタログでは4坪（13.2㎡）まで・22㎡は要確認',
+    flatMode: 'メイン棟はパラペット付きフラット屋根、リビング棟は片流れ（端が高く、フラット屋根へ下る）',
+    flatRead: (F) => 'フラット屋根 ' + F.top.toFixed(2) + 'm・パラペット ' + F.parapet.toFixed(2) + 'm（地面から。屋根上面は2階天井の' + F.build.toFixed(2) + 'm上）',
+    wingRead: (R) => 'リビング棟の屋根：高い端 ' + R.ridge.toFixed(2) + 'm・低い端 ' + R.eave.toFixed(2) + 'm（フラット屋根の上面）',
+    runRead: (R) => '屋根の流れ ' + R.run.toFixed(2) + 'm＝' + (R.run / R.masu).toFixed(1) + 'マス ' + (R.run > R.runMax + 0.005 ? '＞' : '≤') + ' ' + Math.round(R.runMax / R.masu) + 'マス（一条の上限 ' + R.runMax.toFixed(2) + 'm）',
+    slopeRun: (Z) => '勾配天井：流れ方向 ' + Z.run.toFixed(2) + 'm ' + (Z.run > Z.runMax + 0.005 ? '＞' : '≤') + ' ' + Math.round(Z.runMax / Z.masu) + 'マス（' + Z.runMax.toFixed(2) + 'm）・幅 ' + Z.side.toFixed(2) + 'm（' + (Z.side / Z.masu).toFixed(1) + 'マス' + (Z.side > Z.sideMax + 0.005 ? '・一条は5マスまで、要確認' : '') + '）・低い端から ' + (Z.from / Z.masu).toFixed(1) + '〜' + (Z.to / Z.masu).toFixed(1) + 'マス',
+    slopeNote2: '一条ルール：勾配天井は最大5×5マス（12.5畳・20.7㎡）、高窓は低い端から7マス目まで。カタログ価格は4坪（13.2㎡）まで・それ以上は要見積',
+    cupboardRow: 'カップボード（天板・吊戸棚）', cupMax: '入る最長', cupNone: 'トール収納（天板なし・従来）',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: '北', s: '南', e: '東', w: '西' },
     windows: '窓（高さ最大2.2m）', maxW: '最大幅', transomNote: '欄間窓（0.3×1.8 m）は久坂氏の口頭説明のみ・カタログ未掲載', schedule: '窓リスト', transom: '欄間', noRoom: '天井が低く不可',
@@ -793,6 +980,13 @@ export const STR = {
     south: (S) => 'South (view) glass ' + S.glass.toFixed(1) + ' m² · ' + Math.round(S.pct) + '% of the south walls (floor to flat ceiling)',
     viewFix: 'not in front of the view (south) wall',
     slopeNote: 'Sloped-ceiling price in the sheet covers up to 4 tsubo (13.2 m²); 22 m² needs a quote',
+    flatMode: 'Main block: flat roof with a parapet · living wing: mono-pitch, high at its far end, down onto the flat roof',
+    flatRead: (F) => 'Flat roof ' + F.top.toFixed(2) + ' m · parapet ' + F.parapet.toFixed(2) + ' m above ground (roof top ' + F.build.toFixed(2) + ' m over the 2F ceiling)',
+    wingRead: (R) => 'Wing roof: high end ' + R.ridge.toFixed(2) + ' m · low end ' + R.eave.toFixed(2) + ' m (on the flat roof)',
+    runRead: (R) => 'Roof run ' + R.run.toFixed(2) + ' m = ' + (R.run / R.masu).toFixed(1) + ' modules ' + (R.run > R.runMax + 0.005 ? '>' : '≤') + ' ' + Math.round(R.runMax / R.masu) + ' (Ichijo max ' + R.runMax.toFixed(2) + ' m)',
+    slopeRun: (Z) => 'Sloped ceiling ' + Z.run.toFixed(2) + ' m along the slope ' + (Z.run > Z.runMax + 0.005 ? '>' : '≤') + ' ' + Math.round(Z.runMax / Z.masu) + ' modules (' + Z.runMax.toFixed(2) + ' m) · ' + Z.side.toFixed(2) + ' m wide (' + (Z.side / Z.masu).toFixed(1) + ' modules' + (Z.side > Z.sideMax + 0.005 ? '; Ichijo max 5, confirm' : '') + ') · modules ' + (Z.from / Z.masu).toFixed(1) + '–' + (Z.to / Z.masu).toFixed(1) + ' from the low end',
+    slopeNote2: 'Ichijo: sloped ceiling max 5 × 5 modules of 910 mm (12.5 jō, 20.7 m²); high windows only up to the 7th module from the low end; the sheet prices up to 4 tsubo (13.2 m²), larger needs a quote',
+    cupboardRow: 'Cupboard (worktop + wall units)', cupMax: 'Longest that fits', cupNone: 'Tall units, no worktop (as before)',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: 'N', s: 'S', e: 'E', w: 'W' },
     windows: 'WINDOWS (max 2.2 m tall)', maxW: 'Max width', transomNote: 'Transom (0.3 × 1.8 m) per Hisasaka verbally — not in the catalogue, confirm in writing', schedule: 'Window schedule', transom: 'Transom', noRoom: 'ceiling too low',
@@ -903,15 +1097,17 @@ export function mountPanel(host, o) {
     cb.addEventListener('change', () => set(m => { m.ichijo.gymSunken = cb.checked; }));
     el.appendChild(E('div', { class: 'row' }, [cb, E('label', { for: 'ichGym', text: T.gym + ' −' + I.gymDrop.toFixed(2) + ' m → ' + H.gym.toFixed(2) + ' m' })]));
     /* roof + sloped zone */
-    const Z = info.zone, RF = info.roof;
+    const Z = info.zone, RF = info.roof, FM = !!(RF && RF.mode === 'flatMain+wing');
     if (Z) {
       el.appendChild(E('h5', { text: T.slope }));
-      el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.view }), select(Z.avail.map(s => [s, T.sides[s] || T.dirs[s]]), Z.view, (v) => set(m => { m.ichijo.view = v; }))]));
+      /* v22 'flatMain+wing': the high side is the wing's far end (no choice) */
+      if (FM) el.appendChild(E('div', { class: 'rd mode', text: T.flatMode }));
+      else el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.view }), select(Z.avail.map(s => [s, T.sides[s] || T.dirs[s]]), Z.view, (v) => set(m => { m.ichijo.view = v; }))]));
       const dIn = E('input', { type: 'range', min: '0.5', max: String(Math.max(0.6, Z.maxDepth).toFixed(2)), step: '0.05', value: String(Math.min(I.slopeDepth > 0 ? I.slopeDepth : Z.maxDepth, Z.maxDepth)) });
       const dV = E('b', { text: Z.depth.toFixed(2) + ' m' });
       dIn.addEventListener('input', () => { dV.textContent = (+dIn.value).toFixed(2) + ' m'; set(m => { m.ichijo.slopeDepth = +dIn.value; }, true); });
       el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.depth }), dIn, dV]));
-      el.appendChild(E('div', { class: 'rd', html: T.area + ' <b>' + T.areaRead(Z.area, I.slopeMaxArea) + '</b>' }));
+      el.appendChild(E('div', { class: 'rd', html: T.area + ' <b>' + T.areaRead(Z.area, FM ? +I.slopeMaxArea.toFixed(1) : I.slopeMaxArea) + '</b>' }));
       const pIn = E('input', { type: 'range', min: '1', max: '6', step: '0.5', value: String(I.pitch) });
       const pV = E('b', { text: T.sun(I.pitch, Z.pitchDeg) });
       pIn.addEventListener('input', () => { pV.textContent = T.sun(+pIn.value, Math.atan(+pIn.value / 10) * 180 / Math.PI); set(m => { m.ichijo.pitch = +pIn.value; }, true); });
@@ -923,8 +1119,13 @@ export function mountPanel(host, o) {
       const pn = M.ichijo && M.ichijo.pitchNote, pnText = pn && (typeof pn === 'string' ? pn : (pn[lang] || pn.en || ''));
       if (pnText) el.appendChild(E('div', { class: 'note pnote', text: pnText }));
       el.appendChild(E('div', { class: 'rd ceil', html: '<b>' + T.ceil(Z.low, Z.high) + '</b>' }));
+      if (FM && Z.run !== undefined) el.appendChild(E('div', { class: 'rd srun hlflag' + (Z.run > Z.runMax + 0.005 || Z.area > Z.areaMax + 0.05 ? ' over' : ''), text: T.slopeRun(Z) }));
       if (RF) {
-        el.appendChild(E('div', { class: 'rd eave', html: '<b>' + T.eave(RF.eave) + '</b>' }));
+        if (FM) {
+          el.appendChild(E('div', { class: 'rd flat', html: '<b>' + T.flatRead(RF.flat) + '</b>' }));
+          el.appendChild(E('div', { class: 'rd wing', html: '<b>' + T.wingRead(RF) + '</b>' }));
+          el.appendChild(E('div', { class: 'rd rrun hlflag' + (RF.run > RF.runMax + 0.005 ? ' over' : ''), text: T.runRead(RF) }));
+        } else el.appendChild(E('div', { class: 'rd eave', html: '<b>' + T.eave(RF.eave) + '</b>' }));
         el.appendChild(E('div', { class: 'rd maxh', html: '<b>' + T.maxH(RF.maxH) + '</b>' }));
         /* zoning: the roof's highest point against heightLimit, to the cm shown */
         const hl = E('input', { type: 'number', class: 'hlim', min: '1', max: '60', step: '0.5', value: String(I.heightLimit) });
@@ -934,7 +1135,7 @@ export function mountPanel(host, o) {
         el.appendChild(E('div', { class: 'rd hlflag' + (over ? ' over' : ''), text: over ? T.hlOver(RF.maxH, I.heightLimit) : T.hlOk(RF.maxH) }));
         if (RF.north) el.appendChild(E('div', { class: 'rd hlflag north' + (RF.north.ok ? '' : ' over'), text: T.north(RF.north) }));
       }
-      el.appendChild(E('div', { class: 'note', text: T.slopeNote }));
+      el.appendChild(E('div', { class: 'note', text: FM ? T.slopeNote2 : T.slopeNote }));
     }
     /* windows */
     el.appendChild(E('h5', { text: T.windows }));
@@ -980,6 +1181,14 @@ export function mountPanel(host, o) {
         const list = listOf(cat, 'kitchen', e => lay === 'I' ? e.layout === 'I' : e.layout === 'peninsula' || e.layout === 'island');
         box.appendChild(E('div', { class: 'row' }, [select(byMaker(list, lang), f ? f.set : r.fit.kitchen, v => setFit(r.id, 'kitchen', v)), thumb(f && f.set)]));
         if (f && f.shorts.length) box.appendChild(E('div', { class: 'fx', text: fixText(f, lang) }));
+        /* v22: the cupboard on the back wall (worktop + wall units), when the model asks for one */
+        if (r.fit.cupboard !== undefined) {
+          const fc = fits.find(x => x.fit === 'cupboard');
+          box.appendChild(E('div', { class: 'row' }, [E('label', { text: T.cupboardRow }), badge(fc)]));
+          const opts = [['max', T.cupMax], ...listOf(cat, 'cupboard', e => e.maker === 'ichijo').map(e => [e.id, catLabel(e, lang)]), ['none', T.cupNone]];
+          box.appendChild(E('div', { class: 'row' }, [select(opts, r.fit.cupboard, v => setFit(r.id, 'cupboard', v))]));
+          if (fc) box.appendChild(E('div', { class: 'fx', text: fc.label + (fc.shorts.length ? ' — ' + fixText(fc, lang) : '') }));
+        }
       }
       if (r.fit.ub !== undefined) {
         const f = fits.find(x => x.fit === 'ub');

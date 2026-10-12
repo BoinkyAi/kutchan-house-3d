@@ -1,8 +1,8 @@
 {
- "version": 6,
+ "version": 7,
  "title": "Plan B — Ichijo",
  "ja": "プランB 一条版",
- "source": "Plan B (Toby's Floor Plan Creator plan, site/plan2.json) in the editor format with Ichijo Komuten's limits (model.ichijo, applied by ichijo.js) and catalogue fittings per room (room.fit -> catalog.json); v5: the 1F re-planned (gym + bath maximised, genkan at the inner corner), default roof pitch 2 sun; v6: the stair reversed (foot at the inner corner), no corridor: genkan + hall 8.75 m2",
+ "source": "Plan B (Toby's Floor Plan Creator plan, site/plan2.json) in the editor format with Ichijo Komuten's limits (model.ichijo, applied by ichijo.js) and catalogue fittings per room (room.fit -> catalog.json); v5: the 1F re-planned (gym + bath maximised, genkan at the inner corner), default roof pitch 2 sun; v6: the stair reversed (foot at the inner corner), no corridor: genkan + hall 8.75 m2; v7: flat (parapet) main roof + the living wing's 3.5-sun mono-pitch per Ichijo's rules, high windows, den / guest bedroom instead of the wing gym, cupboard with worktop in the kitchen",
  "ground": -0.45,
  "levels": [
   {
@@ -377,7 +377,7 @@
        "w": 0.8,
        "sill": 0.0,
        "head": 2.031,
-       "src": "gym (wing)",
+       "src": "den",
        "side": -1
       }
      ]
@@ -535,14 +535,13 @@
     },
     {
      "id": "r3",
-     "name": "Gym (wing)",
-     "ja": "トレーニングルーム（翼）",
+     "name": "Den / guest bedroom",
+     "ja": "書斎・客間",
      "at": [
       4.9357,
       3.818
      ],
-     "floor": "rubber",
-     "gym": 1
+     "floor": "oak"
     },
     {
      "id": "r4",
@@ -782,7 +781,7 @@
      "src": "874"
     },
     {
-     "id": "f17",
+     "id": "f15",
      "kind": "showerSystem",
      "x": -4.55,
      "y": -2.1752,
@@ -793,7 +792,7 @@
      "note": "wash station"
     },
     {
-     "id": "f18",
+     "id": "f16",
      "kind": "showerSystem",
      "x": -3.7,
      "y": -2.1752,
@@ -804,7 +803,7 @@
      "note": "wash station"
     },
     {
-     "id": "f19",
+     "id": "f17",
      "kind": "showerSystem",
      "x": -2.85,
      "y": -2.1752,
@@ -815,7 +814,7 @@
      "note": "wash station"
     },
     {
-     "id": "f20",
+     "id": "f18",
      "kind": "shower",
      "x": -1.975,
      "y": -6.07,
@@ -826,7 +825,7 @@
      "note": "walk-in shower"
     },
     {
-     "id": "f21",
+     "id": "f19",
      "kind": "bench",
      "x": -5.6,
      "y": -6.5,
@@ -836,7 +835,7 @@
      "h": 0.44
     },
     {
-     "id": "f22",
+     "id": "f20",
      "kind": "saunaBench",
      "x": -0.15,
      "y": -6.43,
@@ -846,7 +845,7 @@
      "h": 1.0
     },
     {
-     "id": "f23",
+     "id": "f21",
      "kind": "saunaBench",
      "x": 0.565,
      "y": -5.25,
@@ -856,7 +855,7 @@
      "h": 0.5
     },
     {
-     "id": "f24",
+     "id": "f22",
      "kind": "saunaHeater",
      "x": -0.8,
      "y": -5.12,
@@ -865,7 +864,7 @@
      "a": 0.0
     },
     {
-     "id": "f25",
+     "id": "f23",
      "kind": "desk",
      "x": 0.5353,
      "y": -2.6,
@@ -875,7 +874,7 @@
      "h": 0.9
     },
     {
-     "id": "f26",
+     "id": "f24",
      "kind": "closet",
      "x": -2.14,
      "y": -0.45,
@@ -886,7 +885,7 @@
      "note": "lockers"
     },
     {
-     "id": "f27",
+     "id": "f25",
      "kind": "vanity",
      "x": -2.04,
      "y": 1.15,
@@ -896,7 +895,7 @@
      "fx": "vanity"
     },
     {
-     "id": "f28",
+     "id": "f26",
      "kind": "sofa",
      "x": 0.4103,
      "y": -0.25,
@@ -905,7 +904,7 @@
      "a": 1.5708
     },
     {
-     "id": "f29",
+     "id": "f27",
      "kind": "gymRack",
      "x": -6.6,
      "y": -1.05,
@@ -915,7 +914,7 @@
      "added": 1
     },
     {
-     "id": "f30",
+     "id": "f28",
      "kind": "mat",
      "x": -5.6,
      "y": 1.5,
@@ -936,24 +935,34 @@
      "note": "ski / gear + shoe closet"
     },
     {
-     "id": "f15",
-     "kind": "treadmill",
-     "x": 4.0,
-     "y": 2.75,
-     "w": 0.8,
-     "d": 1.9,
-     "a": 1.5708,
-     "added": 1
+     "id": "f29",
+     "kind": "bed",
+     "x": 3.87,
+     "y": 3.45,
+     "w": 1.6,
+     "d": 2.0,
+     "a": -1.5708
     },
     {
-     "id": "f16",
-     "kind": "mat",
-     "x": 6.05,
-     "y": 3.85,
-     "w": 2.4,
-     "d": 1.8,
+     "id": "f30",
+     "kind": "desk",
+     "x": 6.7108,
+     "y": 3.5,
+     "w": 1.2,
+     "d": 0.6,
      "a": 1.5708,
-     "added": 1
+     "h": 0.72
+    },
+    {
+     "id": "f31",
+     "kind": "closet",
+     "x": 3.6,
+     "y": 5.0933,
+     "w": 1.2,
+     "d": 0.6,
+     "a": 3.1416,
+     "h": 2.1,
+     "note": "closet"
     }
    ]
   },
@@ -1766,7 +1775,8 @@
      "floor": "oak",
      "fit": {
       "kitchen": "ich-kitchen-grace-3shaku-wall-high-counter-2750",
-      "layout": "peninsula"
+      "layout": "peninsula",
+      "cupboard": "max"
      }
     },
     {
@@ -1882,7 +1892,7 @@
    ],
    "items": [
     {
-     "id": "f31",
+     "id": "f32",
      "kind": "bed",
      "x": -1.071,
      "y": -5.474,
@@ -1892,7 +1902,7 @@
      "src": "697"
     },
     {
-     "id": "f32",
+     "id": "f33",
      "kind": "bed",
      "x": -5.2621,
      "y": -5.6125,
@@ -1902,7 +1912,7 @@
      "src": "725"
     },
     {
-     "id": "f33",
+     "id": "f34",
      "kind": "bed",
      "x": -6.4748,
      "y": 4.9088,
@@ -1912,7 +1922,7 @@
      "src": "727"
     },
     {
-     "id": "f34",
+     "id": "f35",
      "kind": "chair",
      "x": -0.4734,
      "y": 4.5326,
@@ -1922,7 +1932,7 @@
      "src": "649"
     },
     {
-     "id": "f35",
+     "id": "f36",
      "kind": "chair",
      "x": 0.1557,
      "y": 4.5326,
@@ -1932,7 +1942,7 @@
      "src": "650"
     },
     {
-     "id": "f36",
+     "id": "f37",
      "kind": "chair",
      "x": 0.7396,
      "y": 4.5326,
@@ -1942,7 +1952,7 @@
      "src": "651"
     },
     {
-     "id": "f37",
+     "id": "f38",
      "kind": "table",
      "x": 0.161,
      "y": 3.9826,
@@ -1953,7 +1963,7 @@
      "src": "652"
     },
     {
-     "id": "f38",
+     "id": "f39",
      "kind": "chair",
      "x": 0.7396,
      "y": 3.4326,
@@ -1963,7 +1973,7 @@
      "src": "653"
     },
     {
-     "id": "f39",
+     "id": "f40",
      "kind": "chair",
      "x": 0.1557,
      "y": 3.4326,
@@ -1973,7 +1983,7 @@
      "src": "654"
     },
     {
-     "id": "f40",
+     "id": "f41",
      "kind": "chair",
      "x": -0.4734,
      "y": 3.4326,
@@ -1983,7 +1993,7 @@
      "src": "655"
     },
     {
-     "id": "f41",
+     "id": "f42",
      "kind": "kitchen.cabinet",
      "x": -3.6569,
      "y": 3.8473,
@@ -1995,7 +2005,7 @@
      "src": "666"
     },
     {
-     "id": "f42",
+     "id": "f43",
      "kind": "fridge",
      "x": -2.8716,
      "y": 3.6952,
@@ -2007,7 +2017,7 @@
      "src": "658"
     },
     {
-     "id": "f43",
+     "id": "f44",
      "kind": "bed",
      "x": -0.6157,
      "y": -0.8077,
@@ -2017,7 +2027,7 @@
      "src": "786"
     },
     {
-     "id": "f44",
+     "id": "f45",
      "kind": "vanity",
      "x": -5.2003,
      "y": 0.5859,
@@ -2028,7 +2038,7 @@
      "src": "800+799"
     },
     {
-     "id": "f45",
+     "id": "f46",
      "kind": "toilet",
      "x": -7.317,
      "y": 0.6658,
@@ -2039,7 +2049,7 @@
      "src": "801"
     },
     {
-     "id": "f46",
+     "id": "f47",
      "kind": "shower",
      "x": -6.4903,
      "y": 0.7308,
@@ -2050,7 +2060,7 @@
      "src": "802"
     },
     {
-     "id": "f47",
+     "id": "f48",
      "kind": "toilet",
      "x": -1.4464,
      "y": 1.1858,
@@ -2061,7 +2071,7 @@
      "src": "671"
     },
     {
-     "id": "f48",
+     "id": "f49",
      "kind": "vanity",
      "x": 0.2996,
      "y": 1.1422,
@@ -2072,7 +2082,7 @@
      "src": "808+809"
     },
     {
-     "id": "f49",
+     "id": "f50",
      "kind": "shower",
      "x": -0.7061,
      "y": 1.2508,
@@ -2083,7 +2093,7 @@
      "src": "699"
     },
     {
-     "id": "f50",
+     "id": "f51",
      "kind": "vanity",
      "x": -5.2003,
      "y": -0.0409,
@@ -2094,7 +2104,7 @@
      "src": "816+817"
     },
     {
-     "id": "f51",
+     "id": "f52",
      "kind": "toilet",
      "x": -7.317,
      "y": -0.1242,
@@ -2105,7 +2115,7 @@
      "src": "818"
     },
     {
-     "id": "f52",
+     "id": "f53",
      "kind": "shower",
      "x": -6.4903,
      "y": -0.1883,
@@ -2116,7 +2126,7 @@
      "src": "819"
     },
     {
-     "id": "f53",
+     "id": "f54",
      "kind": "kitchen.cabinet",
      "x": -3.8223,
      "y": 5.6114,
@@ -2128,7 +2138,7 @@
      "src": "665"
     },
     {
-     "id": "f54",
+     "id": "f55",
      "kind": "vanity",
      "x": -1.7882,
      "y": -2.2332,
@@ -2139,7 +2149,7 @@
      "src": "791+792"
     },
     {
-     "id": "f55",
+     "id": "f56",
      "kind": "shower",
      "x": -0.2935,
      "y": -2.3109,
@@ -2150,7 +2160,7 @@
      "src": "720"
     },
     {
-     "id": "f56",
+     "id": "f57",
      "kind": "toilet",
      "x": 0.5278,
      "y": -2.2459,
@@ -2161,7 +2171,7 @@
      "src": "721"
     },
     {
-     "id": "f57",
+     "id": "f58",
      "kind": "kitchen.cabinet",
      "x": -2.5034,
      "y": 6.6035,
@@ -2173,7 +2183,7 @@
      "src": "841"
     },
     {
-     "id": "f58",
+     "id": "f59",
      "kind": "kitchen.cabinet",
      "x": -2.2737,
      "y": 5.185,
@@ -2185,7 +2195,7 @@
      "src": "668"
     },
     {
-     "id": "f59",
+     "id": "f60",
      "kind": "kitchen.cabinet",
      "x": -2.6987,
      "y": 5.185,
@@ -2197,7 +2207,7 @@
      "src": "669"
     },
     {
-     "id": "f60",
+     "id": "f61",
      "kind": "bookcase",
      "x": -4.5121,
      "y": 5.2755,
@@ -2209,7 +2219,7 @@
      "moved": "off the south glass"
     },
     {
-     "id": "f61",
+     "id": "f62",
      "kind": "bookcase",
      "x": -2.6954,
      "y": -1.0098,
@@ -2221,7 +2231,7 @@
      "moved": "with the hall wall"
     },
     {
-     "id": "f62",
+     "id": "f63",
      "kind": "bookcase",
      "x": -4.5121,
      "y": -3.5625,
@@ -2232,7 +2242,7 @@
      "src": "844"
     },
     {
-     "id": "f63",
+     "id": "f64",
      "kind": "bookcase",
      "x": 0.1456,
      "y": -3.6763,
@@ -2244,7 +2254,7 @@
      "moved": "off the east wall"
     },
     {
-     "id": "f64",
+     "id": "f65",
      "kind": "coatHanger",
      "x": -7.2603,
      "y": 2.1841,
@@ -2255,7 +2265,7 @@
      "src": "846"
     },
     {
-     "id": "f65",
+     "id": "f66",
      "kind": "coatHanger",
      "x": -6.2919,
      "y": 2.1841,
@@ -2266,7 +2276,7 @@
      "src": "847"
     },
     {
-     "id": "f66",
+     "id": "f67",
      "kind": "coatHanger",
      "x": -7.5603,
      "y": -3.5659,
@@ -2277,7 +2287,7 @@
      "src": "848"
     },
     {
-     "id": "f67",
+     "id": "f68",
      "kind": "coatHanger",
      "x": -7.5603,
      "y": -2.6059,
@@ -2288,7 +2298,7 @@
      "src": "849"
     },
     {
-     "id": "f68",
+     "id": "f69",
      "kind": "coatHanger",
      "x": -2.3714,
      "y": -6.252,
@@ -2299,7 +2309,7 @@
      "src": "850"
     },
     {
-     "id": "f69",
+     "id": "f70",
      "kind": "coatHanger",
      "x": -2.371,
      "y": -5.154,
@@ -2310,7 +2320,7 @@
      "src": "851"
     },
     {
-     "id": "f70",
+     "id": "f71",
      "kind": "armchair",
      "x": 5.3,
      "y": 4.0,
@@ -2321,7 +2331,7 @@
      "moved": "out of the stair opening (v6: faces the TV, clear of the stair top)"
     },
     {
-     "id": "f71",
+     "id": "f72",
      "kind": "tv",
      "x": 6.8145,
      "y": 4.6708,
@@ -2331,7 +2341,7 @@
      "src": "645"
     },
     {
-     "id": "f72",
+     "id": "f73",
      "kind": "armchair",
      "x": 6.2495,
      "y": 2.8536,
@@ -2341,7 +2351,7 @@
      "src": "840"
     },
     {
-     "id": "f73",
+     "id": "f74",
      "kind": "sofa",
      "x": 3.6853,
      "y": 2.7082,
@@ -2356,7 +2366,7 @@
      "src": "876"
     },
     {
-     "id": "f74",
+     "id": "f75",
      "kind": "railing",
      "x": 3.5906,
      "y": 5.4933,
@@ -2366,7 +2376,7 @@
      "h": 1.1
     },
     {
-     "id": "f75",
+     "id": "f76",
      "kind": "railing",
      "x": 2.1206,
      "y": 6.2233,
@@ -3004,13 +3014,18 @@
   "buildUp": 0.45,
   "h2": 2.4,
   "view": "e",
-  "slopeDepth": 4.6892,
-  "slopeMaxArea": 22,
-  "pitch": 2.0,
-  "pitchNote": {
-   "en": "Default 2 sun (Toby: gentle outside slope). Ichijo standard = 3.5 sun; a lower pitch needs Ichijo’s confirmation.",
-   "ja": "既定は2寸（外観の勾配を緩く）。一条の標準は3.5寸・それ未満は一条に要確認。"
-  },
+  "slopeDepth": 4.4126,
+  "slopeMaxArea": 20.7025,
+  "pitch": 3.5,
+  "roofMode": "flatMain+wing",
+  "parapetH": 0.4,
+  "wingVerge": 0,
+  "roofRunMax": 8.19,
+  "slopeMaxRun": 4.55,
+  "highWin": "res-ichijo-window-jf5915-fix-low",
+  "highTopGap": 0.15,
+  "highGap": 0.15,
+  "highMaxRun": 6.37,
   "roofClear": 0.15,
   "roofTh": 0.34,
   "overhang": 0.6,
