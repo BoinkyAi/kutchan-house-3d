@@ -1,9 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-plans="d c b">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Plan editor</title>
+<script>/* old links to plans that now live in the Ichijo app: e (removed; opens g), f, g */
+(function () {
+  var q = new URLSearchParams(location.search), p = (q.get('plan') || '').toLowerCase(), l = q.get('lang'), t = null;
+  if (p === 'e') t = 'g'; else if (p === 'f' || p === 'g') t = p;
+  if (!t) return;
+  var u = 'https://boinkyai.github.io/kutchan-house-ichijo/edit.html?plan=' + t;
+  if (l === 'en' || l === 'ja') u += '&lang=' + l;
+  window.H3D_LEAVING = true; location.replace(u + location.hash);
+})();</script>
 <style>
   :root{ --ui:#11161c; --ui2:#1b2430; --fg:#e8eef5; --ac:#5ac8fa; --bd:#2c3a4a; --warn:#f5b84a; }
   *{box-sizing:border-box}
@@ -106,6 +115,6 @@
   <div style="margin-top:12px"><button onclick="document.getElementById('help').classList.remove('show')" data-i="close">Close</button></div>
 </div></div>
 
-<script type="module" src="edit.js?v=14"></script>
+<script type="module" src="edit.js?v=15"></script>
 </body>
 </html>

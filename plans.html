@@ -1,286 +1,125 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kutchan house — floor plans</title>
+<script>(function () { var q = new URLSearchParams(location.search).get('lang'), s = null; try { s = localStorage.getItem('h3dPlansLang'); } catch (e) {}
+  var l = q === 'ja' || q === 'en' ? q : (s === 'ja' ? 'ja' : 'en'); document.documentElement.className = l; document.documentElement.lang = l; })();</script>
 <style>
   :root{--fg:#1f2a33;--mut:#5d6b78;--ac:#1d6fa5;--bd:#d9dee3;--bg:#f6f5f2}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  header{background:#11161c;color:#e8eef5;padding:18px 20px 14px}
-  header h1{margin:0 0 4px;font-size:22px}
-  header .note{margin:6px 0 0;display:inline-block;background:#3a2c10;color:#ffd58a;border:1px solid #6b4f1c;border-radius:8px;padding:4px 10px;font-size:13px}
-  header .sub{margin:8px 0 0;opacity:.75;font-size:13px}
-  nav{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
-  nav a{color:#e8eef5;text-decoration:none;border:1px solid #2c3a4a;background:#1b2430;border-radius:8px;padding:4px 9px;font-size:13px}
-  nav a:hover{border-color:#5ac8fa}
+  html.en .ja,html.ja .en{display:none}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif}
+  header{background:#11161c;color:#e8eef5;padding:16px 20px 14px}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header h1{margin:0;font-size:22px}
+  .lang{display:inline-flex}
+  .lang button{background:#1b2430;color:#e8eef5;border:1px solid #2c3a4a;padding:4px 11px;font:inherit;font-size:13px;cursor:pointer;margin-left:-1px}
+  .lang button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+  .lang button:last-child{border-radius:0 8px 8px 0}
+  .lang button.on{background:#5ac8fa;color:#04121c;border-color:#5ac8fa;font-weight:700}
+  .apps{margin-top:8px;font-size:13px;color:#9fb0c0}
+  .apps a{color:#5ac8fa;text-decoration:none}
+  .apps a:hover{text-decoration:underline}
+  .apps b{color:#e8eef5;font-weight:600}
   main{max-width:1500px;margin:0 auto;padding:6px 16px 40px}
   section{background:#fff;border:1px solid var(--bd);border-radius:12px;margin:18px 0;padding:16px 18px}
   h2{margin:0;font-size:19px}
-  h2 small{font-weight:400;color:var(--mut);font-size:14px}
-  .links{margin:4px 0 10px;font-size:14px}
+  .what{margin:2px 0 6px;color:var(--mut)}
+  .links{margin:0 0 10px;font-size:14px}
   .links a{color:var(--ac);font-weight:600;text-decoration:none;margin-right:14px}
   .links a:hover{text-decoration:underline}
-  .cols{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:8px 28px}
-  @media (max-width:820px){.cols{grid-template-columns:1fr}}
-  .cols h3{margin:0 0 4px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
-  ul{margin:0;padding-left:18px}
-  li{margin:2px 0}
-  dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:14px}
+  dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:14px;max-width:640px}
   dt{color:var(--mut)}
   dd{margin:0;font-weight:600}
+  dd small{font-weight:400;color:var(--mut);font-size:13px}
   .floors{display:grid;grid-template-columns:repeat(auto-fit,minmax(560px,1fr));gap:12px;margin-top:14px}
   @media (max-width:640px){.floors{grid-template-columns:1fr}}
   figure{margin:0;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:#f4f2ee}
   figure img{display:block;width:100%;height:auto}
   figcaption{font-size:13px;font-weight:600;padding:4px 10px;background:#fff;border-top:1px solid var(--bd)}
-  .lead{margin:0 0 10px;font-size:14px;font-weight:600}
-  details.ja{margin-top:8px;font-size:14px}
-  details.ja summary{cursor:pointer;color:var(--mut);font-size:13px;font-weight:600}
-  details.ja p{margin:6px 0 4px}
-  .new{font-size:11px;font-weight:700;color:#0f3b24;background:#c8f7da;border:1px solid #2a7a4c;border-radius:6px;padding:1px 6px;vertical-align:middle;margin-left:6px}
-  footer{max-width:1500px;margin:0 auto;padding:0 16px 30px;color:var(--mut);font-size:13px}
-  footer a{color:var(--ac)}
 </style>
 </head>
 <body>
 <header>
-  <h1>Kutchan house — floor plans</h1>
-  <div class="note">Floor plans only — 3D not re-rendered this round.</div>
-  <p class="sub">Every plan shows a compass: south = Mt Yotei view, east = road. Plan b is drawn with north at the bottom. Click a plan to open it full size.</p>
-  <nav>
-    <a href="#house-2">Plan B (house 2)</a>
-    <a href="#plan-b">b · Tsuchiya rev. — budget option</a>
-    <a href="#plan-c">c · Plan B compact</a>
-    <a href="#plan-d">d · Plan C (L-shaped)</a>
-    <a href="#plan-e">e · Plan B — Ichijo</a>
-    <a href="#plan-f">f · Plan B — Ichijo · compact</a>
-    <a href="#plan-g">g · Plan B — Ichijo · 3 up, 1 down</a>
-  </nav>
+  <div class="bar"><h1><span class="en">Kutchan house — floor plans</span><span class="ja" lang="ja">倶知安 住宅計画 — 間取り図</span></h1>
+  <span class="lang"><button type="button" data-l="en">EN</button><button type="button" data-l="ja">日本語</button></span></div>
+  <div class="apps"><b><span class="en">Builder plans</span><span class="ja" lang="ja">建築会社向けプラン</span></b> · <a href="https://boinkyai.github.io/kutchan-house-ichijo/plans.html"><span class="en">Ichijo versions</span><span class="ja" lang="ja">一条工務店版</span></a> · <a href="https://boinkyai.github.io/kutchan-house-plan-a/"><span class="en">Toby's own plans</span><span class="ja" lang="ja">トビアスの自作プラン</span></a></div>
 </header>
 <main>
-<section id="house-2">
-  <h2>Plan B · Toby’s own plan <small>(house 2)</small> <span class="new">NEW</span></h2>
-  <div class="links"><a href="index.html?house=2">3D</a></div>
-  <div class="cols">
-    <div><h3>What changed</h3><ul>
-      <li>Every window now uses standard YKK AP sizes. The big openings are split into 2.6 m and 1.69 m bays: each bay is a sliding door from the floor with a 0.77 m fixed window stacked above, up to 3.39 m. The 20 windows on the drawing become 28 bays of 52 real units.</li>
-      <li>The entrance is a double door with two equal leaves, 1.69 × 2.33 m (was 1.5 × 2.0 m).</li>
-      <li>The view (south) side keeps 20.7 m of windows along it (24.1 m as drawn). The ground-floor windows now start at the floor.</li>
-      <li>Bedroom 1: its west window no longer runs into the walk-in closet, and its door from the hall opens the full 1.0 m.</li>
-    </ul>
-    <details class="ja" lang="ja"><summary>日本語</summary><ul>
-      <li>窓はすべてYKK APの規格サイズになりました。大きな開口は幅2.6mと1.69mの窓に分け、それぞれ床からの引違い戸の上に高さ0.77mのFIX窓を重ねています（上端3.39m）。図面の窓20か所が、28列・実在サイズの窓52枚になりました。</li>
-      <li>玄関は両開きドアです（同じ幅の扉2枚、1.69×2.33m。以前は1.5×2.0m）。</li>
-      <li>眺望側（南）の窓の長さは20.7mです（図面どおりでは24.1m）。1階の窓は床から始まります。</li>
-      <li>寝室1：西の窓がウォークインクローゼットにかからないようにしました。廊下からのドアは幅1.0mいっぱいに開きます。</li>
-    </ul></details></div>
-    <div><h3>Key numbers</h3><dl>
-      <dt>Windows</dt><dd>28 bays of 52 standard YKK AP units (was 20 windows, 16 of them oversized)</dd>
-      <dt>Window bay</dt><dd>sliding door 0–2.47 m + fixed window 2.62–3.39 m</dd>
-      <dt>Front door</dt><dd>double (two equal leaves), 1.69 × 2.33 m (was 1.5 × 2.0 m)</dd>
-      <dt>Glass on the view (south) side</dt><dd>61.9 m², 20.7 m along the facade (was 65.9 m², 24.1 m)</dd>
-      <dt>Glass, all windows</dt><dd>176.9 m² (was 192.4)</dd>
-    </dl></div>
-  </div>
+<section id="plan-d">
+  <h2><span class="en">Plan C</span><span class="ja" lang="ja">プランC</span></h2>
+  <p class="what"><span class="en">L-shaped two-storey house; the living wing has windows on three sides.</span><span class="ja" lang="ja">L字型の2階建て。リビングの翼棟は3面に窓。</span></p>
+  <div class="links"><a href="index.html?house=6">3D</a><a href="edit.html?plan=d"><span class="en">Edit plan</span><span class="ja" lang="ja">間取りを編集</span></a></div>
+  <dl>
+    <dt><span class="en">Floor area</span><span class="ja" lang="ja">延床面積</span></dt><dd><span class="en">256 m² ≈ 77 tsubo</span><span class="ja" lang="ja">256 m²（約77坪）</span><br><small><span class="en">1F 129.2 · 2F 126.7 m²</span><span class="ja" lang="ja">1階 129.2・2階 126.7 m²</span></small></dd>
+    <dt><span class="en">Bedrooms</span><span class="ja" lang="ja">寝室</span></dt><dd><span class="en">3, 2 with their own bathroom</span><span class="ja" lang="ja">3室（うち2室は専用バスルーム付き）</span></dd>
+    <dt><span class="en">Dens</span><span class="ja" lang="ja">書斎</span></dt><dd><span class="en">2</span><span class="ja" lang="ja">2室</span></dd>
+    <dt><span class="en">Gym</span><span class="ja" lang="ja">ジム</span></dt><dd><span class="en">65.8 m²</span><span class="ja" lang="ja">65.8 m²</span></dd>
+    <dt><span class="en">Bath + sauna</span><span class="ja" lang="ja">浴室＋サウナ</span></dt><dd><span class="en">24.8 + 8.3 m²</span><span class="ja" lang="ja">24.8＋8.3 m²</span></dd>
+    <dt><span class="en">Living · dining · kitchen</span><span class="ja" lang="ja">LDK</span></dt><dd><span class="en">46.4 m²</span><span class="ja" lang="ja">46.4 m²</span></dd>
+    <dt><span class="en">Roof height</span><span class="ja" lang="ja">最高高さ</span></dt><dd><span class="en">9.9 m above ground</span><span class="ja" lang="ja">地面から9.9 m</span></dd>
+    <dt><span class="en">Front door</span><span class="ja" lang="ja">玄関ドア</span></dt><dd><span class="en">double, 1.69 × 2.33 m</span><span class="ja" lang="ja">両開き 1.69×2.33m</span></dd>
+  </dl>
   <div class="floors">
-    <figure><a href="plans-img/planB_1F.png?v=23"><img src="plans-img/planB_1F.png?v=23" alt="Plan B, 1F" width="1400" height="950" loading="lazy"></a><figcaption>1F</figcaption></figure>
-    <figure><a href="plans-img/planB_2F.png?v=23"><img src="plans-img/planB_2F.png?v=23" alt="Plan B, 2F" width="1400" height="950" loading="lazy"></a><figcaption>2F</figcaption></figure>
-  </div>
-</section>
-<section id="plan-b">
-  <h2>Plan b · Tsuchiya rev. — budget option <small>(house 4)</small></h2>
-  <div class="links"><a href="edit.html?plan=b">Open in editor</a><a href="index.html?house=4">3D</a></div>
-  <div class="cols">
-    <div><h3>What changed</h3><ul>
-      <li>Front door: a parent-child door (two leaves, 0.875 + 0.36 m), frame 1.24 × 2.33 m (was a 1.0 m single). A 1.69 m double does not fit: the entrance wall is 1.69 m clear and a double needs 1.89 m.</li>
-    </ul>
-    <details class="ja" lang="ja"><summary>日本語</summary><ul>
-      <li>玄関ドア：親子ドア（扉2枚・0.875＋0.36m、枠1.24×2.33m。以前は1.0mの片開き）。玄関の壁は1.69mで、両開き（1.69m）に必要な1.89mに足りないため。</li>
-    </ul></details></div>
-    <div><h3>Key numbers</h3><dl>
-      <dt>Floor area</dt><dd>1F 79.3 · 2F 75.2 · loft 24.8 m²</dd>
-      <dt>Front door</dt><dd>parent-child, 1.24 × 2.33 m (the wall is too short for a double)</dd>
-      <dt>Bath</dt><dd>14.9 m² (was 9.9) + sauna 5.0 m²</dd>
-      <dt>Gym</dt><dd>43.0 m²</dd>
-      <dt>Glass</dt><dd>all windows 127.0 m² (was 53.8)</dd>
-      <dt>Roof, highest point</dt><dd>≈ 9.9 m above ground</dd>
-    </dl></div>
-  </div>
-  <div class="floors">
-    <figure><a href="plans-img/b_1F.png?v=23"><img src="plans-img/b_1F.png?v=23" alt="Plan b, 1F" width="1400" height="950" loading="lazy"></a><figcaption>1F</figcaption></figure>
-    <figure><a href="plans-img/b_2F.png?v=23"><img src="plans-img/b_2F.png?v=23" alt="Plan b, 2F" width="1400" height="950" loading="lazy"></a><figcaption>2F</figcaption></figure>
-    <figure><a href="plans-img/b_loft.png?v=23"><img src="plans-img/b_loft.png?v=23" alt="Plan b, Loft" width="1400" height="950" loading="lazy"></a><figcaption>Loft</figcaption></figure>
+    <figure><a href="plans-img/d_1F.png?v=24"><img src="plans-img/d_1F.png?v=24" alt="Plan C, 1F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">1F</span><span class="ja" lang="ja">1階</span></figcaption></figure>
+    <figure><a href="plans-img/d_2F.png?v=24"><img src="plans-img/d_2F.png?v=24" alt="Plan C, 2F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">2F</span><span class="ja" lang="ja">2階</span></figcaption></figure>
   </div>
 </section>
 <section id="plan-c">
-  <h2>Plan c · Plan B compact <small>(house 5)</small></h2>
-  <div class="links"><a href="edit.html?plan=c">Open in editor</a><a href="index.html?house=5">3D</a></div>
-  <div class="cols">
-    <div><h3>What changed</h3><ul>
-      <li>Windows: every pane is now a standard YKK triple-glazed unit. There are four 2.6 m sliding glass doors on the view side on each floor, lined up, with fixed transoms over the two in the living room. All other windows are standard sizes, and bathrooms have frosted glass.</li>
-      <li>Sauna 3.3 → 5.0 m² (2.7 × 1.8 m, L-shaped benches). It pushes into the bath and still opens into it; the bath goes from 22.8 to 21.1 m².</li>
-      <li>Loft: the storage room is now a bathroom (shower unit, toilet, washstand; 5.0 m²) plus a 2.5 m² closet for the loft bedroom.</li>
-      <li>Front door: a double door (two leaves, 1.69 × 2.33 m) under the carport.</li>
-      <li>Roof unchanged: high on the east, low on the west, so snow slides off the west side, away from the door, carport and view glass.</li>
-    </ul>
-    <details class="ja" lang="ja"><summary>日本語</summary><ul>
-      <li>窓：すべて標準サイズのYKKトリプルガラス窓に変更。眺望側（南）は各階に幅2.6mの掃き出し窓を4本ずつ上下にそろえ、リビングの2本の上にFIX窓。ほかの窓も標準サイズ、浴室・シャワー室はすりガラス。</li>
-      <li>サウナ 3.3 → 5.0m²（2.7×1.8m、L字ベンチ）：浴室側に張り出し、入口は引き続き浴室から。浴室は 22.8 → 21.1m²。</li>
-      <li>ロフト：収納をシャワールーム（シャワーユニット・トイレ・洗面台、5.0m²）とロフト寝室用のクローゼット（2.5m²）に変更。</li>
-      <li>玄関ドア：カーポートの下に両開きドア（1.69×2.33m）。</li>
-      <li>屋根は変更なし：東が高く西が低いので、雪は西側に落ちる（玄関・カーポート・眺望側の窓から離れる）。</li>
-    </ul></details></div>
-    <div><h3>Key numbers</h3><dl>
-      <dt>Floor area</dt><dd>1F 124.2 · 2F 121.8 · loft 38.1 m²</dd>
-      <dt>Bath</dt><dd>21.1 m² + sauna 5.0 m² (was 22.8 + 3.3)</dd>
-      <dt>Loft</dt><dd>bedroom 29.8 + bathroom 5.0 + closet 2.5 m²</dd>
-      <dt>Gym</dt><dd>62.1 m²</dd>
-      <dt>Front door</dt><dd>double (two equal leaves), 1.69 × 2.33 m</dd>
-      <dt>Glass on the view (south) side</dt><dd>61.3 m²: 1F 25.7 · 2F 28.7 · loft 7.0 (was 72.1)</dd>
-      <dt>Roof, highest point</dt><dd>10.2 m above ground (limit 12 m)</dd>
-    </dl></div>
-  </div>
+  <h2><span class="en">Plan B compact</span><span class="ja" lang="ja">プランB 縮小版</span></h2>
+  <p class="what"><span class="en">13.65 × 9.1 m two-storey box with a loft, long side facing the view.</span><span class="ja" lang="ja">13.65×9.1mの箱型2階建て＋ロフト、長辺が眺望側。</span></p>
+  <div class="links"><a href="index.html?house=5">3D</a><a href="edit.html?plan=c"><span class="en">Edit plan</span><span class="ja" lang="ja">間取りを編集</span></a></div>
+  <dl>
+    <dt><span class="en">Floor area</span><span class="ja" lang="ja">延床面積</span></dt><dd><span class="en">246 m² ≈ 74 tsubo</span><span class="ja" lang="ja">246 m²（約74坪）</span><br><small><span class="en">1F 124.2 · 2F 121.8 m²</span><span class="ja" lang="ja">1階 124.2・2階 121.8 m²</span></small><br><small><span class="en">+ loft 38.1 m² = 284 m² ≈ 86 tsubo</span><span class="ja" lang="ja">＋ロフト 38.1 m² ＝ 284 m²（約86坪）</span></small></dd>
+    <dt><span class="en">Bedrooms</span><span class="ja" lang="ja">寝室</span></dt><dd><span class="en">3, each with its own bathroom</span><span class="ja" lang="ja">3室（すべて専用バスルーム付き）</span></dd>
+    <dt><span class="en">Dens</span><span class="ja" lang="ja">書斎</span></dt><dd><span class="en">2</span><span class="ja" lang="ja">2室</span></dd>
+    <dt><span class="en">Gym</span><span class="ja" lang="ja">ジム</span></dt><dd><span class="en">62.1 m²</span><span class="ja" lang="ja">62.1 m²</span></dd>
+    <dt><span class="en">Bath + sauna</span><span class="ja" lang="ja">浴室＋サウナ</span></dt><dd><span class="en">21.1 + 5.0 m²</span><span class="ja" lang="ja">21.1＋5.0 m²</span></dd>
+    <dt><span class="en">Living · dining · kitchen</span><span class="ja" lang="ja">LDK</span></dt><dd><span class="en">49.7 m²</span><span class="ja" lang="ja">49.7 m²</span></dd>
+    <dt><span class="en">Roof height</span><span class="ja" lang="ja">最高高さ</span></dt><dd><span class="en">10.2 m above ground</span><span class="ja" lang="ja">地面から10.2 m</span></dd>
+    <dt><span class="en">Front door</span><span class="ja" lang="ja">玄関ドア</span></dt><dd><span class="en">double, 1.69 × 2.33 m</span><span class="ja" lang="ja">両開き 1.69×2.33m</span></dd>
+  </dl>
   <div class="floors">
-    <figure><a href="plans-img/c_1F.png?v=23"><img src="plans-img/c_1F.png?v=23" alt="Plan c, 1F" width="1400" height="950" loading="lazy"></a><figcaption>1F</figcaption></figure>
-    <figure><a href="plans-img/c_2F.png?v=23"><img src="plans-img/c_2F.png?v=23" alt="Plan c, 2F" width="1400" height="950" loading="lazy"></a><figcaption>2F</figcaption></figure>
-    <figure><a href="plans-img/c_loft.png?v=23"><img src="plans-img/c_loft.png?v=23" alt="Plan c, Loft" width="1400" height="950" loading="lazy"></a><figcaption>Loft</figcaption></figure>
+    <figure><a href="plans-img/c_1F.png?v=24"><img src="plans-img/c_1F.png?v=24" alt="Plan B compact, 1F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">1F</span><span class="ja" lang="ja">1階</span></figcaption></figure>
+    <figure><a href="plans-img/c_2F.png?v=24"><img src="plans-img/c_2F.png?v=24" alt="Plan B compact, 2F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">2F</span><span class="ja" lang="ja">2階</span></figcaption></figure>
+    <figure><a href="plans-img/c_loft.png?v=24"><img src="plans-img/c_loft.png?v=24" alt="Plan B compact, Loft" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">Loft</span><span class="ja" lang="ja">ロフト</span></figcaption></figure>
   </div>
 </section>
-<section id="plan-d">
-  <h2>Plan d · Plan C (L-shaped) <small>(house 6)</small></h2>
-  <div class="links"><a href="edit.html?plan=d">Open in editor</a><a href="index.html?house=6">3D</a></div>
-  <div class="cols">
-    <div><h3>What changed</h3><ul>
-      <li>Laundry out of the gym, now just south of the hall (3.5 m²: washer, dryer, sink). The gym is one uninterrupted room, 65.8 m² (was 64.6 m² with the notch).</li>
-      <li>Every window is a standard YKK AP size: 1,690-wide columns of a 2.47 m terrace slider or FIX, with 970 / 570 FIX units stacked above on 150 mm bands (up to 4.7 m in the living). No floor-to-roof glass.</li>
-      <li>South (view) side: 6 aligned window columns on each floor, 58 m² of glass (66 % of the wall).</li>
-      <li>Front door: double door 1.69 × 2.33 m. The entrance is 0.45 m wider to fit it.</li>
-      <li>1F WC now under the stair's high end. The boiler room stays under the stair.</li>
-    </ul>
-    <details class="ja" lang="ja"><summary>日本語</summary><ul>
-      <li>洗濯室をジムから出し、ホールのすぐ南へ（3.5m²・洗濯機・乾燥機・流し）。ジムは切り欠きのない1室、65.8m²（従来は切り欠きあり64.6m²）。</li>
-      <li>窓はすべてYKK APの規格サイズに。幅1,690の縦列に高さ2.47mの引違いテラス戸またはFIX、その上に150mmの壁を挟んで970／570のFIXを積層（リビングで最高4.7m）。床から屋根までの大ガラスは廃止。</li>
-      <li>南（眺望側）は各階6列の窓を上下にそろえ、ガラス58m²（壁の66%）。</li>
-      <li>玄関ドアを両開き（1.69×2.33m）に。玄関を0.45m広げて納めた。</li>
-      <li>1階のトイレは階段の高い側の下へ。機械室は階段下のまま。</li>
-    </ul></details></div>
-    <div><h3>Key numbers</h3><dl>
-      <dt>Floor area</dt><dd>1F 129.2 · 2F 126.7 m²</dd>
-      <dt>Gym</dt><dd>65.8 m², one room (was 64.6 with the laundry notch)</dd>
-      <dt>Laundry</dt><dd>3.5 m², off the hall (was 4.1 in the gym)</dd>
-      <dt>Front door</dt><dd>double (two equal leaves), 1.69 × 2.33 m</dd>
-      <dt>Kitchen worktop</dt><dd>6.2 m (run 3.8 + island 2.4)</dd>
-      <dt>Sauna</dt><dd>8.3 m², L-shaped</dd>
-      <dt>Bath</dt><dd>24.8 m²</dd>
-      <dt>Glass on the view (south) side</dt><dd>57.9 m², 66 % of that facade (was 71.7 m², 82 %)</dd>
-      <dt>Roof, highest point</dt><dd>≈ 9.9 m above ground</dd>
-    </dl></div>
-  </div>
+<section id="plan-b">
+  <h2><span class="en">Tsuchiya rev. — budget option</span><span class="ja" lang="ja">土屋 改案（予算重視案）</span></h2>
+  <p class="what"><span class="en">10.9 × 7.3 m two-storey box with a loft.</span><span class="ja" lang="ja">10.9×7.3mの箱型2階建て＋ロフト。</span></p>
+  <div class="links"><a href="index.html?house=4">3D</a><a href="edit.html?plan=b"><span class="en">Edit plan</span><span class="ja" lang="ja">間取りを編集</span></a></div>
+  <dl>
+    <dt><span class="en">Floor area</span><span class="ja" lang="ja">延床面積</span></dt><dd><span class="en">155 m² ≈ 47 tsubo</span><span class="ja" lang="ja">155 m²（約47坪）</span><br><small><span class="en">1F 79.3 · 2F 75.2 m²</span><span class="ja" lang="ja">1階 79.3・2階 75.2 m²</span></small><br><small><span class="en">+ loft 24.8 m² = 179 m² ≈ 54 tsubo</span><span class="ja" lang="ja">＋ロフト 24.8 m² ＝ 179 m²（約54坪）</span></small></dd>
+    <dt><span class="en">Bedrooms</span><span class="ja" lang="ja">寝室</span></dt><dd><span class="en">2, both with their own bathroom</span><span class="ja" lang="ja">2室（どちらも専用バスルーム付き）</span></dd>
+    <dt><span class="en">Dens</span><span class="ja" lang="ja">書斎</span></dt><dd><span class="en">2</span><span class="ja" lang="ja">2室</span></dd>
+    <dt><span class="en">Gym</span><span class="ja" lang="ja">ジム</span></dt><dd><span class="en">43.0 m²</span><span class="ja" lang="ja">43.0 m²</span></dd>
+    <dt><span class="en">Bath + sauna</span><span class="ja" lang="ja">浴室＋サウナ</span></dt><dd><span class="en">14.9 + 5.0 m²</span><span class="ja" lang="ja">14.9＋5.0 m²</span></dd>
+    <dt><span class="en">Living · dining · kitchen</span><span class="ja" lang="ja">LDK</span></dt><dd><span class="en">44.0 m²</span><span class="ja" lang="ja">44.0 m²</span></dd>
+    <dt><span class="en">Roof height</span><span class="ja" lang="ja">最高高さ</span></dt><dd><span class="en">9.9 m above ground</span><span class="ja" lang="ja">地面から9.9 m</span></dd>
+    <dt><span class="en">Front door</span><span class="ja" lang="ja">玄関ドア</span></dt><dd><span class="en">parent-child, 1.24 × 2.33 m</span><span class="ja" lang="ja">親子ドア 1.24×2.33m</span></dd>
+  </dl>
   <div class="floors">
-    <figure><a href="plans-img/d_1F.png?v=23"><img src="plans-img/d_1F.png?v=23" alt="Plan d, 1F" width="1400" height="950" loading="lazy"></a><figcaption>1F</figcaption></figure>
-    <figure><a href="plans-img/d_2F.png?v=23"><img src="plans-img/d_2F.png?v=23" alt="Plan d, 2F" width="1400" height="950" loading="lazy"></a><figcaption>2F</figcaption></figure>
-  </div>
-</section>
-<section id="plan-e">
-  <h2>Plan e · Plan B — Ichijo <small>(house 7)</small></h2>
-  <div class="links"><a href="edit.html?plan=e">Open in editor</a><a href="index.html?house=7">3D</a></div>
-  <div class="cols">
-    <div><h3>What changed</h3><ul>
-      <li>Every window is now one of Ichijo's stock sizes: floor-to-2.17 m sliding doors 1.65 or 2.49 m wide, spaced on Ichijo's 91 cm grid (no custom 2.2 m panes, no floating 30 cm transoms).</li>
-      <li>Living high wall redesigned: one or two 47 cm fixed rows sit right on top of the sliding doors on the side walls (same width, 15 cm wall between), a 1.9 m fixed pane over each on the tall east end wall, all within 6.4 m of the slope's low edge.</li>
-      <li>Solid wall at every outside corner (Ichijo needs about 0.9 m on one side), including the metre beside the tall end wall.</li>
-      <li>Front door: a two-leaf parent-child door, 1.24 × 2.33 m (was a 1.0 m single).</li>
-      <li>South (Mt Yotei) glass 48.8 m², 66 % (was 54.7 m² in non-standard sizes).</li>
-    </ul>
-    <details class="ja" lang="ja"><summary>日本語</summary><ul>
-      <li>窓はすべて一条の規格サイズに：床から2.17mの掃き出し窓（幅1.65m・2.49m）を一条の91cmグリッドに並べる（特注の2.2m窓や浮いた30cmの欄間はなし）。</li>
-      <li>リビングの高い壁を設計し直し：両側の壁は掃き出し窓の真上に同じ幅の47cmのFIX窓を1〜2段（間に15cmの壁）、高い東の妻壁は各窓の上に1.9mのFIX窓。すべて勾配の低い端から6.4m以内。</li>
-      <li>外側の角はすべて壁を残す（一条は片側に約0.9m必要）。高い妻壁の横の1mも壁。</li>
-      <li>玄関：親子ドア1.24×2.33m（以前は1.0mの片開き）。</li>
-      <li>南面（羊蹄山側）のガラス48.8㎡・66%（規格外サイズの以前は54.7㎡）。</li>
-    </ul></details></div>
-    <div><h3>Key numbers</h3><dl>
-      <dt>Floor area</dt><dd>1F 146.4 · 2F 142.5 m²</dd>
-      <dt>Roof, highest point</dt><dd>8.93 m above ground (3.5 sun; flat roof 6.39 m; limit 12 m)</dd>
-      <dt>Living ceiling</dt><dd>3.2–4.75 m, 7 sliding doors + 8 stacked high windows</dd>
-      <dt>Front door</dt><dd>parent-child, 1.24 × 2.33 m</dd>
-      <dt>Den / guest bedroom</dt><dd>18.4 m²</dd>
-      <dt>Gym</dt><dd>57.4 m², one room</dd>
-      <dt>Kitchen worktop</dt><dd>5.9 m (was 2.7)</dd>
-      <dt>Bath</dt><dd>32.1 m² + sauna 5.5 m²</dd>
-      <dt>Glass on the view (south) side</dt><dd>48.8 m², 66 % of the south walls (was 54.7 m², 74 %)</dd>
-    </dl></div>
-  </div>
-  <div class="floors">
-    <figure><a href="plans-img/e_1F.png?v=23"><img src="plans-img/e_1F.png?v=23" alt="Plan e, 1F" width="1400" height="950" loading="lazy"></a><figcaption>1F</figcaption></figure>
-    <figure><a href="plans-img/e_2F.png?v=23"><img src="plans-img/e_2F.png?v=23" alt="Plan e, 2F" width="1400" height="950" loading="lazy"></a><figcaption>2F</figcaption></figure>
-  </div>
-</section>
-<section id="plan-f">
-  <h2>Plan f · Plan B — Ichijo · compact <small>(house 8)</small></h2>
-  <div class="links"><a href="edit.html?plan=f">Open in editor</a><a href="index.html?house=8">3D</a></div>
-  <div class="cols">
-    <div><h3>What changed</h3><ul>
-      <li>Roof rebuilt to Ichijo's rules: a flat parapet roof over the main block (6.39 m) and one 3.5-in-10 slope (Ichijo's only pitch) over the living wing only, rising east to 8.93 m (was one 2-in-10 slope over the whole house, 14.9 m long; Ichijo allows 8.2 m).</li>
-      <li>The slope is 6.64 m long (7.3 of Ichijo's 91 cm squares, max 9); its snow slides west onto the flat roof, none toward the carport or the road.</li>
-      <li>Living ceiling 3.20 → 4.75 m over 20.7 m² (Ichijo's maximum) with the same high wall as Plan B — Ichijo: sliding doors with fixed windows stacked on top.</li>
-      <li>Ichijo stock-size windows everywhere, solid outside corners, a parent-child front door 1.24 × 2.33 m.</li>
-      <li>Highest point 8.93 m (was 9.55 m); south glass 48.8 m², 66 %.</li>
-    </ul>
-    <details class="ja" lang="ja"><summary>日本語</summary><ul>
-      <li>屋根を一条の仕様どおりに：母屋はパラペット付きフラット屋根（6.39m）、リビング棟だけ一条唯一の3.5寸の片流れで東へ上がり最高8.93m（以前は家全体に2寸の片流れ・長さ14.9m、一条の上限は8.2m）。</li>
-      <li>片流れの長さは6.64m（一条の91cmマスで7.3マス、上限9マス）。雪は西のフラット屋根に落ち、カーポート側・道路側には落ちない。</li>
-      <li>リビングの天井は3.20→4.75m・20.7㎡（一条の上限）、プランB 一条版と同じ高い壁：掃き出し窓の上にFIX窓を重ねる。</li>
-      <li>窓はすべて一条の規格サイズ、外側の角は壁、玄関は親子ドア1.24×2.33m。</li>
-      <li>最高高さ8.93m（以前9.55m）、南面のガラス48.8㎡・66%。</li>
-    </ul></details></div>
-    <div><h3>Key numbers</h3><dl>
-      <dt>Floor area</dt><dd>1F 122.9 · 2F 119.1 m²</dd>
-      <dt>Roof, highest point</dt><dd>8.93 m above ground (3.5 sun; flat roof 6.39 m; was 9.55 m)</dd>
-      <dt>Front door</dt><dd>parent-child, 1.24 × 2.33 m</dd>
-      <dt>Gym</dt><dd>52.0 m², one room (was 44.1 in two)</dd>
-      <dt>Bath</dt><dd>23.2 m² + sauna 4.0 m² (was 31.9 + 5.4)</dd>
-      <dt>Bedroom 3</dt><dd>14.2 m², in the wing, with its own bathroom</dd>
-      <dt>Glass on the view (south) side</dt><dd>48.8 m², 66 % of the south walls (was 53.9 m², 73 %)</dd>
-    </dl></div>
-  </div>
-  <div class="floors">
-    <figure><a href="plans-img/f_1F.png?v=23"><img src="plans-img/f_1F.png?v=23" alt="Plan f, 1F" width="1400" height="950" loading="lazy"></a><figcaption>1F</figcaption></figure>
-    <figure><a href="plans-img/f_2F.png?v=23"><img src="plans-img/f_2F.png?v=23" alt="Plan f, 2F" width="1400" height="950" loading="lazy"></a><figcaption>2F</figcaption></figure>
-  </div>
-</section>
-<section id="plan-g">
-  <h2>Plan g · Plan B — Ichijo · 3 up, 1 down <small>(house 9)</small></h2>
-  <div class="links"><a href="edit.html?plan=g">Open in editor</a><a href="index.html?house=9">3D</a></div>
-  <p class="lead">Same footprint, floor area (1F 146.4 + 2F 142.5 m²) and roof as Plan B — Ichijo (house 7); only a bedroom moves downstairs: the den in the 1F wing becomes bedroom 3 (18.4 m²) with a new 5.3 m² shower room taken from the gym (57.4 → 52.1 m²), so upstairs has 3 bigger bedrooms (18.2 / 19.9 / 14.1 m²) instead of 4 (13.1 / 10.8 / 9.9 / 13.0 m²).</p>
-  <div class="cols">
-    <div><h3>What changed</h3><ul>
-      <li>Roof now the same as Plan B — Ichijo (it still had the old 2-in-10 whole-house slope).</li>
-      <li>Same Ichijo windows and living high wall as Plan B — Ichijo; parent-child front door 1.24 × 2.33 m.</li>
-      <li>South glass 48.8 m², 66 %; highest point 8.93 m (was 9.55 m).</li>
-    </ul>
-    <details class="ja" lang="ja"><summary>日本語</summary><p>プランB 一条版と同じ外形・床面積（1階146.4＋2階142.5m²）・屋根で、違うのは寝室1つを1階に移したことだけ：1階の翼棟の書斎・客間が寝室3（18.4m²）になり、ジムから取った5.3m²のシャワールーム付き（ジム57.4→52.1m²）、2階は4室（13.1・10.8・9.9・13.0m²）ではなく広い寝室3室（18.2・19.9・14.1m²）。</p><ul>
-      <li>屋根をプランB 一条版と同じに（以前は家全体の2寸片流れのままだった）。</li>
-      <li>窓とリビングの高い壁はプランB 一条版と同じ。玄関は親子ドア1.24×2.33m。</li>
-      <li>南面のガラス48.8㎡・66%、最高高さ8.93m（以前9.55m）。</li>
-    </ul></details></div>
-    <div><h3>Key numbers</h3><dl>
-      <dt>Floor area</dt><dd>1F 146.4 · 2F 142.5 m² (as Plan B — Ichijo)</dd>
-      <dt>Roof, highest point</dt><dd>8.93 m above ground (3.5 sun; flat roof 6.39 m; was 9.55 m)</dd>
-      <dt>Front door</dt><dd>parent-child, 1.24 × 2.33 m</dd>
-      <dt>Bath</dt><dd>32.1 m² + sauna 5.5 m²</dd>
-      <dt>Gym</dt><dd>52.1 m²</dd>
-      <dt>Glass on the view (south) side</dt><dd>48.8 m², 66 % of the south walls (was 53.9 m², 73 %)</dd>
-    </dl></div>
-  </div>
-  <div class="floors">
-    <figure><a href="plans-img/g_1F.png?v=23"><img src="plans-img/g_1F.png?v=23" alt="Plan g, 1F" width="1400" height="950" loading="lazy"></a><figcaption>1F</figcaption></figure>
-    <figure><a href="plans-img/g_2F.png?v=23"><img src="plans-img/g_2F.png?v=23" alt="Plan g, 2F" width="1400" height="950" loading="lazy"></a><figcaption>2F</figcaption></figure>
+    <figure><a href="plans-img/b_1F.png?v=24"><img src="plans-img/b_1F.png?v=24" alt="Tsuchiya rev. — budget option, 1F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">1F</span><span class="ja" lang="ja">1階</span></figcaption></figure>
+    <figure><a href="plans-img/b_2F.png?v=24"><img src="plans-img/b_2F.png?v=24" alt="Tsuchiya rev. — budget option, 2F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">2F</span><span class="ja" lang="ja">2階</span></figcaption></figure>
+    <figure><a href="plans-img/b_loft.png?v=24"><img src="plans-img/b_loft.png?v=24" alt="Tsuchiya rev. — budget option, Loft" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">Loft</span><span class="ja" lang="ja">ロフト</span></figcaption></figure>
   </div>
 </section>
 </main>
-<footer>Areas are measured to wall centre lines, as in the editor. Glass and roof heights are from the models (above the ground level they assume). <a href="index.html">3D walkthrough</a> · <a href="edit.html?plan=e">Plan editor</a></footer>
+<script>
+(function () {
+  var R = document.documentElement, B = document.querySelectorAll('.lang button');
+  function set(l, keep) {
+    R.className = l; R.lang = l;
+    document.title = l === 'ja' ? '倶知安 住宅計画 — 間取り図' : 'Kutchan house — floor plans';
+    for (var i = 0; i < B.length; i++) B[i].classList.toggle('on', B[i].getAttribute('data-l') === l);
+    if (keep) try { localStorage.setItem('h3dPlansLang', l); } catch (e) {}
+  }
+  for (var i = 0; i < B.length; i++) B[i].onclick = function () { set(this.getAttribute('data-l'), true); };
+  set(R.className === 'ja' ? 'ja' : 'en', false);
+})();
+</script>
 </body>
 </html>

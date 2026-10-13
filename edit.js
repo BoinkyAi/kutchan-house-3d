@@ -4,11 +4,12 @@
    ?plan=b = the revised Tsuchiya plan (ref-model-b.json, 3D: index.html?house=4),
    ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5) and
    ?plan=d = Plan C, L-shaped (ref-model-d.json, 3D: index.html?house=6), each
-   saved under its own key. v23: plan a (the Tsuchiya reference house) removed;
-   no ?plan (or an unknown one) opens plan b.
-   ?plan=e = Plan B — Ichijo (3D: index.html?house=7) and its variants ?plan=f
-   "compact" (house 8) and ?plan=g "3 up, 1 down" (house 9): PLANS[x].ichijo =
+   saved under its own key. ?plan=f = Plan B — Ichijo · compact (house 8) and
+   ?plan=g = Plan B — Ichijo · 3 up, 1 down (house 9): PLANS[x].ichijo =
    the Ichijo spec panel + catalogue fittings (ichijo.js).
+   This file is byte-identical in two apps: kutchan-house-3d (<html data-plans="d c b">) and
+   kutchan-house-ichijo (data-plans="g f"); the first plan listed is the default, any other
+   ?plan opens it (edit.html's head script sends plans that live in the other app there).
    v20: a model's "carport" (plan d, outside the house) is drawn on the 1F as a
    dashed outline with its posts, and counted in the fit-to-screen.
    v21: a compass on every plan (rose in a corner + the four sides of the drawing
@@ -25,15 +26,15 @@ const PLANS = {
   b: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
-  e: { url: 'ref-model-e.json?v=8', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e', ichijo: true },
   f: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
   g: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
 };
-const _qPlan = (new URLSearchParams(location.search).get('plan') || 'b').toLowerCase();
-const PLAN = PLANS[_qPlan] ? _qPlan : 'b';
+const APP_PLANS = (document.documentElement.dataset.plans || 'd c b').trim().split(/\s+/).filter(p => PLANS[p]);
+const _qPlan = (new URLSearchParams(location.search).get('plan') || '').toLowerCase();
+const PLAN = APP_PLANS.includes(_qPlan) ? _qPlan : APP_PLANS[0];
 const REF = PLANS[PLAN];
 try { localStorage.removeItem('h3dRefModel'); } catch (e) { /* private mode */ }   /* v23: plan a's saved copy */
-const PE = !!REF.ichijo;            /* plans e, f, g = Plan B — Ichijo + variants: the Ichijo spec panel + catalogue fittings (ichijo.js) */
+const PE = !!REF.ichijo;            /* plans f, g = the Plan B — Ichijo variants: the Ichijo spec panel + catalogue fittings (ichijo.js) */
 
 /* ------------------------------------------------------------------ text */
 const TX = {
@@ -71,7 +72,7 @@ const TX = {
       tube: 'Soaking tub (hinoki)', saunaBench: 'Sauna bench', saunaHeater: 'Sauna heater', gymRack: 'Power rack', gymBench: 'Weight bench',
       treadmill: 'Treadmill', mat: 'Exercise mat', railing: 'Glass railing',
       showerSystem: 'Shower column', armchair: 'Armchair', bookcase: 'Bookcase', water_heater: 'Water heater', coatHanger: 'Hanging rail',
-      tv: 'TV / media unit', 'kitchen.cabinet': 'Kitchen unit (Plan B)', fence: 'Fence', shade: 'Pergola', wallCabinet: 'Wall cabinets', sinkDouble: 'Double sink' },
+      tv: 'TV / media unit', 'kitchen.cabinet': 'Kitchen unit', fence: 'Fence', shade: 'Pergola', wallCabinet: 'Wall cabinets', sinkDouble: 'Double sink' },
     help: '<h3>Plan editor</h3>'
       + '<b>Move a wall</b>: drag it. The walls joined to it stretch with it, rooms reshape and their areas update. A straight run of walls moves together. With <b>Outside walls: all floors</b> on, moving an outside wall moves it on every floor (the roof follows).<br>'
       + '<b>Wall ends</b>: select a wall, then drag the round handle at an end to make it longer or shorter.<br>'
@@ -81,7 +82,7 @@ const TX = {
       + '<b>Undo</b> <kbd>Ctrl Z</kbd> · <b>Redo</b> <kbd>Ctrl Shift Z</kbd> · zoom: wheel or pinch · pan: drag empty space.<br><br>'
       + 'Everything saves in this browser automatically. <b>View in 3D</b> opens the walkthrough of your version; <b>Share link</b> makes a link to send (the plan is inside the link). <b>Reset</b> goes back to the plan as first drawn.<br>'
       + '<span style="opacity:.6"></span>',   /* per plan: planHelp() puts the plan's description here */
-    cmp: { n: 'NORTH · neighbour', e: 'EAST · road', s: 'SOUTH · Mt Yotei view', w: 'WEST · snow side' }, cmpNote: 'drawn with north at the bottom',
+    cmp: { n: 'NORTH · neighbour', e: 'EAST · road', s: 'SOUTH · Mt Yotei view', w: 'WEST · snow side' },
     plans: 'Plans', plansT: 'All floor plans on one page',
   },
   ja: {
@@ -118,7 +119,7 @@ const TX = {
       tube: '浴槽（ひのき）', saunaBench: 'サウナベンチ', saunaHeater: 'サウナストーブ', gymRack: 'パワーラック', gymBench: 'トレーニングベンチ',
       treadmill: 'ランニングマシン', mat: 'トレーニングマット', railing: 'ガラス手すり',
       showerSystem: 'シャワー水栓', armchair: 'アームチェア', bookcase: '本棚', water_heater: '給湯器', coatHanger: 'ハンガーパイプ',
-      tv: 'テレビ台', 'kitchen.cabinet': 'キッチン（プランB）', fence: 'フェンス', shade: 'パーゴラ', wallCabinet: '吊戸棚', sinkDouble: 'ダブルシンク' },
+      tv: 'テレビ台', 'kitchen.cabinet': 'キッチンユニット', fence: 'フェンス', shade: 'パーゴラ', wallCabinet: '吊戸棚', sinkDouble: 'ダブルシンク' },
     help: '<h3>間取り編集</h3>'
       + '<b>壁を動かす</b>：壁をドラッグします。つながっている壁が伸び縮みし、部屋の形と面積も更新されます。一直線に並んだ壁は一緒に動きます。<b>外壁は全フロア連動</b>がオンのとき、外壁を動かすと全フロアの外壁が動きます（屋根も追従）。<br>'
       + '<b>壁の長さ</b>：壁を選択し、端の丸いハンドルをドラッグして伸ばす・縮める。<br>'
@@ -128,8 +129,8 @@ const TX = {
       + '<b>取り消し</b> <kbd>Ctrl Z</kbd> ・ <b>やり直し</b> <kbd>Ctrl Shift Z</kbd> ・ ズーム：ホイール／ピンチ ・ 移動：何もない所をドラッグ<br><br>'
       + '変更はこのブラウザに自動保存されます。<b>3Dで見る</b>で編集後の3Dウォークスルー、<b>共有リンク</b>で送れるリンクを作成（データはリンク内）。<b>元の図面に戻す</b>で最初の間取りに戻ります。<br>'
       + '<span style="opacity:.6"></span>',
-    cmp: { n: '北・隣地', e: '東・道路', s: '南・羊蹄山の眺望', w: '西・落雪側' }, cmpNote: '北が下の図面',
-    plans: '図面一覧', plansT: 'すべての間取り図を1ページで（英語）',
+    cmp: { n: '北・隣地', e: '東・道路', s: '南・羊蹄山の眺望', w: '西・落雪側' },
+    plans: '図面一覧', plansT: 'すべての間取り図を1ページで',
   },
 };
 /* the per-plan strings (?plan=b-g): own title, reset question, extra floor finishes, and the
@@ -144,18 +145,16 @@ function planHelp(lang, reset, desc, twoFloors) {
 const FIN = { en: { fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)' }, ja: { fGranite: '黒い石調タイル（浴室）', fHinoki: 'ひのき（サウナ）', fRubber: 'ゴム床（ジム）' } };
 const ICHS = { en: { ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings" }, ja: { ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備' } };
 const DESC = {
-  b: { en: "Tsuchiya rev. — budget option: the revised plan, on the Tsuchiya Kensetsu reference house’s 910 mm grid, drawn with north at the bottom (the view side, south, at the top). 1F: a parent-child front door (two leaves, 1.24 × 2.33 m), the gym, a bigger bath (two hinoki tubs, walk-in shower, the sauna opening into it) and one changing + rest room that the entrance, stair, gym, WC, laundry and boiler room (under the stairs) all open off. 2F: the open LDK, the master bedroom with its ensuite and a closed den; loft: an ensuite bedroom and a second closed den. Bigger windows throughout; frosted panes are dotted.",
-    ja: "土屋 改案（予算重視案）：土屋建設の参考プランの改案（910mmグリッド、北が下の図面で上が眺望側＝南）。1階：親子ドアの玄関（扉2枚・1.24×2.33m）、ジム、広くした浴室（ひのき浴槽2つ・ウォークインシャワー・浴室から入るサウナ）、玄関・階段・ジム・トイレ・洗濯室・機械室（階段下）がすべて面する脱衣・休憩室。2階：オープンなLDK、専用シャワー室付きの主寝室とドアのある書斎、ロフトに専用シャワー室付きの寝室とドアのある書斎。窓はすべて大きくし、すりガラスは点描で表示。" },
-  c: { en: "Plan B compact: one 13.65 x 9.1 m box (15 x 10 modules of 910 mm), 2 floors + a loft, under one roof high on the east (road) side and low over the west (snow) side. 1F: a double front door on the north under the carport (dashed), the gym behind four 2.6 m sliding glass doors on the south (view) side, a bigger bath (two hinoki tubs) with a 5.0 m² sauna opening into it, one changing + rest room with the one laundry off it, and the boiler in a closet under the stair. 2F: an open LDK facing the view, 2 ensuite bedrooms and 2 closed dens; loft: a bedroom / den with its own bathroom (shower, WC, washstand) and closet. All windows are standard YKK sizes; a small number by a window counts the units stacked in it. Frosted panes are dotted.",
-    ja: "プランB 縮小版：13.65×9.1mの箱型（910mmモジュールで15×10）、2階建て＋ロフト、屋根は東（道路側）が高く西（落雪側）が低い。1階：北側のカーポート（破線）の下に両開きの玄関ドア、南（眺望側）に幅2.6mの掃き出し窓4本が並ぶジム、広くした浴室（ひのき浴槽2つ）と浴室から入る5.0m²のサウナ、脱衣・休憩室1室とその奥の洗濯室（1か所）、階段下の機械室（ボイラー）。2階：眺望に面したオープンなLDK、専用シャワー室付きの寝室2室、ドアのある書斎2室、ロフトにシャワールーム（シャワー・トイレ・洗面）とクローゼット付きの寝室/書斎。窓はすべてYKKの標準サイズ、窓の横の小さな数字は上下に重ねた窓の数。すりガラスは点描で表示。" },
-  d: { en: "Plan C: the L-shaped version of Plan B compact, a 12.74 x 8.19 m bar (14 x 9 modules of 910 mm) with a 5.46 x 4.55 m wing, under one roof high on the east (the wing end); the right-hand side of the drawing is the south (view) facade. Every window is a standard YKK AP unit; the small number on a window is the count of units stacked in that column. 1F: a double front door in the L’s inner corner under the carport (dashed), the ski / gear room, a compact hall (no corridor) with the laundry, the WC and the boiler room off it (WC + boiler under the stair), the gym in one room in the wing and along the view, a bigger bath in the north-west corner with an L-shaped 8.3 m² sauna, and one changing + rest room. 2F: the living in the wing (window columns on 3 sides), dining + kitchen with an L-shaped counter run (wall cabinets above) and an island, 6.2 m of worktop, the master suite, bedroom 2, bedroom 3 in the view corner and 2 closed dens. Frosted panes are dotted.",
-    ja: "プランC：プランB 縮小版のL字版で、12.74×8.19mの母屋（910mmモジュールで14×9）に5.46×4.55mの翼棟、屋根は東（翼棟の端）が高く、図面の右側が南（眺望側）の面。窓はすべてYKK APの規格サイズで、窓の小さな数字はその列に積んだ窓の数。1階：L字の内側の角のカーポート（破線）の下に両開きの玄関ドア、スキー/ギア室、洗濯室・トイレ・機械室が面するコンパクトなホール（廊下なし、トイレと機械室は階段下）、翼棟と眺望側の1室のジム、北西の角に広くした浴室とL字型のサウナ（8.3m²）、脱衣・休憩室1室。2階：翼棟にリビング（3面に窓の列）、L字の背面カウンター（上に吊戸棚）とアイランドのダイニング・キッチン（天板計6.2m）、主寝室、寝室2、眺望側の角の寝室3、ドアのある書斎2室。すりガラスは点描で表示。" },
-  e: { en: "Plan B — Ichijo: Toby’s Plan B under Ichijo Komuten’s limits, with a flat roof over the main block and Ichijo’s 3.5-sun roof over the living wing: the living’s ceiling slopes from 3.2 to 4.75 m and its tall walls carry Ichijo sliding doors with fixed windows stacked on top (the small number on a window = its units). Every window is one of Ichijo’s stock sizes. 1F, no corridor: a parent-child front door on the wing’s north (carport) face, a small genkan and a hall with a door to every room, the stair climbing east with the boiler room under it, the gym, a den / guest bedroom in the wing, one changing + rest room and one laundry; on the 2F the kitchen has a 3.15 m cupboard counter on its back wall. The <b>Ichijo spec</b> panel sets the heights, the roof and the window rules and picks the kitchen, cupboard, unit showers / unit baths, vanities, toilets and the door height from the catalogue; each fitting’s footprint is drawn in its room (green = fits, amber = needs a few cm, red = does not fit; the panel names the wall to move). Fittings follow the rooms when walls move.",
-    ja: "プランB 一条版：プランBに一条工務店の制約をかけた版で、母屋はフラット屋根、リビング棟は一条の3.5寸の片流れ屋根、リビングの天井は3.2mから4.75mへ上がる勾配天井で、高い壁は一条の掃き出し窓の上にFIX窓を重ねる（窓の小さな数字＝段数）。窓はすべて一条の規格サイズ。1階は廊下なし：カーポート側（北）の翼棟の面に親子ドアの玄関、小さな土間とすべての部屋へ直接ドアのあるホール、東へ上がる階段の下に機械室（ボイラー）、ジム、翼棟に書斎・客間、脱衣・休憩室と洗濯室は各1か所、2階のキッチンは背面に3.15mのカップボードの天板付き。<b>一条仕様</b>パネルで高さ・屋根・窓のルールを設定し、キッチン・カップボード・シャワーユニット／ユニットバス・洗面化粧台・トイレ・ドアの高さをカタログから選ぶと、各設備の大きさを部屋に表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない、動かす壁はパネルに表示）。壁を動かすと設備も部屋に合わせて動きます。" },
-  f: { en: "Plan B — Ichijo · compact: Plan B — Ichijo with the main block 2.73 m shorter (−16 % floor area), the same roof (flat over the main block, Ichijo’s 3.5-sun slope over the living wing only) and no corridor. 1F: the same north entrance, hall and stair (boiler room under it), the gym in one 52 m² room, bedroom 3 in the wing with its own bathroom, the bath along the north wall and the changing room with the one laundry off it. The <b>Ichijo spec</b> panel picks the fittings from the catalogue and checks each against its room (green = fits, amber = needs a few cm, red = does not fit); fittings follow the rooms when walls move.",
-    ja: "プランB 一条版・コンパクト：プランB 一条版の母屋を2.73m短くした版（床面積−16%）、屋根は同じ（母屋はフラット、リビング棟だけ一条の3.5寸の片流れ）、廊下なし。1階：同じ北側の玄関・ホール・階段（下に機械室）、1室の52m²のジム、翼棟に専用のバスルーム付きの寝室3、北側の浴室、脱衣室とその奥の洗濯室（1か所）。<b>一条仕様</b>パネルで設備をカタログから選び、部屋に収まるかを表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない）。壁を動かすと設備も部屋に合わせて動きます。" },
-  g: { en: "Plan B — Ichijo · 3 up, 1 down: Plan B — Ichijo with bedroom 3 moved down to the 1F and no corridor. 1F: the north entrance and hall open straight into bedroom 3 (the wing, glass on three sides) and, across the hall, its shower room (bathroom 3); the gym keeps the main block, with the bath, one changing + rest room, the one laundry and the boiler room under the stair as in Plan B — Ichijo. 2F: three bedrooms, each with a walk-in closet and a unit-shower bathroom. The <b>Ichijo spec</b> panel checks every fitting against its room (green = fits, amber = needs a few cm, red = does not fit); fittings follow the rooms when walls move.",
-    ja: "プランB 一条版・寝室1つ下階：プランB 一条版の寝室3を1階に移した版、廊下なし。1階：北側の玄関とホールから翼棟の寝室3（3面ガラス）と、ホールの向かいのそのシャワールーム（バスルーム3）へ直接入れ、ジムは母屋、浴室・脱衣・休憩室・洗濯室（1か所）・階段下の機械室はプランB 一条版と同じ。2階：寝室3室（それぞれウォークインクローゼットとシャワーユニットのバスルーム付き）。<b>一条仕様</b>パネルで各設備が部屋に収まるかを表示し（緑＝収まる、黄＝数cm不足、赤＝収まらない）、壁を動かすと設備も部屋に合わせて動きます。" },
+  b: { en: "Tsuchiya rev. — budget option<br>1F: entrance, gym 43.0 m², bath 14.9 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living · dining · kitchen 44.0 m², master bedroom with an ensuite, den.<br>Loft: bedroom with an ensuite, den.",
+    ja: "土屋 改案（予算重視案）<br>1階：玄関、ジム43.0m²、浴室14.9m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：LDK 44.0m²、主寝室（専用シャワー室付き）、書斎。<br>ロフト：寝室（専用シャワー室付き）、書斎。" },
+  c: { en: "Plan B compact<br>1F: entrance, ski / gear room, hall, gym 62.1 m², bath 21.1 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living + dining, kitchen with an island, master bedroom and bedroom 2, each with an ensuite and a walk-in closet, two dens, WC.<br>Loft: bedroom / den 29.8 m² with its own bathroom and a closet.",
+    ja: "プランB 縮小版<br>1階：玄関、スキー/ギア室、ホール、ジム62.1m²、浴室21.1m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：リビング・ダイニング、アイランドのあるキッチン、主寝室と寝室2（それぞれ専用シャワー室・ウォークインクローゼット付き）、書斎2室、トイレ。<br>ロフト：寝室/書斎29.8m²（専用バスルーム・クローゼット付き）。" },
+  d: { en: "Plan C<br>1F: entrance, ski / gear room, hall, gym 65.8 m², bath 24.8 m² (two hinoki tubs) with an 8.3 m² L-shaped sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living with windows on three sides, dining + kitchen with an island, master bedroom with an ensuite and a closet, bedroom 2 with an ensuite, bedroom 3, two dens, WC.",
+    ja: "プランC<br>1階：玄関、スキー/ギア室、ホール、ジム65.8m²、浴室24.8m²（ひのき浴槽2つ）とL字型のサウナ8.3m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：3面に窓のあるリビング、アイランドのあるダイニング・キッチン、主寝室（専用シャワー室・クローゼット付き）、寝室2（専用シャワー室付き）、寝室3、書斎2室、トイレ。" },
+  f: { en: "Plan B — Ichijo · compact<br>1F: entrance, hall, gym 52.0 m², bath 23.2 m² (two hinoki tubs) with a 4.0 m² sauna, changing room, laundry, WC, boiler room, bedroom 3 (14.2 m²) with its own bathroom.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (11.2, 11.5 and 13.0 m²), each with its own bathroom; walk-in closets for bedrooms 2 and 4.",
+    ja: "プランB 一条版・コンパクト<br>1階：玄関、ホール、ジム52.0m²、浴室23.2m²（ひのき浴槽2つ）とサウナ4.0m²、脱衣室、洗濯室、トイレ、機械室、寝室3（14.2m²、専用バスルーム付き）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（11.2・11.5・13.0m²、それぞれ専用バスルーム付き、寝室2・4はウォークインクローゼット付き）。" },
+  g: { en: "Plan B — Ichijo · 3 up, 1 down<br>1F: entrance, hall, gym 52.1 m², bath 32.1 m² (two hinoki tubs) with a 5.5 m² sauna, changing + rest room, laundry, WC, boiler room, bedroom 3 (18.4 m²) with its own shower room across the hall.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (18.2, 19.9 and 14.1 m²), each with a walk-in closet and its own bathroom.",
+    ja: "プランB 一条版・寝室1つ下階<br>1階：玄関、ホール、ジム52.1m²、浴室32.1m²（ひのき浴槽2つ）とサウナ5.5m²、脱衣・休憩室、洗濯室、トイレ、機械室、寝室3（18.4m²、ホールの向かいに専用シャワールーム）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（18.2・19.9・14.1m²、それぞれウォークインクローゼットと専用バスルーム付き）。" },
 };
 const TXB = {
   en: Object.assign({ title: "Plan editor · Tsuchiya rev. — budget option", resetQ: "Throw away your changes and go back to the revised plan as first drawn?",
@@ -175,12 +174,6 @@ const TXD = {
   ja: Object.assign({ title: "間取り編集・プランC", resetQ: "変更をすべて破棄して、プランCの最初の間取りに戻しますか？",
     help: planHelp('ja', "<b>元の図面に戻す</b>でプランCの最初の間取りに戻ります。", DESC.d.ja, true) }, FIN.ja),
 };
-const TXE = {
-  en: Object.assign({ title: "Plan editor · Plan B — Ichijo", resetQ: "Throw away your changes (walls and catalogue choices) and go back to Plan B — Ichijo as first drawn?",
-    help: planHelp('en', "<b>Reset</b> goes back to Plan B — Ichijo as first drawn.", DESC.e.en, true) }, FIN.en, ICHS.en),
-  ja: Object.assign({ title: "間取り編集・プランB 一条版", resetQ: "変更（壁・設備の選択）をすべて破棄して、プランB 一条版の最初の間取りに戻しますか？",
-    help: planHelp('ja', "<b>元の図面に戻す</b>でプランB 一条版の最初の間取りに戻ります。", DESC.e.ja, true) }, FIN.ja, ICHS.ja),
-};
 const TXF = {
   en: Object.assign({ title: "Plan editor · Plan B — Ichijo · compact", resetQ: "Throw away your changes (walls and catalogue choices) and go back to Plan B — Ichijo · compact as first drawn?",
     help: planHelp('en', "<b>Reset</b> goes back to Plan B — Ichijo · compact as first drawn.", DESC.f.en, true) }, FIN.en, ICHS.en),
@@ -193,7 +186,7 @@ const TXG = {
   ja: Object.assign({ title: "間取り編集・プランB 一条版・寝室1つ下階", resetQ: "変更（壁・設備の選択）をすべて破棄して、プランB 一条版・寝室1つ下階の最初の間取りに戻しますか？",
     help: planHelp('ja', "<b>元の図面に戻す</b>でプランB 一条版・寝室1つ下階の最初の間取りに戻ります。", DESC.g.ja, true) }, FIN.ja, ICHS.ja),
 };
-const TXP = { b: TXB, c: TXC, d: TXD, e: TXE, f: TXF, g: TXG };
+const TXP = { b: TXB, c: TXC, d: TXD, f: TXF, g: TXG };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
 if (!TX[LANG]) LANG = 'en';
 const T = (k) => TXP[PLAN][LANG][k] !== undefined ? TXP[PLAN][LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
@@ -425,7 +418,7 @@ function drawCompass(c) {
   /* the rose: bottom-left corner (top-right under the bar on a phone, where the tools sit at the bottom) */
   const r = 22, mob = W < 640;
   const tb = mob ? $('top').getBoundingClientRect().bottom : 0;
-  const note = C.northDown ? [TX.en.cmpNote].concat(LANG === 'ja' ? [TX.ja.cmpNote] : []) : [];
+  const note = [];                                    /* v24: no notes on the drawing (facts only) */
   const ox = mob ? W - 38 - r : 38 + r, oy = mob ? tb + 38 + r : H - 44 - r;   /* room for the N letter on any side */
   S.compass = { top: C.top, right: C.right, bottom: C.bottom, left: C.left, rose: [ox, oy], north: C.N, note: note.length > 0 };   /* for tests */
   const [nx, ny] = C.N, ex = -ny, ey = nx;
@@ -1343,7 +1336,7 @@ function ichijoOverlay(c) {
   }
 }
 async function ichijoStart() {
-  const mod = await import('./ichijo.js?v=8');
+  const mod = await import('./ichijo.js?v=9');
   ICH.mod = mod; ICH.cat = await mod.loadCatalog('catalog.json?v=2');
   const top = $('top');
   const b = el('button', { id: 'bIch', class: 'go', text: T('ich') }); b.title = T('icht');
@@ -1368,6 +1361,7 @@ async function ichijoStart() {
 
 /* ---------------------------------------------------------------- start */
 (async () => {
+  if (window.H3D_LEAVING) return;   /* edit.html's head script is sending this ?plan to the other app */
   const r = await fetch(REF.url); S.orig = await r.json();
   const { model, from } = await loadModel(REF.url, REF.key);
   S.model = model; S.from = from;
