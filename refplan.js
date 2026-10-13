@@ -1,15 +1,20 @@
 /* Reference-house model -> walkthrough plan.
-   Shared by the 3D page (app.js, ?house=3) and the plan editor (edit.html).
+   Shared by the 3D page (app.js, houses 4-9) and the plan editor (edit.html, plans b-g).
 
-   MODEL (ref-model.json; metres, x east, y SOUTH, like Floor Plan Creator):
+   MODEL (ref-model-*.json; metres, x east, y SOUTH, like Floor Plan Creator):
    levels[] { id, name, base, h (clear height), ct (floor build-up above it),
      walls[] { id, a:[x,y], b:[x,y], t, off?, h? (low wall: height), ops?[] }
         a wall is its reference (grid) line a->b; its body is t thick, shifted
         `off` along the line's normal (-dy, dx); t = 0 = room divider (no wall,
         it only splits rooms: an entrance step, a stair foot)
-        ops[] { id, type: window|door|double|sliding|slide|entry|hole, at
+        ops[] { id, type: window|door|double|parent-child|sliding|slide|entry|hole, at
           (start, metres from a along a->b), w, sill, head (from the floor), leaves?,
-          frost? | frosted? (obscured glass: milky in 3D, dotted in the editor) }
+          frost? | frosted? (obscured glass: milky in 3D, dotted in the editor),
+          v23: stack?[] { h, band? (0.12), style?, frost?, id? } = windows stacked over this
+            one in the same bay (expanded here into <id>s1, <id>s2...; two ops with the same
+            at + w at different heights are a stack too), child? (parent-child: the narrow
+            leaf, default 0.3 w), hinge? 'a'|'b' (the parent leaf's end), side? }
+          see /workspace/house3d/ref/PRIMITIVES.md
      rooms[] { id, name, ja, at:[x,y], floor: oak|tile|stone|concrete|void, dz? }
         a room is the region the walls close round its `at` point
      items[] { id, kind, x, y, w, d, a, ... } }
@@ -25,7 +30,28 @@
 'use strict';
 
 const TOL = 1e-3;
-export const OP_KIND = { window: 'WINDOW', door: 'DOOR', double: 'DOUBLE_DOOR', sliding: 'SLIDING_HUNG_DOOR', slide: 'DOUBLE_DOOR', entry: 'DOOR', hole: 'HOLE' };
+export const OP_KIND = { window: 'WINDOW', door: 'DOOR', double: 'DOUBLE_DOOR', 'parent-child': 'DOUBLE_DOOR', sliding: 'SLIDING_HUNG_DOOR', slide: 'DOUBLE_DOOR', entry: 'DOOR', hole: 'HOLE' };
+/* v23: an op with a stack -> the op + one op per stacked unit (same at / w; each unit's sill
+   = the head of the unit below + band). Shared with edit.js and check_model.py's rules. */
+export const STACK_BAND = 0.12;
+export function expandStack(o) {
+  if (!o || o.type !== 'window' || !Array.isArray(o.stack) || !o.stack.length) return [o];
+  const out = [o];
+  let head = o.head;
+  o.stack.forEach((u, k) => {
+    const sill = r4(head + (u.band === undefined ? STACK_BAND : u.band)), h = Math.max(0.05, +u.h || 0);
+    out.push({ id: u.id || o.id + 's' + (k + 1), type: 'window', at: o.at, w: o.w, sill, head: r4(sill + h),
+      style: u.style || '', frost: u.frost || u.frosted ? 1 : 0, src: o.src, stackOf: o.id });
+    head = sill + h;
+  });
+  return out;
+}
+/* v23: the narrow leaf of a parent-child door of total width W: o.child (default 0.3 W), at
+   least 0.2 and leaving the parent >= 0.3; W <= 0.5 m is too narrow to split: two halves.
+   Shared by app.js (3D leaves) and edit.js (plan leaves + panel) */
+export function childLeaf(o, W) {
+  return W > 0.5 ? Math.max(0.2, Math.min(o.child > 0 ? o.child : 0.3 * W, W - 0.3)) : W / 2;
+}
 
 /* ------------------------------------------------------------- 2D helpers */
 const sub = (p, q) => [p[0] - q[0], p[1] - q[1]];
@@ -449,11 +475,18 @@ export function toPlan(model) {
         const sA = first ? -e0 : run.s0, sB = last ? fr.L + e1 : run.s1;
         if (sB - sA < 0.01) return;
         const ops = [];
-        for (const o of w.ops || []) {
+        for (const o of (w.ops || []).flatMap(expandStack)) {
           const a0 = Math.max(o.at, sA), a1 = Math.min(o.at + o.w, sB);
           if (a1 - a0 < 0.02) continue;
           const kind = OP_KIND[o.type] || 'WINDOW';
-          ops.push({ kind, off: r4(a0 - sA), w: r4(a1 - a0), top: o.head, bottom: o.sill, id: o.id, solid: (o.type === 'entry' || o.solid) ? 1 : 0, leaves: o.leaves || 0, style: o.style || '', frost: (o.frost || o.frosted) ? 1 : 0 });
+          const op = { kind, off: r4(a0 - sA), w: r4(a1 - a0), top: o.head, bottom: o.sill, id: o.id, solid: (o.type === 'entry' || o.solid) ? 1 : 0, leaves: o.leaves || 0, style: o.style || '', frost: (o.frost || o.frosted) ? 1 : 0 };
+          /* v23: two-leaf entrance doors (app.js: solid leaves outside, the parent-child split) */
+          if (o.type === 'double' || o.type === 'parent-child') {
+            Object.assign(op, { type: o.type, leaves: 2, hinge: o.hinge === 'b' ? 'b' : 'a' });
+            if (o.type === 'parent-child') op.child = o.child;
+            if (a0 > o.at + 1e-6 || a1 < o.at + o.w - 1e-6) op.cut = 1;   /* split by a run boundary: plain leaves */
+          }
+          ops.push(op);
         }
         /* lowest floor beside this run (a sunken entrance / porch): the wall starts there */
         let y0 = 0;
@@ -561,9 +594,9 @@ export async function unpackModel(s) {
   const txt = await new Response(new Blob([b]).stream().pipeThrough(ds)).text();
   return JSON.parse(txt);
 }
-export const STORE_KEY = 'h3dRefModel';
 /* the model to show: a shared link (#m=) wins, then the editor's saved copy
-   (localStorage[storeKey]: one per built-in plan), then the original. A saved
+   (localStorage[storeKey]: one per built-in plan; v23: no default key, plan a's
+   'h3dRefModel' went with it), then the original. A saved
    copy whose "version" differs from the built-in file's was made from an
    older drawing of the plan: it is discarded (same version: kept) */
 export async function loadModel(defaultUrl, storeKey) {
@@ -572,9 +605,9 @@ export async function loadModel(defaultUrl, storeKey) {
   let orig = null;
   try { const r = await fetch(defaultUrl); if (r.ok) orig = await r.json(); } catch (e) { console.warn('fetch', defaultUrl, e); }
   const q = new URLSearchParams(location.search);
-  if (!q.has('orig')) {
+  if (!q.has('orig') && storeKey) {
     try {
-      const key = storeKey || STORE_KEY, s = localStorage.getItem(key);
+      const key = storeKey, s = localStorage.getItem(key);
       if (s) {
         const m = JSON.parse(s);
         if (m && (!orig || m.version === orig.version)) return { model: m, from: 'edited' };

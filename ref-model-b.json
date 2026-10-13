@@ -1,5 +1,5 @@
 {
- "version": 4,
+ "version": 5,
  "title": "Tsuchiya Kensetsu reference house — revised plan",
  "ja": "土屋 改案",
  "source": "Revision of the Tsuchiya Kensetsu reference house plan (1F gym + onsen: bath, sauna, changing + rest room; 2F LDK, master bedroom + ensuite, den; loft bedroom + ensuite, den)",
@@ -62,13 +62,14 @@
      "ops": [
       {
        "id": "o3",
-       "type": "entry",
-       "at": 0.7,
-       "w": 1.0,
+       "type": "parent-child",
+       "at": 0.417,
+       "w": 1.235,
        "sill": -0.25,
-       "head": 2.3,
+       "head": 2.08,
        "side": 1,
-       "hinge": "b"
+       "hinge": "b",
+       "child": 0.36
       },
       {
        "id": "o4",
@@ -562,9 +563,9 @@
      "id": "f5",
      "kind": "closet",
      "x": 5.909,
-     "y": 3.365,
+     "y": 3.395,
      "w": 0.77,
-     "d": 0.4,
+     "d": 0.34,
      "a": 3.141593,
      "h": 2.1
     },

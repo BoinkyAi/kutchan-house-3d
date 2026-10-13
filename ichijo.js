@@ -17,10 +17,17 @@
               (capped so it is <= slopeMaxArea m2); its ceiling IS the roof's underside
               (Ichijo's 勾配天井 follows the rafters), a bulkhead closes it off from the
               flat ceilings
-     windows  head = min(drawn head, sill + winMaxH, ceiling - winCeilGap); wider than
-              maxWindowW -> n equal units with `mullion` between; a transom
-              (transomH x <= transomMaxW, over a transomGap strip) where the ceiling
-              leaves >= transomTopGap above it, unless switched off per window
+     windows  v23 (STANDARDS.md §1b, §2 b-d; sashWindow): Ichijo's own sashes only. A drawn outside
+              window becomes whole standard rectangles: the height class from its sill (floor
+              sliders 0 -> 2,174, else on the 2,144 head line), columns of one width (the most
+              glass) at Ichijo's module pitch (1,653 -> 1,820 c/c), centred in the span; in the
+              sloped zone 1,653 wide, on a side wall on the 455 grid from the slope's low edge
+              with the corner module at the high end solid; over each column rows of high FIX
+              (JF5915 1,653 x 467; JF5961 1,900 where it fits = the high end wall) stacked on a
+              highGap band, ending >= highTopGap under the ceiling at the column's low edge and
+              within highMaxRun of the slope's low edge (Ichijo's 7-module rule): automatic
+              (ichijo.highWin set, unless ichijo.transom[id] = false) or the op's own `stack`
+              (PRIMITIVES.md; validated: a row that does not fit ends it)
      doors    every interior door at the catalogue door height
      fittings kitchen (I / peninsula / island), unit bath or unit shower, vanity, toilet:
               placed in the room's clear rectangle, with a fit verdict (bathrooms: the unit
@@ -38,13 +45,11 @@
               its low edge flush with the flat roof (snow lands on it); run vs roofRunMax (Ichijo:
               9 x 910 mm), sloped ceiling <= slopeMaxRun along the slope (5 x 910) and
               slopeMaxArea (12.5 jo); see flatWing()
-     ichijo.highWin <catalogue window id>  a high FIX (e.g. JF5915) over each window unit where
-              the sloped ceiling leaves room (highTopGap under the ceiling, highGap over the
-              window / transom below), within highMaxRun of the slope's low edge (7 x 910)
+     ichijo.highWin <catalogue window id>  v23: switches the automatic rows of high FIX on (see windows)
      room.fit.cupboard 'max' | <catalogue cupboard id>  Ichijo's cupboard with a worktop and wall
               units along the kitchen's back wall instead of the tall units (fitRoom) */
 'use strict';
-import { levelGraph, inPoly, polyArea } from './refplan.js?v=6';
+import { levelGraph, inPoly, polyArea } from './refplan.js?v=7';
 
 const r4 = (v) => Math.round(v * 1e4) / 1e4;
 const PITCH_STD = 3.5;                                           /* sun: Ichijo's standard roof pitch (the panel labels it) */
@@ -60,8 +65,7 @@ export const ICHIJO_DEFAULTS = {
   h1: 2.6, gymSunken: true, gymDrop: 0.2, buildUp: 0.45, h2: 2.4,
   view: 'e', slopeDepth: 99, slopeMaxArea: 22, pitch: 3.5, roofClear: 0.15, roofTh: 0.34, overhang: 0.6,
   heightLimit: 12, northH: 5, northK: 1.25, viewWall: 's', viewGap: 0.1,
-  winMaxH: 2.2, winCeilGap: 0.1, transomH: 0.3, transomMaxW: 1.8, transomGap: 0.15, transomTopGap: 0.1,
-  maxWindowW: 2.6, mullion: 0.1, transom: {}, doorH: 2.0,
+  winCeilGap: 0.1, transom: {}, doorH: 2.0,                        /* v23: winMaxH, transom*, maxWindowW, mullion gone (Ichijo sashes) */
   ubMargin: 0.15, walkway: 0.85, cupboardD: 0.45, toiletZone: 0.8, vanityStand: 0.6, endPassage: 0.85, needsMax: 0.3,
   showerMargin: 0.05, toiletW: 0.38, toiletD: 0.76,                 /* v19: shower = install space, else size + 50 mm / side; toilet = TOTO ZJ2 383 x 759 */
 };
@@ -179,7 +183,7 @@ function roomGeo(L, G, f) {
     if (!(w.t > 0) || !w.ops) return;
     const F = wallFrame(w);
     for (const o of w.ops) {
-      const isDoor = /door|double|sliding|entry|slide/.test(o.type), isWin = o.type === 'window';
+      const isDoor = /door|double|sliding|entry|slide|parent-child/.test(o.type), isWin = o.type === 'window';
       if (!isDoor && !isWin) continue;
       const s = o.at + o.w / 2, c = [w.a[0] + F.u[0] * s, w.a[1] + F.u[1] * s];
       for (const sg of [1, -1]) {
@@ -187,7 +191,7 @@ function roomGeo(L, G, f) {
         if (!inPoly(poly, p[0], p[1])) continue;
         const rec = { p, w: o.w, c: [c[0] + F.n[0] * qf, c[1] + F.n[1] * qf], u: F.u, n: [F.n[0] * sg, F.n[1] * sg], id: o.src || o.id };
         if (isWin) windows.push(Object.assign(rec, { sill: o.sill || 0 }));
-        else doors.push(Object.assign(rec, { swingIn: /^(door|entry|double)$/.test(o.type) && Math.sign(o.side || 1) === sg }));
+        else doors.push(Object.assign(rec, { swingIn: /^(door|entry|double|parent-child)$/.test(o.type) && Math.sign(o.side || 1) === sg }));
       }
     }
   });
@@ -277,6 +281,126 @@ function flatWing(M, L2, I, bb, view, B2, t, h0, k, FL2, gnd, pts) {
   return { under, al: (x, z) => al(x, z) - aj, roof, roofs: [flat, wing] };
 }
 
+/* ------------------------------------------------------------- v23 windows: Ichijo's own sashes */
+/* Ichijo sells its own triple-glazed resin sashes only (/workspace/house3d/ref/STANDARDS.md §1b), so every drawn
+   outside window becomes whole standard rectangles. Height class from the drawn sill: floor sliders (掃き出し)
+   0 -> 2,174, every other unit ends on Ichijo's 2,144 head line; the widths each class comes in: [W, code, kind] */
+export const SASH = [
+  { k: 'floor', sill: 0, h: 2.174, below: 0.12, units: [[2.487, 'J8671', 'sliding'], [1.653, 'J5971', 'sliding'], [1.545, 'J5571', 'sliding']] },
+  { k: '1900', sill: 0.244, h: 1.9, below: 0.6, units: [[2.487, 'J8661', 'sliding'], [1.653, 'J5961', 'sliding'], [0.743, 'JF2461', 'fix'], [0.6, 'JF2061', 'fix'], [0.405, 'JF1561', 'fix'], [0.228, 'JF1061', 'fix']] },
+  { k: '1175', sill: 0.969, h: 1.175, below: 1.35, units: [[2.487, 'J8642', 'sliding'], [1.653, 'J5942', 'sliding']] },
+  { k: '603', sill: 1.541, h: 0.603, below: 1.62, units: [[0.6, 'JF2020', 'fix']] },
+  { k: '467', sill: 1.677, h: 0.467, below: Infinity, units: [[2.487, 'J8615T', 'sliding'], [1.653, 'JF5915', 'fix'], [1.198, 'JF4415', 'fix']] },
+];
+/* units stacked over a column, by its width (mm): the same width (mullions line up), tallest first. Automatic rows
+   go on 1,653 columns only = STANDARDS' default Ichijo bay (J5971 + JF5915 1,653 x 467; JF5961 1,653 x 1,900 where
+   it fits under the ceiling = the high end wall, §2 d3) */
+export const SASH_HIGH = { 1653: [[1.9, 'JF5961'], [0.467, 'JF5915']], 2487: [[1.9, 'J8661'], [0.467, 'J8615T']], 1198: [[0.467, 'JF4415']],
+  743: [[1.9, 'JF2461']], 600: [[1.9, 'JF2061'], [0.603, 'JF2020']], 405: [[1.9, 'JF1561']], 228: [[1.9, 'JF1061']] };
+const HALF = MASU / 2;                                           /* sashes sit on Ichijo's half-module grid (455 mm) */
+/* centre-to-centre of repeated columns: the half modules the unit + >= 120 mm of wall take (1,653 -> 1,820 = 2 modules,
+   167 of wall between; 2,487 -> 2,730 = 3 modules) */
+export const sashPitch = (W) => Math.ceil((W + 0.12) / HALF - 1e-9) * HALF;
+const sashClass = (sill) => SASH.find(c => sill < c.below);
+/* a drawn window that already is one Ichijo unit at its standard height (the generators draw them so) */
+function sashExact(o) {
+  for (const c of SASH) {
+    if (Math.abs(o.sill - c.sill) > 0.006 || Math.abs(o.head - c.sill - c.h) > 0.006) continue;
+    const u = c.units.find(x => Math.abs(o.w - x[0]) < 0.003);
+    if (u) return { c, u };
+  }
+  return null;
+}
+/* columns of one width in the span s0..s1 along the wall: the widest unit, a narrower one only for 15 % more glass
+   (units under 1.5 m, the slits, only where no wider one fits), as many as fit at sashPitch, centred in the span; on a side wall of the sloped zone (grid) the columns sit in bays of the
+   pitch on the 455 grid counted from the slope's low edge (grid.run(s) = metres from it), each centred in its bay,
+   none past grid.limit (the solid corner module at the high end) */
+function sashColumns(s0, s1, c, onlyW, grid) {
+  let best = null;
+  const wide = c.units.some(u => u[0] >= 1.5 && s1 - s0 >= u[0] - 1e-6 && (!onlyW || Math.abs(u[0] - onlyW) < 1e-6));
+  for (const [W, code, kind] of c.units) {
+    if ((onlyW && Math.abs(W - onlyW) > 1e-6) || s1 - s0 < W - 1e-6 || (wide && W < 1.5)) continue;
+    const p = sashPitch(W), tries = [];
+    if (grid) {
+      const rA = Math.min(grid.run(s0), grid.run(s1)), rB = Math.max(grid.run(s0), grid.run(s1));
+      for (let ph = 0; ph < p - 1e-6; ph += HALF) {
+        const at = [];
+        for (let k = Math.floor((rA - ph) / p) - 1; ph + k * p < rB; k++) {
+          const c0 = ph + k * p + (p - W) / 2, c1 = c0 + W;
+          if (c0 < rA - 1e-6 || c1 > rB + 1e-6 || c1 > grid.limit + 1e-6) continue;
+          at.push(Math.min(grid.s(c0), grid.s(c1)));
+        }
+        tries.push(at.sort((a, b) => a - b));
+      }
+    } else {
+      const n = Math.floor((s1 - s0 - W) / p + 1e-9) + 1, a0 = s0 + (s1 - s0 - (n - 1) * p - W) / 2;
+      tries.push(Array.from({ length: n }, (_, i) => a0 + i * p));
+    }
+    for (const at of tries) if (at.length && (!best || at.length * W > best.at.length * best.W * (best.W > W + 1e-6 ? 1.15 : 1) + 1e-6)) best = { W, code, kind, at, c };
+  }
+  return best;
+}
+/* the rows stacked over one column (head = the column's head): explicit (the drawn op's stack: each entry snapped to
+   the tallest unit of the column's width not taller than drawn that fits, band 100-200 mm, default `band`) or automatic
+   (the tallest unit that fits, row after row); every row ends >= gap under the ceiling at the column's low edge (cLow)
+   and only where reachOk (Ichijo's 7-module rule); the first row that does not fit ends the stack */
+function sashRows(W, head, stk, cLow, gap, band, reachOk) {
+  const list = SASH_HIGH[Math.round(W * 1000)] || [], rows = [];
+  if (!list.length || !reachOk) return rows;
+  for (let k = 0, h = head; !stk || k < stk.length; k++) {
+    const e = stk ? stk[k] : null;
+    const b = e && e.band !== undefined && e.band !== null ? Math.min(0.2, Math.max(0.1, +e.band)) : band, sill = h + b;
+    const want = e ? Math.max(list[list.length - 1][0], +e.h || 0) + 0.01 : Infinity;
+    const u = list.find(x => x[0] <= want && sill + x[0] + gap <= cLow + 1e-6);
+    if (!u) break;
+    rows.push({ sill: r4(sill), head: r4(sill + u[0]), h: u[0], code: u[1], band: r4(b), e });
+    h = sill + u[0];
+  }
+  return rows;
+}
+/* one drawn outside window -> Ichijo sashes (STANDARDS.md §2 b-d): the columns (the drawn op itself when it already is
+   one standard unit, else sashColumns in its span: in the sloped zone 1,653 wide, the width that has a 467 FIX), each
+   with its rows of high FIX stacked on a highGap band (sashRows: the op's own stack, else the automatic rows where
+   autoHigh and not switched off in ichijo.transom). X = { li, F, t, P(s, q), inq, ceilSpan(s0, s1), zone, FW, runAt, I, autoHigh } */
+function sashWindow(o, X) {
+  const { I, zone, FW, li } = X;
+  const stk = Array.isArray(o.stack) && o.stack.length ? o.stack : null;
+  let inZone = false, grid = null;
+  if (zone && li === 1) {
+    const Z = zone.rect, inR = (p) => p[0] > Z[0] - 1e-3 && p[0] < Z[2] + 1e-3 && p[1] > Z[1] - 1e-3 && p[1] < Z[3] + 1e-3;
+    inZone = [0.1, 0.5, 0.9].some(tt => inR(X.P(o.at + o.w * tt, X.inq)));
+    const AL = SIDE[zone.view], ua = X.F.u[0] * AL[0] + X.F.u[1] * AL[1];
+    if (inZone && FW && Math.abs(ua) > 0.999) {
+      const p0 = X.P(0, 0), r0 = FW.al(p0[0], p0[1]);
+      grid = { run: (s) => r0 + ua * s, s: (r) => (r - r0) / ua, limit: zone.to + X.t / 2 - opt(I, 'cornerWall', MASU) };
+    }
+  }
+  const ex = sashExact(o);
+  let C = ex ? { W: ex.u[0], code: ex.u[1], kind: ex.u[2], at: [o.at], c: ex.c } : null;
+  if (!ex) {
+    const c0 = sashClass(o.sill);
+    for (const c of [c0, ...SASH.filter(x => x !== c0).sort((a, b) => Math.abs(a.sill - o.sill) - Math.abs(b.sill - o.sill))]) {
+      C = (inZone && sashColumns(o.at, o.at + o.w, c, 1.653, grid)) || sashColumns(o.at, o.at + o.w, c, null, grid);
+      if (C) break;
+    }
+  }
+  const autoOn = !!X.autoHigh && !stk && (I.transom || {})[o.id] !== false;
+  const cols = [];
+  let fits = false;
+  for (const at of C ? C.at : []) {
+    const cs = X.ceilSpan(at, at + C.W), ends = [X.P(at, 0), X.P(at + C.W, 0)];
+    const reach = X.runAt ? Math.max(...ends.map(p => X.runAt(p[0], p[1]))) : 0;
+    const sloped = inZone && cs > I.h2 + 1e-3;
+    const gap = sloped ? opt(I, 'highTopGap', 0.15) : I.winCeilGap, band = opt(I, 'highGap', 0.15);
+    const reachOk = !sloped || reach <= opt(I, 'highMaxRun', 7 * MASU) + 1e-6, head = r4(C.c.sill + C.c.h);
+    const auto = Math.round(C.W * 1000) === 1653 ? sashRows(C.W, head, null, cs, gap, band, reachOk) : [];
+    if (auto.length) fits = true;
+    cols.push({ at: r4(at), w: C.W, sill: C.c.sill, head, code: C.code, kind: C.kind, ceil: r4(cs), reach: r4(reach),
+      rows: stk ? sashRows(C.W, head, stk, cs, gap, band, reachOk) : autoOn ? auto : [] });
+  }
+  return { C, cols, stk, autoOn, fits, inZone };
+}
+
 /* ------------------------------------------------------------- derive */
 export function derive(model, cat, lang) {
   lang = lang || 'en';
@@ -294,7 +418,7 @@ export function derive(model, cat, lang) {
   /* ---- the roof (one plane over the whole 2F, high on side ichijo.view) and the
      sloped zone of the living under it (its ceiling = the roof's underside) */
   const k = I.pitch / 10;
-  let zone = null, FW = null;
+  let zone = null, FW = null, runAt = null;
   if (L2) {
     const fl = G2.rooms.find(f => f.room && (f.room.living || /^living/i.test(f.room.name)));
     if (fl) {
@@ -324,6 +448,8 @@ export function derive(model, cat, lang) {
       /* v22 roofMode 'flatMain+wing': a flat main block + the wing's own mono-pitch roof (null: no junction found) */
       FW = I.roofMode === 'flatMain+wing' ? flatWing(M, L2, I, bb, view, B2, t, h0, k, FL2, info.heights.ground, pts) : null;
       const under = FW ? FW.under : (x, z) => h0 + k * up(x, z);       /* the roof's underside (absolute) */
+      /* v23: metres along the slope from its low edge (the wing roof's junction; the single plane's low outer face) */
+      runAt = FW ? FW.al : (x, z) => up(x, z) + t;
       const underD = (dd) => h0 + k * dd;
       const rf = { id: 'ichijo', levels: [1], custom: 1, k, th: I.roofTh, over: { n: I.overhang, s: I.overhang, e: I.overhang, w: I.overhang },
         rect: [r4(B2[0] - t), r4(B2[1] - t), r4(B2[2] + t), r4(B2[3] + t)] };
@@ -385,9 +511,9 @@ export function derive(model, cat, lang) {
   /* ---- windows + doors (+ the glass on the view facade: info.south) */
   const DH = doorHeight(cat, I);
   const south = { dir: I.viewWall, glass: 0, wall: 0, pct: 0, windows: 0 };
-  /* v22 ichijo.highWin: the catalogue FIX put high over a window unit (its size; JF5915 1,653 x 467 if not found) */
-  const hwIt = I.highWin && cat && cat.byId ? cat.byId.get(I.highWin) : null;
-  const HW = I.highWin ? { w: hwIt && hwIt.width_mm ? hwIt.width_mm / 1000 : 1.653, h: hwIt && hwIt.height_mm ? hwIt.height_mm / 1000 : 0.467 } : null;
+  /* v23: every outside window = Ichijo's own sashes (sashWindow); ichijo.highWin (v22: the JF5915 id) switches the
+     automatic rows of high FIX on */
+  const autoHigh = !!I.highWin;
   M.levels.forEach((L, li) => {
     const G = li === 1 ? G2 : levelGraph(L);
     for (const w of L.walls || []) {
@@ -409,61 +535,43 @@ export function derive(model, cat, lang) {
       const ops = [];
       for (const o of w.ops) {
         if (o.type === 'window' && isExt) {
-          const c0 = [w.a[0] + F.u[0] * o.at, w.a[1] + F.u[1] * o.at], c1 = [w.a[0] + F.u[0] * (o.at + o.w), w.a[1] + F.u[1] * (o.at + o.w)];
+          /* v23 (STANDARDS.md §2 b-d): Ichijo's own sashes, whole standard rectangles in columns of one width, rows
+             of high FIX stacked on a band where the sloped ceiling leaves room (sashWindow); was: the drawn glass capped
+             at 2.2 m + a floating 0.3 m transom / high FIX hung 0.15 m under the ceiling */
+          const P = (s, q) => [w.a[0] + F.u[0] * s + F.n[0] * q, w.a[1] + F.u[1] * s + F.n[1] * q];
           const inq = -outN * 0.05;                                   /* sample the ceiling just inside the wall */
-          const ceilSpan = (s0, s1) => Math.min(...[s0, (s0 + s1) / 2, s1].map(s => ceilAt(li, w.a[0] + F.u[0] * s + F.n[0] * inq, w.a[1] + F.u[1] * s + F.n[1] * inq)));
-          const m = I.mullion, n = Math.max(1, Math.ceil((o.w + m - 1e-6) / (I.maxWindowW + m)));
-          const uw = (o.w - (n - 1) * m) / n;
+          const ceilSpan = (s0, s1) => Math.min(...[s0, (s0 + s1) / 2, s1].map(s => { const p = P(s, inq); return ceilAt(li, p[0], p[1]); }));
           /* the room behind it: the most-sampled named room with a floor, 30 cm inside */
           const hits = new Map();
-          for (const tt of [0.12, 0.3, 0.5, 0.7, 0.88]) {
-            const s = o.at + o.w * tt, p = [w.a[0] + F.u[0] * s - F.n[0] * outN * 0.3, w.a[1] + F.u[1] * s - F.n[1] * outN * 0.3];
-            const f = G.rooms.find(ff => ff.room && ff.room.floor !== 'void' && inPoly(ff.poly, p[0], p[1]));
-            if (f) hits.set(f, (hits.get(f) || 0) + 1);
+          for (const d of [0.3, 1.6]) {                               /* v23: 1.6 m in where 0.3 m in is open to below (a stair opening) */
+            for (const tt of [0.12, 0.3, 0.5, 0.7, 0.88]) {
+              const p = P(o.at + o.w * tt, -outN * d);
+              const f = G.rooms.find(ff => ff.room && ff.room.floor !== 'void' && inPoly(ff.poly, p[0], p[1]));
+              if (f) hits.set(f, (hits.get(f) || 0) + 1);
+            }
+            if (hits.size) break;
           }
           const room = [...hits.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0])[0];
-          const dir = wdir;
-          const rec = { id: o.id, src: o.src || o.id, level: li, room: room && room.room ? { id: room.room.id, name: room.room.name, ja: room.room.ja } : null, dir,
-            drawn: { w: r4(o.w), sill: r4(o.sill), head: r4(o.head) }, n, unitW: r4(uw), units: [], transomOn: I.transom[o.id] !== false };
-          for (let i = 0; i < n; i++) {
-            const at = o.at + i * (uw + m), cs = ceilSpan(at, at + uw);
-            const head = r4(Math.max(o.sill + 0.3, Math.min(o.head, o.sill + I.winMaxH, cs - I.winCeilGap)));
-            const tw = Math.min(uw, I.transomMaxW), ts = head + I.transomGap, tt = ts + I.transomH;
-            let fits = cs - tt >= I.transomTopGap - 1e-6, tAt = at + (uw - tw) / 2;
-            /* v22 'flatMain+wing': a unit reaching past the sloped zone's edge keeps its transom slid to one end of the
-               unit where the transom's own span is under the sloped ceiling */
-            if (!fits && FW && tw < uw - 1e-6) for (const s of [at, at + uw - tw]) if (ceilSpan(s, s + tw) - tt >= I.transomTopGap - 1e-6) { fits = true; tAt = s; break; }
-            const u = { at: r4(at), w: r4(uw), sill: o.sill, head, ceil: r4(cs), transom: fits && rec.transomOn, fits };
-            rec.units.push(u);
-            ops.push(Object.assign({}, o, { id: o.id + (n > 1 ? '_' + i : ''), at: r4(at), w: r4(uw), head, style: o.style || '' }));
-            if (u.transom) ops.push({ id: o.id + '_t' + i, type: 'window', style: 'transom', at: r4(tAt), w: r4(tw), sill: r4(ts), head: r4(tt), src: o.src });
-            /* v22: a high FIX centred over the unit, highTopGap under the (sloped) ceiling, >= highGap over the unit
-               or its transom, within highMaxRun of the slope's low edge; style 'transom' = app.js stacks it over the unit */
-            if (HW && li === 1) {
-              const hh = r4(cs - opt(I, 'highTopGap', 0.15)), hs = r4(hh - HW.h), hat = at + (uw - HW.w) / 2;
-              const reach = FW ? Math.max(...[hat, hat + HW.w].map(s => FW.al(w.a[0] + F.u[0] * s, w.a[1] + F.u[1] * s))) : 0;
-              if (HW.w <= uw + 1e-6 && hs >= (u.transom ? r4(tt) : head) + opt(I, 'highGap', 0.15) - 1e-6 && reach <= opt(I, 'highMaxRun', 7 * MASU) + 1e-6) {
-                const hid = o.id + '_h' + i;
-                ops.push({ id: hid, type: 'window', style: 'transom', high: 1, at: r4(hat), w: r4(HW.w), sill: hs, head: hh, src: o.src });
-                (rec.highs = rec.highs || []).push({ id: hid, at: r4(hat), w: r4(HW.w), sill: hs, head: hh, ceil: r4(cs), reach: r4(reach) });
-              }
-            }
-          }
-          rec.head = rec.units[0].head;
-          rec.transomFits = rec.units.some(u => u.fits);
-          rec.transoms = rec.units.filter(u => u.transom).length;
-          rec.glass = r4(rec.units.reduce((a, u) => a + u.w * (u.head - u.sill) + (u.transom ? Math.min(u.w, I.transomMaxW) * I.transomH : 0), 0));
-          if (dir === I.viewWall) { south.glass += rec.glass; south.windows++; }
+          const S = sashWindow(o, { li, F, t: w.t, P, inq, ceilSpan, zone, FW, runAt, I, autoHigh });
+          const n = S.cols.length, sfx = (i) => (n > 1 ? '_' + i : '');
+          S.cols.forEach((u, i) => {
+            const base = Object.assign({}, o, { id: o.id + sfx(i), at: u.at, w: r4(u.w), sill: u.sill, head: u.head, style: o.style || '', sash: u.code });
+            delete base.stack;                                          /* its rows follow as their own openings (same at + w) */
+            ops.push(base);
+            u.rows.forEach((r, j) => ops.push({ id: (r.e && r.e.id ? r.e.id : o.id + 's' + (j + 1)) + sfx(i), type: 'window', at: u.at, w: r4(u.w),
+              sill: r.sill, head: r.head, style: '', high: 1, sash: r.code, src: o.src, frost: r.e && (r.e.frost || r.e.frosted) ? 1 : 0, stackOf: o.id }));
+          });
+          const rows = S.cols.map(u => u.rows.length), highs = rows.reduce((a, b) => a + b, 0);
+          const rec = { id: o.id, src: o.src || o.id, level: li, room: room && room.room ? { id: room.room.id, name: room.room.name, ja: room.room.ja } : null, dir: wdir,
+            drawn: { w: r4(o.w), sill: r4(o.sill), head: r4(o.head) }, n, unitW: n ? r4(S.C.W) : 0, unitH: n ? r4(S.C.c.h) : 0, code: n ? S.C.code : '', kind: n ? S.C.kind : '',
+            units: S.cols, head: n ? S.cols[0].head : null, sill: n ? S.cols[0].sill : null, zone: S.inZone,
+            highs, stack: Math.max(0, ...rows), transoms: rows.filter(k => k > 0).length, explicit: !!S.stk,
+            dropped: S.stk ? S.cols.reduce((a, u) => a + S.stk.length - u.rows.length, 0) : 0,
+            transomOn: S.autoOn, transomFits: S.fits,
+            glass: r4(S.cols.reduce((a, u) => a + u.w * (u.head - u.sill + u.rows.reduce((b, r) => b + r.h, 0)), 0)) };
+          if (wdir === I.viewWall) { south.glass += rec.glass; south.windows++; }
           info.windows.push(rec);
-          /* v22: each high FIX as its own schedule row (no transom) */
-          for (const h of rec.highs || []) {
-            const hr = { id: h.id, src: (o.src || o.id) + ' ↑', level: li, room: rec.room, dir, drawn: { w: h.w, sill: h.sill, head: h.head }, n: 1, unitW: h.w,
-              units: [{ at: h.at, w: h.w, sill: h.sill, head: h.head, ceil: h.ceil, transom: false, fits: false }], transomOn: false,
-              head: h.head, transomFits: false, transoms: 0, glass: r4(h.w * (h.head - h.sill)), high: 1, reach: h.reach, model: I.highWin };
-            if (dir === I.viewWall) { south.glass += hr.glass; south.windows++; }
-            info.windows.push(hr);
-          }
-        } else if (/door|double|sliding|slide|entry/.test(o.type)) {
+        } else if (/door|double|sliding|slide|entry|parent-child/.test(o.type)) {
           if (!isExt) ops.push(Object.assign({}, o, { head: r4(DH) }));
           else {
             const s = o.at + o.w / 2, p = [w.a[0] + F.u[0] * s - F.n[0] * outN * 0.05, w.a[1] + F.u[1] * s - F.n[1] * outN * 0.05];
@@ -955,8 +1063,10 @@ export const STR = {
     cupboardRow: 'カップボード（天板・吊戸棚）', cupMax: '入る最長', cupNone: 'トール収納（天板なし・従来）',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: '北', s: '南', e: '東', w: '西' },
-    windows: '窓（高さ最大2.2m）', maxW: '最大幅', transomNote: '欄間窓（0.3×1.8 m）は久坂氏の口頭説明のみ・カタログ未掲載', schedule: '窓リスト', transom: '欄間', noRoom: '天井が低く不可',
-    winRow: (w) => w.n > 1 ? w.n + '枚 × ' + Math.round(w.unitW * 1000) + '（方立100）' : Math.round(w.unitW * 1000) + '',
+    windows: '窓（一条の規格サッシのみ）', schedule: '窓リスト', transom: '上部FIX（自動）', noRoom: '天井が低く不可', stackNo: '図面で重ねた窓（平面図で編集）', stacked: (k) => ' ＋上に' + k + '枚',
+    sashRead: (c, h) => 'サッシ ' + c + '枚・上部FIX ' + h + '枚', dropped: (k) => '（' + k + '枚は天井に入らない）',
+    sashNote: '一条の自社サッシのみ：規格サイズ（幅228〜2,487×高さ467〜2,174）。掃き出し窓は高さ2,174まで、他の窓は上端2,144にそろえる。並ぶ窓は1,820ピッチ（2マス）。高窓はFIX JF5915（1,653×467、勾配の高い側の妻壁はJF5961 1,653×1,900）を同じ幅の窓の上に150mmの壁をはさんで重ねる：低い側の天井から150mm以上下、勾配の低い端から6.37m（7マス）以内のみ。高い側の角の1マスは壁。帯の寸法・2段目・JF5961の高窓使用は一条に要確認。',
+    winRow: (w) => w.n ? (w.n > 1 ? w.n + '枚 × ' : '') + w.code + ' ' + Math.round(w.unitW * 1000).toLocaleString('en-US') + '×' + Math.round(w.unitH * 1000).toLocaleString('en-US') : '—',
     fittings: '設備', kitchen: 'キッチン', layout: '型', ub: 'ユニットバス／シャワー', vanity: '洗面化粧台', toilet: 'トイレ', door: '室内ドアの高さ', allDoors: 'すべての室内ドア',
     hinoki: 'ひのき浴槽（図面どおり・造作）', showerOnly: 'シャワーユニット', cupboard: 'カップボード', summary: 'カタログ適合',
     fitRules: '判定：シャワーユニットはメーカーの据付寸法（未公表なら本体＋各辺50mm）、ユニットバスは本体＋各辺150mm。バスルームは奥からユニット・トイレ（幅0.8m、便器0.38×0.76m＝TOTO ZJ2）・洗面化粧台を一列に並べ、それぞれの前に0.6m以上の立つスペース。ドアの開き・出入り口は設備に当たらないこと、ユニットは窓の前に置かない。トイレ室は便器＋前0.6m×幅0.8m。',
@@ -965,7 +1075,7 @@ export const STR = {
     fix: (c, t) => t + 'を' + c + 'cm 広げる', sideWall: (d, n) => d + '側の壁' + (n ? '（' + n + '側）' : ''), sideExt: (d) => d + '側の外壁', sideDiv: (d, n) => d + '側の境界' + (n ? '（' + n + '・壁なし）' : '（壁なし）'), sideOpen: (d) => d + '側',
     inner: '内法', need: '必要', drawn: '図面', ichijo: '一条', units: '枚', head: '上端', prov: '［仮］はカタログ未確認の暫定値',
     col: { fit: '設備', room: '部屋', inner: '内法', set: '機種', verdict: '判定' },
-    roomCol: '部屋', winCol: '窓', drawnCol: '図面 幅×高', ichijoCol: '一条', trCol: '欄間',
+    roomCol: '部屋', winCol: '窓', drawnCol: '図面 幅×高', ichijoCol: '一条', trCol: '高窓',
   },
   en: {
     title: '一条仕様 / Ichijo spec', show: 'Ichijo spec', hide: 'Close',
@@ -989,8 +1099,10 @@ export const STR = {
     cupboardRow: 'Cupboard (worktop + wall units)', cupMax: 'Longest that fits', cupNone: 'Tall units, no worktop (as before)',
     areaRead: (a, m) => a.toFixed(1) + ' / ' + m + ' m²',
     dirs: { n: 'N', s: 'S', e: 'E', w: 'W' },
-    windows: 'WINDOWS (max 2.2 m tall)', maxW: 'Max width', transomNote: 'Transom (0.3 × 1.8 m) per Hisasaka verbally — not in the catalogue, confirm in writing', schedule: 'Window schedule', transom: 'Transom', noRoom: 'ceiling too low',
-    winRow: (w) => w.n > 1 ? w.n + ' × ' + Math.round(w.unitW * 1000) + ' (100 mullions)' : Math.round(w.unitW * 1000) + '',
+    windows: 'WINDOWS (Ichijo sashes only)', schedule: 'Window schedule', transom: 'High FIX rows (automatic)', noRoom: 'ceiling too low', stackNo: 'stack drawn in the plan (edit it there)', stacked: (k) => ' + ' + k + ' stacked',
+    sashRead: (c, h) => c + ' sash units · ' + h + ' high FIX stacked', dropped: (k) => ' (' + k + ' no room under the ceiling)',
+    sashNote: 'Ichijo\u2019s own sashes only: whole standard units (W 228–2,487 × H 467–2,174); floor sliders end at 2,174, every other unit on the 2,144 head line; side by side 1,820 c/c (2 modules). High windows = JF5915 FIX 1,653 × 467 (JF5961 1,653 × 1,900 on the high end wall) stacked over a unit of the same width on a 150 mm band, ≥ 150 mm under the ceiling at their low edge, only within 6.37 m (7 modules) of the slope\u2019s low edge; the corner module at the high end stays solid. Confirm with Ichijo: the band, the second row, JF5961 as a high unit.',
+    winRow: (w) => w.n ? (w.n > 1 ? w.n + ' × ' : '') + w.code + ' ' + Math.round(w.unitW * 1000).toLocaleString('en-US') + '×' + Math.round(w.unitH * 1000).toLocaleString('en-US') : '—',
     fittings: 'FITTINGS', kitchen: 'Kitchen', layout: 'Layout', ub: 'Unit bath / shower', vanity: 'Vanity', toilet: 'Toilet', door: 'Interior door height', allDoors: 'all interior doors',
     hinoki: 'Hinoki tubs as drawn (custom)', showerOnly: 'Unit shower', cupboard: 'Cupboard', summary: 'CATALOGUE FIT',
     fitRules: 'Fit rules: unit shower = the maker\u2019s installation space where published, else its size + 50 mm per side; unit bath = size + 150 mm per side. Bathrooms: from the far end the unit, a 0.8 m toilet zone (toilet 0.38 × 0.76 m, TOTO ZJ2), the vanity, in a line along one wall, with ≥ 0.6 m standing space in front of each; door swing and entry clear of the fittings; no unit in front of a window. WC: toilet + 0.6 m in front, 0.8 m wide.',
@@ -999,7 +1111,7 @@ export const STR = {
     fix: (c, t) => 'move ' + t + ' out ' + c + ' cm', sideWall: (d, n) => 'the ' + d + ' wall' + (n ? ' (' + n + ')' : ''), sideExt: (d) => 'the ' + d + ' outside wall', sideDiv: (d, n) => 'the open ' + d + ' side' + (n ? ' (' + n + ', no wall)' : ''), sideOpen: (d) => 'the ' + d + ' side',
     inner: 'clear', need: 'needs', drawn: 'drawn', ichijo: 'Ichijo', units: 'units', head: 'head', prov: '[provisional] = not yet confirmed by a catalogue',
     col: { fit: 'Fitting', room: 'Room', inner: 'Clear', set: 'Set', verdict: 'Verdict' },
-    roomCol: 'Room', winCol: 'Window', drawnCol: 'Drawn W×H', ichijoCol: 'Ichijo', trCol: 'Transom',
+    roomCol: 'Room', winCol: 'Window', drawnCol: 'Drawn W×H', ichijoCol: 'Ichijo', trCol: 'High',
   },
 };
 export function verdictText(f, lang) {
@@ -1140,9 +1252,8 @@ export function mountPanel(host, o) {
     /* windows */
     el.appendChild(E('h5', { text: T.windows }));
     if (info.south && info.south.wall > 0) el.appendChild(E('div', { class: 'rd south', html: '<b>' + T.south(info.south) + '</b>' }));
-    const mw = E('input', { type: 'number', min: '0.6', max: '6', step: '0.1', value: String(I.maxWindowW) });
-    mw.addEventListener('change', () => { const v = +mw.value; if (v >= 0.6) set(m => { m.ichijo.maxWindowW = v; }); });
-    el.appendChild(E('div', { class: 'row' }, [E('label', { text: T.maxW + ' (m)' }), mw]));
+    /* v23: Ichijo's own sashes (sashWindow): no max-width input any more, the units are Ichijo's sizes */
+    el.appendChild(E('div', { class: 'rd sash', text: T.sashRead(info.windows.reduce((a, w) => a + w.n, 0), info.windows.reduce((a, w) => a + w.highs, 0)) }));
     const det = E('details', { 'data-k': 'win' });
     if (openDetails.has('win')) det.open = true;
     det.appendChild(E('summary', { text: T.schedule + ' (' + info.windows.length + ')' }));
@@ -1150,20 +1261,21 @@ export function mountPanel(host, o) {
     tb.appendChild(E('tr', {}, [E('th', { text: T.winCol }), E('th', { text: T.roomCol }), E('th', { text: T.drawnCol }), E('th', { text: T.ichijoCol }), E('th', { text: T.trCol })]));
     for (const w of info.windows) {
       const tcb = E('input', { type: 'checkbox' });
-      tcb.checked = w.transomOn && w.transomFits; tcb.disabled = !w.transomFits;
-      tcb.title = w.transomFits ? T.transom : T.noRoom;
+      /* the automatic high rows of this window (on / off: ichijo.transom[id]); a drawn stack is the plan's own (locked) */
+      tcb.checked = w.explicit ? w.highs > 0 : w.transomOn && w.transomFits; tcb.disabled = w.explicit || !w.transomFits;
+      tcb.title = w.explicit ? T.stackNo : w.transomFits ? T.transom : T.noRoom;
       tcb.addEventListener('change', () => set(m => { m.ichijo.transom = m.ichijo.transom || {}; if (tcb.checked) delete m.ichijo.transom[w.id]; else m.ichijo.transom[w.id] = false; }));
       tb.appendChild(E('tr', {}, [
         E('td', { text: (['1F', '2F'][w.level] || '') + ' ' + T.dirs[w.dir] + ' ' + w.src }),
         E('td', { text: w.room ? (lang === 'ja' ? w.room.ja : w.room.name) : '' }),
         E('td', { text: Math.round(w.drawn.w * 1000) + '×' + Math.round((w.drawn.head - w.drawn.sill) * 1000) }),
-        E('td', { text: T.winRow(w) + ' × ' + Math.round((w.head - w.drawn.sill) * 1000) }),
-        E('td', {}, [tcb, w.transomFits ? ' ' + w.transoms + '/' + w.n : ' –']),
+        E('td', { text: T.winRow(w) + (w.highs ? T.stacked(w.highs) : '') + (w.dropped ? T.dropped(w.dropped) : '') }),
+        E('td', {}, [tcb, w.highs ? ' ' + w.transoms + '/' + w.n : ' –']),
       ]));
     }
     det.appendChild(tb);
     el.appendChild(det);
-    el.appendChild(E('div', { class: 'note', text: T.transomNote }));
+    el.appendChild(E('div', { class: 'note', text: T.sashNote }));
     /* fittings: one block per room */
     el.appendChild(E('h5', { text: T.fittings }));
     const rooms = M.levels.flatMap((L, li) => (L.rooms || []).filter(r => r.fit).map(r => ({ r, li })));

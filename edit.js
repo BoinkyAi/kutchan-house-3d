@@ -1,11 +1,11 @@
-/* Plan editor for the Tsuchiya Kensetsu reference house (and anything else in
-   the ref-model.json format, see refplan.js). Drag walls, doors, windows and
-   furniture; the 3D walkthrough (index.html?house=3) builds from the same
-   model, saved in this browser or carried in a share link (#m=...).
-   ?plan=b = the revised plan (ref-model-b.json, 3D: index.html?house=4) and
+/* Plan editor for the ref-model plans (the refplan.js format). Drag walls,
+   doors, windows and furniture; the 3D walkthrough builds from the same model,
+   saved in this browser or carried in a share link (#m=...).
+   ?plan=b = the revised Tsuchiya plan (ref-model-b.json, 3D: index.html?house=4),
    ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5) and
    ?plan=d = Plan C, L-shaped (ref-model-d.json, 3D: index.html?house=6), each
-   saved under its own key; without ?plan everything is as before.
+   saved under its own key. v23: plan a (the Tsuchiya reference house) removed;
+   no ?plan (or an unknown one) opens plan b.
    ?plan=e = Plan B — Ichijo (3D: index.html?house=7) and its variants ?plan=f
    "compact" (house 8) and ?plan=g "3 up, 1 down" (house 9): PLANS[x].ichijo =
    the Ichijo spec panel + catalogue fittings (ichijo.js).
@@ -13,24 +13,26 @@
    dashed outline with its posts, and counted in the fit-to-screen.
    v21: a compass on every plan (rose in a corner + the four sides of the drawing
    named, per plan: NORTH below; plan c from its model.compass) and frosted
-   windows (op.frost / op.frosted) drawn with a dotted fill: drawing only. */
+   windows (op.frost / op.frosted) drawn with a dotted fill: drawing only.
+   v23 (PRIMITIVES.md): stacked windows (op.stack, or ops with the same at + w) = one
+   bay: a unit-count tag on the outside face, dragged together, units edited in the
+   panel; door type parent-child (親子) next to double, both leaves with a swing. */
 'use strict';
-import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, STORE_KEY, loadModel } from './refplan.js?v=6';
+import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, loadModel, STACK_BAND, childLeaf } from './refplan.js?v=7';
 
 /* the built-in plans: model file, saved copy (localStorage key), 3D page, editor page */
 const PLANS = {
-  a: { url: 'ref-model.json?v=2', key: STORE_KEY, view: 'index.html?house=3', edit: 'edit.html' },
-  b: { url: 'ref-model-b.json?v=4', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
-  c: { url: 'ref-model-c.json?v=4', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
-  d: { url: 'ref-model-d.json?v=6', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
-  e: { url: 'ref-model-e.json?v=7', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e', ichijo: true },
-  f: { url: 'ref-model-f.json?v=4', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
-  g: { url: 'ref-model-g.json?v=2', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
+  b: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
+  c: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
+  d: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
+  e: { url: 'ref-model-e.json?v=8', key: 'h3dRefModelE', view: 'index.html?house=7', edit: 'edit.html?plan=e', ichijo: true },
+  f: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
+  g: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
 };
-const _qPlan = (new URLSearchParams(location.search).get('plan') || 'a').toLowerCase();
-const PLAN = PLANS[_qPlan] ? _qPlan : 'a';
+const _qPlan = (new URLSearchParams(location.search).get('plan') || 'b').toLowerCase();
+const PLAN = PLANS[_qPlan] ? _qPlan : 'b';
 const REF = PLANS[PLAN];
-const PB = PLAN !== 'a';            /* plans b-g: their own strings, gym / onsen pieces, no unit bath */
+try { localStorage.removeItem('h3dRefModel'); } catch (e) { /* private mode */ }   /* v23: plan a's saved copy */
 const PE = !!REF.ichijo;            /* plans e, f, g = Plan B — Ichijo + variants: the Ichijo spec panel + catalogue fittings (ichijo.js) */
 
 /* ------------------------------------------------------------------ text */
@@ -51,11 +53,13 @@ const TX = {
     wNormal: 'Partition (12 cm)', wOuter: 'Outside wall (18 cm)', wLow: 'Low wall', wLine: 'Room divider (no wall)',
     width: 'Width', sill: 'Bottom', head: 'Top', from: 'From wall start', flip: 'Flip swing', hinge: 'Other hinge',
     oWindow: 'Window', oDoor: 'Door', oDouble: 'Double door', oSliding: 'Sliding door', oSlide: 'Glass sliding door', oEntry: 'Front door', oHole: 'Opening (no door)',
+    oParentChild: 'Parent-child door (親子)', childW: 'Small leaf', stackH: 'Stacked above', stackAdd: '+ Stack a window above', band: 'Band below',
+    unit: 'Unit', stackedN: 'Stacked bay, units', nextUnit: 'Select the next unit up',
     name: 'Name', nameJa: 'Name (日本語)', floor: 'Floor', level: 'Floor level', area: 'Area',
     fOak: 'Wood (red pine)', fTile: 'Tile', fStone: 'Stone tile (entrance)', fConcrete: 'Concrete', fVoid: 'Open to below (no floor)',
     lv0: 'Normal', lvE: '−25 cm (entrance)', lvP: '−45 cm (porch)',
     depth: 'Depth', rot: 'Rotate', newRoom: 'Room', addDoor: '+ Door', addWin: '+ Window',
-    resetQ: "Throw away your changes and go back to Tsuchiya Kensetsu's original plan?",
+    resetQ: 'Throw away your changes and go back to the plan as first drawn?',
     fromLink: 'Opened a shared plan. Your changes save in this browser.',
     saved: 'Saved', tsubo: 'tsubo',
     palette: 'Pick a piece, then click on the plan:',
@@ -75,8 +79,8 @@ const TX = {
       + '<b>New walls</b>: <i>Draw wall</i>, click start and end. <b>Rooms</b> are whatever the walls enclose; <i>Name a room</i> to label one.<br>'
       + '<b>Floors</b>: 1F / 2F / Loft tabs at the top. The floor below shows faintly underneath.<br>'
       + '<b>Undo</b> <kbd>Ctrl Z</kbd> · <b>Redo</b> <kbd>Ctrl Shift Z</kbd> · zoom: wheel or pinch · pan: drag empty space.<br><br>'
-      + 'Everything saves in this browser automatically. <b>View in 3D</b> opens the walkthrough of your version; <b>Share link</b> makes a link to send (the plan is inside the link). <b>Reset</b> goes back to Tsuchiya Kensetsu’s original.<br>'
-      + '<span style="opacity:.6">Source: Tsuchiya Kensetsu reference house plan drawings (CAD sizes; walls on their 910 mm grid lines). The windows are bigger than drawn: floor-to-ceiling view glass in the living, the veranda room and the loft, larger bedroom windows, frosted (dotted) glass in the unit baths. Drawn with north at the bottom: the view side (south, Mt Yotei) is at the top.</span>',
+      + 'Everything saves in this browser automatically. <b>View in 3D</b> opens the walkthrough of your version; <b>Share link</b> makes a link to send (the plan is inside the link). <b>Reset</b> goes back to the plan as first drawn.<br>'
+      + '<span style="opacity:.6"></span>',   /* per plan: planHelp() puts the plan's description here */
     cmp: { n: 'NORTH · neighbour', e: 'EAST · road', s: 'SOUTH · Mt Yotei view', w: 'WEST · snow side' }, cmpNote: 'drawn with north at the bottom',
     plans: 'Plans', plansT: 'All floor plans on one page',
   },
@@ -96,11 +100,13 @@ const TX = {
     wNormal: '間仕切り壁（12cm）', wOuter: '外壁（18cm）', wLow: '腰壁', wLine: '部屋の区切り（壁なし）',
     width: '幅', sill: '下端', head: '上端', from: '壁の端から', flip: '開き勝手を反転', hinge: '吊元を反転',
     oWindow: '窓', oDoor: 'ドア', oDouble: '両開きドア', oSliding: '引き戸', oSlide: 'ガラス引き戸', oEntry: '玄関ドア', oHole: '開口（建具なし）',
+    oParentChild: '親子ドア', childW: '子扉の幅', stackH: '上に重ねた窓', stackAdd: '＋上に窓を重ねる', band: '下の窓との間',
+    unit: '窓', stackedN: '重ねた開口の数', nextUnit: '上の開口を選択',
     name: '名前（英語）', nameJa: '名前', floor: '床', level: '床の高さ', area: '面積',
     fOak: '木（赤松）', fTile: 'タイル', fStone: '石タイル（玄関）', fConcrete: 'コンクリート', fVoid: '吹抜け（床なし）',
     lv0: '標準', lvE: '−25cm（玄関土間）', lvP: '−45cm（風除室）',
     depth: '奥行', rot: '回転', newRoom: '部屋', addDoor: '＋ドア', addWin: '＋窓',
-    resetQ: '変更をすべて破棄して、土屋建設の元の図面に戻しますか？',
+    resetQ: '変更をすべて破棄して、最初の間取りに戻しますか？',
     fromLink: '共有された間取りを開きました。変更はこのブラウザに保存されます。',
     saved: '保存しました', tsubo: '坪',
     palette: '家具を選んでから図面をクリック：',
@@ -120,15 +126,15 @@ const TX = {
       + '<b>壁を追加</b>：「壁を描く」で始点と終点をクリック。<b>部屋</b>は壁で囲まれた範囲です。「部屋名をつける」で名前をつけられます。<br>'
       + '<b>フロア</b>：上部の1F / 2F / ロフトで切り替え。下の階はうっすら表示されます。<br>'
       + '<b>取り消し</b> <kbd>Ctrl Z</kbd> ・ <b>やり直し</b> <kbd>Ctrl Shift Z</kbd> ・ ズーム：ホイール／ピンチ ・ 移動：何もない所をドラッグ<br><br>'
-      + '変更はこのブラウザに自動保存されます。<b>3Dで見る</b>で編集後の3Dウォークスルー、<b>共有リンク</b>で送れるリンクを作成（データはリンク内）。<b>元の図面に戻す</b>で土屋建設の元の図面に戻ります。<br>'
-      + '<span style="opacity:.6">出典：土屋建設 参考住宅プラン図面（CAD寸法・壁は910mmグリッドの芯）。窓は図面より大きくしています：リビング・広縁・ロフトの眺望側は床から天井までのガラス、寝室の窓を拡大、ユニットバスの窓はすりガラス（点描）。北が下の図面です：上が眺望側（南・羊蹄山）。</span>',
+      + '変更はこのブラウザに自動保存されます。<b>3Dで見る</b>で編集後の3Dウォークスルー、<b>共有リンク</b>で送れるリンクを作成（データはリンク内）。<b>元の図面に戻す</b>で最初の間取りに戻ります。<br>'
+      + '<span style="opacity:.6"></span>',
     cmp: { n: '北・隣地', e: '東・道路', s: '南・羊蹄山の眺望', w: '西・落雪側' }, cmpNote: '北が下の図面',
     plans: '図面一覧', plansT: 'すべての間取り図を1ページで（英語）',
   },
 };
 /* the per-plan strings (?plan=b-g): own title, reset question, extra floor finishes, and the
    help with its own last lines (what Reset goes back to, the floor tabs, the plan's description) */
-const HELP_RESET = { en: '<b>Reset</b> goes back to Tsuchiya Kensetsu’s original.', ja: '<b>元の図面に戻す</b>で土屋建設の元の図面に戻ります。' };
+const HELP_RESET = { en: '<b>Reset</b> goes back to the plan as first drawn.', ja: '<b>元の図面に戻す</b>で最初の間取りに戻ります。' };
 const HELP_FLOORS = { en: ['<b>Floors</b>: 1F / 2F / Loft tabs at the top.', '<b>Floors</b>: 1F / 2F tabs at the top.'], ja: ['<b>フロア</b>：上部の1F / 2F / ロフトで切り替え。', '<b>フロア</b>：上部の1F / 2Fで切り替え。'] };
 function planHelp(lang, reset, desc, twoFloors) {
   let h = TX[lang].help.replace(HELP_RESET[lang], reset);
@@ -138,23 +144,23 @@ function planHelp(lang, reset, desc, twoFloors) {
 const FIN = { en: { fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)' }, ja: { fGranite: '黒い石調タイル（浴室）', fHinoki: 'ひのき（サウナ）', fRubber: 'ゴム床（ジム）' } };
 const ICHS = { en: { ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings" }, ja: { ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備' } };
 const DESC = {
-  b: { en: "The revised plan, on the Tsuchiya Kensetsu reference house’s 910 mm grid, drawn with north at the bottom (the view side, south, at the top). 1F: the gym, a bigger bath (two hinoki tubs, walk-in shower, the sauna opening into it) and one changing + rest room that the entrance, stair, gym, WC, laundry and boiler room (under the stairs) all open off. 2F: the open LDK, the master bedroom with its ensuite and a closed den; loft: an ensuite bedroom and a second closed den. Bigger windows throughout; frosted panes are dotted.",
-    ja: "土屋建設の参考プランの改案（910mmグリッド、北が下の図面で上が眺望側＝南）。1階：ジム、広くした浴室（ひのき浴槽2つ・ウォークインシャワー・浴室から入るサウナ）、玄関・階段・ジム・トイレ・洗濯室・機械室（階段下）がすべて面する脱衣・休憩室。2階：オープンなLDK、専用シャワー室付きの主寝室とドアのある書斎、ロフトに専用シャワー室付きの寝室とドアのある書斎。窓はすべて大きくし、すりガラスは点描で表示。" },
-  c: { en: "Plan B compact: one 13.65 x 9.1 m box (15 x 10 modules of 910 mm), 2 floors + a loft, under one roof high on the east (road) side and low over the west (snow) side. 1F: the entrance on the north under the carport (dashed), the gym on the south (view) glass, a bigger bath (two hinoki tubs, the sauna opening into it), one changing + rest room with the one laundry off it, and the boiler in a closet under the stair. 2F: an open LDK facing the view, 2 ensuite bedrooms and 2 closed dens; loft: a bedroom / den with its own storage. Frosted panes are dotted.",
-    ja: "プランB 縮小版：13.65×9.1mの箱型（910mmモジュールで15×10）、2階建て＋ロフト、屋根は東（道路側）が高く西（落雪側）が低い。1階：北側のカーポート（破線）の下に玄関、南（眺望側）のガラスに面したジム、広くした浴室（ひのき浴槽2つ・浴室から入るサウナ）、脱衣・休憩室1室とその奥の洗濯室（1か所）、階段下の機械室（ボイラー）。2階：眺望に面したオープンなLDK、専用シャワー室付きの寝室2室、ドアのある書斎2室、ロフトに収納付きの寝室/書斎。すりガラスは点描で表示。" },
-  d: { en: "Plan C: the L-shaped version of Plan B compact, a 12.74 x 8.19 m bar (14 x 9 modules of 910 mm) with a 5.46 x 4.55 m wing, under one roof high on the east (the wing end); the right-hand side of the drawing is the south (view) facade, glass wherever the rooms allow. 1F: the entrance in the L’s inner corner under the carport (dashed), the ski / gear room, a compact hall (no corridor), the gym in the wing and along the view with the laundry in a slice of it, a bigger bath in the north-west corner with an L-shaped 8.3 m² sauna, one changing + rest room, and the boiler room under the stair. 2F: the living in the wing (glass on 3 sides), dining + kitchen with an L-shaped counter run (wall cabinets above) and an island, 6.2 m of worktop, the master suite, bedroom 2, bedroom 3 in the view corner and 2 closed dens. Frosted panes are dotted.",
-    ja: "プランC：プランB 縮小版のL字版で、12.74×8.19mの母屋（910mmモジュールで14×9）に5.46×4.55mの翼棟、屋根は東（翼棟の端）が高く、図面の右側が南（眺望側）の面で部屋が許す限りガラス。1階：L字の内側の角のカーポート（破線）の下に玄関、スキー/ギア室、コンパクトなホール（廊下なし）、翼棟と眺望側のジムとその一角の洗濯室、北西の角に広くした浴室とL字型のサウナ（8.3m²）、脱衣・休憩室1室、階段下の機械室（ボイラー）。2階：翼棟にリビング（3面ガラス）、L字の背面カウンター（上に吊戸棚）とアイランドのダイニング・キッチン（天板計6.2m）、主寝室、寝室2、眺望側の角の寝室3、ドアのある書斎2室。すりガラスは点描で表示。" },
-  e: { en: "Plan B — Ichijo: Toby’s Plan B under Ichijo Komuten’s limits, with a flat roof over the main block and Ichijo’s 3.5-sun roof over the living wing: the living’s ceiling slopes from 3.2 to 4.75 m, with high windows at the top of the tall walls. 1F, no corridor: the front door on the wing’s north (carport) face, a small genkan and a hall with a door to every room, the stair climbing east with the boiler room under it, the gym, a den / guest bedroom in the wing, one changing + rest room and one laundry; on the 2F the kitchen has a 3.15 m cupboard counter on its back wall. The <b>Ichijo spec</b> panel sets the heights, the roof and the window rules and picks the kitchen, cupboard, unit showers / unit baths, vanities, toilets and the door height from the catalogue; each fitting’s footprint is drawn in its room (green = fits, amber = needs a few cm, red = does not fit; the panel names the wall to move). Fittings follow the rooms when walls move.",
-    ja: "プランB 一条版：プランBに一条工務店の制約をかけた版で、母屋はフラット屋根、リビング棟は一条の3.5寸の片流れ屋根、リビングの天井は3.2mから4.75mへ上がる勾配天井で高い壁の上部に高窓。1階は廊下なし：カーポート側（北）の翼棟の面に玄関、小さな土間とすべての部屋へ直接ドアのあるホール、東へ上がる階段の下に機械室（ボイラー）、ジム、翼棟に書斎・客間、脱衣・休憩室と洗濯室は各1か所、2階のキッチンは背面に3.15mのカップボードの天板付き。<b>一条仕様</b>パネルで高さ・屋根・窓のルールを設定し、キッチン・カップボード・シャワーユニット／ユニットバス・洗面化粧台・トイレ・ドアの高さをカタログから選ぶと、各設備の大きさを部屋に表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない、動かす壁はパネルに表示）。壁を動かすと設備も部屋に合わせて動きます。" },
-  f: { en: "Plan B — Ichijo · compact: Plan B — Ichijo with the main block 2.73 m shorter (−16 % floor area), one mono-pitch roof and no corridor. 1F: the same north entrance, hall and stair (boiler room under it), the gym in one 52 m² room, bedroom 3 in the wing with its own bathroom, the bath along the north wall and the changing room with the one laundry off it. The <b>Ichijo spec</b> panel picks the fittings from the catalogue and checks each against its room (green = fits, amber = needs a few cm, red = does not fit); fittings follow the rooms when walls move.",
-    ja: "プランB 一条版・コンパクト：プランB 一条版の母屋を2.73m短くした版（床面積−16%）、片流れ屋根1枚、廊下なし。1階：同じ北側の玄関・ホール・階段（下に機械室）、1室の52m²のジム、翼棟に専用のバスルーム付きの寝室3、北側の浴室、脱衣室とその奥の洗濯室（1か所）。<b>一条仕様</b>パネルで設備をカタログから選び、部屋に収まるかを表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない）。壁を動かすと設備も部屋に合わせて動きます。" },
+  b: { en: "Tsuchiya rev. — budget option: the revised plan, on the Tsuchiya Kensetsu reference house’s 910 mm grid, drawn with north at the bottom (the view side, south, at the top). 1F: a parent-child front door (two leaves, 1.24 × 2.33 m), the gym, a bigger bath (two hinoki tubs, walk-in shower, the sauna opening into it) and one changing + rest room that the entrance, stair, gym, WC, laundry and boiler room (under the stairs) all open off. 2F: the open LDK, the master bedroom with its ensuite and a closed den; loft: an ensuite bedroom and a second closed den. Bigger windows throughout; frosted panes are dotted.",
+    ja: "土屋 改案（予算重視案）：土屋建設の参考プランの改案（910mmグリッド、北が下の図面で上が眺望側＝南）。1階：親子ドアの玄関（扉2枚・1.24×2.33m）、ジム、広くした浴室（ひのき浴槽2つ・ウォークインシャワー・浴室から入るサウナ）、玄関・階段・ジム・トイレ・洗濯室・機械室（階段下）がすべて面する脱衣・休憩室。2階：オープンなLDK、専用シャワー室付きの主寝室とドアのある書斎、ロフトに専用シャワー室付きの寝室とドアのある書斎。窓はすべて大きくし、すりガラスは点描で表示。" },
+  c: { en: "Plan B compact: one 13.65 x 9.1 m box (15 x 10 modules of 910 mm), 2 floors + a loft, under one roof high on the east (road) side and low over the west (snow) side. 1F: a double front door on the north under the carport (dashed), the gym behind four 2.6 m sliding glass doors on the south (view) side, a bigger bath (two hinoki tubs) with a 5.0 m² sauna opening into it, one changing + rest room with the one laundry off it, and the boiler in a closet under the stair. 2F: an open LDK facing the view, 2 ensuite bedrooms and 2 closed dens; loft: a bedroom / den with its own bathroom (shower, WC, washstand) and closet. All windows are standard YKK sizes; a small number by a window counts the units stacked in it. Frosted panes are dotted.",
+    ja: "プランB 縮小版：13.65×9.1mの箱型（910mmモジュールで15×10）、2階建て＋ロフト、屋根は東（道路側）が高く西（落雪側）が低い。1階：北側のカーポート（破線）の下に両開きの玄関ドア、南（眺望側）に幅2.6mの掃き出し窓4本が並ぶジム、広くした浴室（ひのき浴槽2つ）と浴室から入る5.0m²のサウナ、脱衣・休憩室1室とその奥の洗濯室（1か所）、階段下の機械室（ボイラー）。2階：眺望に面したオープンなLDK、専用シャワー室付きの寝室2室、ドアのある書斎2室、ロフトにシャワールーム（シャワー・トイレ・洗面）とクローゼット付きの寝室/書斎。窓はすべてYKKの標準サイズ、窓の横の小さな数字は上下に重ねた窓の数。すりガラスは点描で表示。" },
+  d: { en: "Plan C: the L-shaped version of Plan B compact, a 12.74 x 8.19 m bar (14 x 9 modules of 910 mm) with a 5.46 x 4.55 m wing, under one roof high on the east (the wing end); the right-hand side of the drawing is the south (view) facade. Every window is a standard YKK AP unit; the small number on a window is the count of units stacked in that column. 1F: a double front door in the L’s inner corner under the carport (dashed), the ski / gear room, a compact hall (no corridor) with the laundry, the WC and the boiler room off it (WC + boiler under the stair), the gym in one room in the wing and along the view, a bigger bath in the north-west corner with an L-shaped 8.3 m² sauna, and one changing + rest room. 2F: the living in the wing (window columns on 3 sides), dining + kitchen with an L-shaped counter run (wall cabinets above) and an island, 6.2 m of worktop, the master suite, bedroom 2, bedroom 3 in the view corner and 2 closed dens. Frosted panes are dotted.",
+    ja: "プランC：プランB 縮小版のL字版で、12.74×8.19mの母屋（910mmモジュールで14×9）に5.46×4.55mの翼棟、屋根は東（翼棟の端）が高く、図面の右側が南（眺望側）の面。窓はすべてYKK APの規格サイズで、窓の小さな数字はその列に積んだ窓の数。1階：L字の内側の角のカーポート（破線）の下に両開きの玄関ドア、スキー/ギア室、洗濯室・トイレ・機械室が面するコンパクトなホール（廊下なし、トイレと機械室は階段下）、翼棟と眺望側の1室のジム、北西の角に広くした浴室とL字型のサウナ（8.3m²）、脱衣・休憩室1室。2階：翼棟にリビング（3面に窓の列）、L字の背面カウンター（上に吊戸棚）とアイランドのダイニング・キッチン（天板計6.2m）、主寝室、寝室2、眺望側の角の寝室3、ドアのある書斎2室。すりガラスは点描で表示。" },
+  e: { en: "Plan B — Ichijo: Toby’s Plan B under Ichijo Komuten’s limits, with a flat roof over the main block and Ichijo’s 3.5-sun roof over the living wing: the living’s ceiling slopes from 3.2 to 4.75 m and its tall walls carry Ichijo sliding doors with fixed windows stacked on top (the small number on a window = its units). Every window is one of Ichijo’s stock sizes. 1F, no corridor: a parent-child front door on the wing’s north (carport) face, a small genkan and a hall with a door to every room, the stair climbing east with the boiler room under it, the gym, a den / guest bedroom in the wing, one changing + rest room and one laundry; on the 2F the kitchen has a 3.15 m cupboard counter on its back wall. The <b>Ichijo spec</b> panel sets the heights, the roof and the window rules and picks the kitchen, cupboard, unit showers / unit baths, vanities, toilets and the door height from the catalogue; each fitting’s footprint is drawn in its room (green = fits, amber = needs a few cm, red = does not fit; the panel names the wall to move). Fittings follow the rooms when walls move.",
+    ja: "プランB 一条版：プランBに一条工務店の制約をかけた版で、母屋はフラット屋根、リビング棟は一条の3.5寸の片流れ屋根、リビングの天井は3.2mから4.75mへ上がる勾配天井で、高い壁は一条の掃き出し窓の上にFIX窓を重ねる（窓の小さな数字＝段数）。窓はすべて一条の規格サイズ。1階は廊下なし：カーポート側（北）の翼棟の面に親子ドアの玄関、小さな土間とすべての部屋へ直接ドアのあるホール、東へ上がる階段の下に機械室（ボイラー）、ジム、翼棟に書斎・客間、脱衣・休憩室と洗濯室は各1か所、2階のキッチンは背面に3.15mのカップボードの天板付き。<b>一条仕様</b>パネルで高さ・屋根・窓のルールを設定し、キッチン・カップボード・シャワーユニット／ユニットバス・洗面化粧台・トイレ・ドアの高さをカタログから選ぶと、各設備の大きさを部屋に表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない、動かす壁はパネルに表示）。壁を動かすと設備も部屋に合わせて動きます。" },
+  f: { en: "Plan B — Ichijo · compact: Plan B — Ichijo with the main block 2.73 m shorter (−16 % floor area), the same roof (flat over the main block, Ichijo’s 3.5-sun slope over the living wing only) and no corridor. 1F: the same north entrance, hall and stair (boiler room under it), the gym in one 52 m² room, bedroom 3 in the wing with its own bathroom, the bath along the north wall and the changing room with the one laundry off it. The <b>Ichijo spec</b> panel picks the fittings from the catalogue and checks each against its room (green = fits, amber = needs a few cm, red = does not fit); fittings follow the rooms when walls move.",
+    ja: "プランB 一条版・コンパクト：プランB 一条版の母屋を2.73m短くした版（床面積−16%）、屋根は同じ（母屋はフラット、リビング棟だけ一条の3.5寸の片流れ）、廊下なし。1階：同じ北側の玄関・ホール・階段（下に機械室）、1室の52m²のジム、翼棟に専用のバスルーム付きの寝室3、北側の浴室、脱衣室とその奥の洗濯室（1か所）。<b>一条仕様</b>パネルで設備をカタログから選び、部屋に収まるかを表示します（緑＝収まる、黄＝数cm不足、赤＝収まらない）。壁を動かすと設備も部屋に合わせて動きます。" },
   g: { en: "Plan B — Ichijo · 3 up, 1 down: Plan B — Ichijo with bedroom 3 moved down to the 1F and no corridor. 1F: the north entrance and hall open straight into bedroom 3 (the wing, glass on three sides) and, across the hall, its shower room (bathroom 3); the gym keeps the main block, with the bath, one changing + rest room, the one laundry and the boiler room under the stair as in Plan B — Ichijo. 2F: three bedrooms, each with a walk-in closet and a unit-shower bathroom. The <b>Ichijo spec</b> panel checks every fitting against its room (green = fits, amber = needs a few cm, red = does not fit); fittings follow the rooms when walls move.",
     ja: "プランB 一条版・寝室1つ下階：プランB 一条版の寝室3を1階に移した版、廊下なし。1階：北側の玄関とホールから翼棟の寝室3（3面ガラス）と、ホールの向かいのそのシャワールーム（バスルーム3）へ直接入れ、ジムは母屋、浴室・脱衣・休憩室・洗濯室（1か所）・階段下の機械室はプランB 一条版と同じ。2階：寝室3室（それぞれウォークインクローゼットとシャワーユニットのバスルーム付き）。<b>一条仕様</b>パネルで各設備が部屋に収まるかを表示し（緑＝収まる、黄＝数cm不足、赤＝収まらない）、壁を動かすと設備も部屋に合わせて動きます。" },
 };
 const TXB = {
-  en: Object.assign({ title: "Plan editor · Tsuchiya revised", resetQ: "Throw away your changes and go back to the revised plan as first drawn?",
+  en: Object.assign({ title: "Plan editor · Tsuchiya rev. — budget option", resetQ: "Throw away your changes and go back to the revised plan as first drawn?",
     help: planHelp('en', "<b>Reset</b> goes back to the revised plan as first drawn.", DESC.b.en, false) }, FIN.en),
-  ja: Object.assign({ title: "間取り編集・土屋 改案", resetQ: "変更をすべて破棄して、改案の最初の間取りに戻しますか？",
+  ja: Object.assign({ title: "間取り編集・土屋 改案（予算重視案）", resetQ: "変更をすべて破棄して、改案の最初の間取りに戻しますか？",
     help: planHelp('ja', "<b>元の図面に戻す</b>で改案の最初の間取りに戻ります。", DESC.b.ja, false) }, FIN.ja),
 };
 const TXC = {
@@ -190,7 +196,7 @@ const TXG = {
 const TXP = { b: TXB, c: TXC, d: TXD, e: TXE, f: TXF, g: TXG };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
 if (!TX[LANG]) LANG = 'en';
-const T = (k) => (PB && TXP[PLAN][LANG][k] !== undefined) ? TXP[PLAN][LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
+const T = (k) => TXP[PLAN][LANG][k] !== undefined ? TXP[PLAN][LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
 const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------------ state */
@@ -315,12 +321,14 @@ function draw() {
   /* walls */
   const outer = new Map();
   for (const w of L.walls) outer.set(w.id, w.t > 0 ? outsideSide(w, S.lvl) : 0);
+  S.tags = [];                                       /* v23: drawStackTags' circles (screen), kept clear by drawCompass */
   for (const w of L.walls) {
     const sel = S.sel && ((S.sel.type === 'wall' && S.sel.ids && S.sel.ids.includes(w.id)) || (S.sel.type === 'wall' && S.sel.id === w.id));
     if (!(w.t > 0)) { dividerLine(c, w, sel); continue; }
     const col = sel ? '#1d7fb8' : (outer.get(w.id) ? '#2f3338' : (w.h ? '#8b8f94' : '#565b61'));
     wallBody(c, w, col, w.ops || []);
     for (const o of w.ops || []) drawOpening(c, w, o, S.sel && S.sel.type === 'op' && S.sel.id === o.id);
+    drawStackTags(c, w, outer.get(w.id));
   }
   /* room labels */
   c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -359,9 +367,9 @@ function draw() {
 }
 /* v21 (Toby's review): which way the drawing faces. NORTH[plan] = where north points on
    the screen (x right, y down: the editor draws model x / y as they are); a model's own
-   compass.north wins (plan c). Plans a + b are drawn with north at the bottom. Purely an
+   compass.north wins (plan c). Plan b is drawn with north at the bottom. Purely an
    overlay: the view transform, hit tests and dragging are untouched. */
-const NORTH = { a: [0, 1], b: [0, 1], c: [0, -1], d: [-1, 0], e: [0, -1], f: [0, -1], g: [0, -1] };
+const NORTH = { b: [0, 1], c: [0, -1], d: [-1, 0], e: [0, -1], f: [0, -1], g: [0, -1] };
 function compassDirs() {
   const mc = S.model && S.model.compass;
   const n0 = mc && Array.isArray(mc.north) ? mc.north : NORTH[PLAN];
@@ -400,10 +408,19 @@ function drawCompass(c) {
       c.fillStyle = '#46607a'; c.fillText(t, 0, 0); c.restore();
     };
     const tT = lab(C.top), tB = lab(C.bottom), tL = lab(C.left), tR = lab(C.right), hw = (t) => c.measureText(t).width / 2;
-    put(tT, slide(mx, hw(tT), cross('y', A[1] - g - 6)), A[1] - g, 0, 'bottom');
-    put(tB, slide(mx, hw(tB), cross('y', B[1] + g + 6)), B[1] + g, 0, 'top');
-    put(tL, A[0] - g, slide(my, hw(tL), cross('x', A[0] - g - 6)), -Math.PI / 2, 'bottom');
-    put(tR, B[0] + g, slide(my, hw(tR), cross('x', B[0] + g + 6)), Math.PI / 2, 'bottom');
+    /* v23: a label sits g px out from the house, its text (+ the 2 px halo) g - 2 ... g + 15 px out; where it
+       would cover a stack-count tag (drawStackTags) on its side, it moves out to clear the tag by 2 px */
+    const out = (sd, along, half) => (S.tags || []).reduce((gg, t) => {
+      if (Math.abs((sd === 't' || sd === 'b' ? t.x : t.y) - along) > half + 2 + t.r) return gg;
+      const d = sd === 't' ? A[1] - t.y : sd === 'b' ? t.y - B[1] : sd === 'l' ? A[0] - t.x : t.x - B[0];   /* tag centre, px out */
+      return Math.max(gg, d + t.r + 4);
+    }, g);
+    const xT = slide(mx, hw(tT), cross('y', A[1] - g - 6)), xB = slide(mx, hw(tB), cross('y', B[1] + g + 6));
+    const yL = slide(my, hw(tL), cross('x', A[0] - g - 6)), yR = slide(my, hw(tR), cross('x', B[0] + g + 6));
+    put(tT, xT, A[1] - out('t', xT, hw(tT)), 0, 'bottom');
+    put(tB, xB, B[1] + out('b', xB, hw(tB)), 0, 'top');
+    put(tL, A[0] - out('l', yL, hw(tL)), yL, -Math.PI / 2, 'bottom');
+    put(tR, B[0] + out('r', yR, hw(tR)), yR, Math.PI / 2, 'bottom');
   }
   /* the rose: bottom-left corner (top-right under the bar on a phone, where the tools sit at the bottom) */
   const r = 22, mob = W < 640;
@@ -498,12 +515,16 @@ function drawOpening(c, w, o, sel) {
     if (o.frost || o.frosted) { c.fillStyle = dotFill(c); c.fill(); }   /* frosted glass: dotted */
     line(at(s0, qm - 0.015), at(s1, qm - 0.015)); line(at(s0, qm + 0.015), at(s1, qm + 0.015));
     if (o.type === 'slide') { const m = (s0 + s1) / 2; line(at(s0, qm - 0.04), at(m + 0.05, qm - 0.04)); line(at(m - 0.05, qm + 0.04), at(s1, qm + 0.04)); }
-  } else if (o.type === 'door' || o.type === 'entry' || o.type === 'double') {
-    const leaves = o.type === 'double' ? [[s0, 1, (s1 - s0) / 2], [s1, -1, (s1 - s0) / 2]] : [[hingeB ? s1 : s0, hingeB ? -1 : 1, s1 - s0]];
+  } else if (o.type === 'door' || o.type === 'entry' || o.type === 'double' || o.type === 'parent-child') {
+    /* [hinge position, direction of the leaf when shut, leaf width]; parent-child: the parent at the hinge end */
+    const W = s1 - s0, ch = childLeaf(o, W);
+    const leaves = o.type === 'double' ? [[s0, 1, W / 2], [s1, -1, W / 2]]
+      : o.type === 'parent-child' ? (hingeB ? [[s1, -1, W - ch], [s0, 1, ch]] : [[s0, 1, W - ch], [s1, -1, ch]])
+      : [[hingeB ? s1 : s0, hingeB ? -1 : 1, W]];
     const qf = side > 0 ? f.q1 : f.q0;
     for (const [hs, dir, lw] of leaves) {
       const hinge = at(hs, qf), tip = at(hs, qf + side * lw), shut = at(hs + dir * lw, qf);
-      c.lineWidth = sel ? 2.5 : (o.type === 'entry' ? 2.2 : 1.2); line(hinge, tip);
+      c.lineWidth = sel ? 2.5 : (o.type === 'entry' || o.type === 'double' || o.type === 'parent-child' ? 2.2 : 1.2); line(hinge, tip);
       c.lineWidth = 0.8; c.beginPath();
       const r = lw * S.view.s, a0 = Math.atan2(tip[1] - hinge[1], tip[0] - hinge[0]), a1 = Math.atan2(shut[1] - hinge[1], shut[0] - hinge[0]);
       let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
@@ -515,6 +536,30 @@ function drawOpening(c, w, o, sel) {
     for (let i = 0; i < n; i++) { const q = qm + (i % 2 ? 0.025 : -0.025); line(at(s0 + lw * i - (i ? 0.03 : 0), q), at(s0 + lw * (i + 1) + (i < n - 1 ? 0.03 : 0), q)); }
   } else {                                           /* hole */
     c.save(); c.setLineDash([3, 3]); line(at(s0, qm), at(s1, qm)); c.restore();
+  }
+}
+/* v23 stacked windows: a bay = the ops on a wall with the same at + w (each may carry a stack) */
+const sameBay = (p, q) => Math.abs(p.at - q.at) < 1e-3 && Math.abs(p.w - q.w) < 1e-3;
+const bayOf = (w, o) => (w.ops || []).filter(q => q === o || sameBay(q, o));
+const bayWindows = (bay) => bay.reduce((n, q) => n + (q.type === 'window' ? 1 + (Array.isArray(q.stack) ? q.stack.length : 0) : 0), 0);
+const bayUnits = (bay) => bay.reduce((n, q) => n + 1 + (q.type === 'window' && Array.isArray(q.stack) ? q.stack.length : 0), 0);
+/* the number of window units on the outside face of a stacked bay: small, subtle (plans PNGs too) */
+function drawStackTags(c, w, side) {
+  const f = frame(w), seen = new Set();
+  for (const o of w.ops || []) {
+    if (seen.has(o)) continue;
+    const bay = bayOf(w, o); bay.forEach(q => seen.add(q));
+    const n = bayWindows(bay);
+    if (n < 2) continue;
+    const sg = side || 1, q = (sg > 0 ? f.q1 : f.q0) + sg * 9 / S.view.s;
+    const p = toS(add(add(w.a, mul(f.u, o.at + o.w / 2)), mul(f.n, q)));
+    if (S.tags) S.tags.push({ x: p[0], y: p[1], r: 7 });   /* radius 6.5 + its outline */
+    c.save();
+    c.beginPath(); c.arc(p[0], p[1], 6.5, 0, 2 * Math.PI); c.fillStyle = 'rgba(255,255,255,.95)'; c.fill();
+    c.lineWidth = 1; c.strokeStyle = '#5b86a8'; c.stroke();
+    c.font = '700 9px -apple-system,Segoe UI,Roboto,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#2f5d80'; c.fillText(String(n), p[0], p[1] + 0.5);
+    c.restore();
   }
 }
 function itemPoly(it, grow) {
@@ -888,7 +933,7 @@ function startDrag(h, p, e) {
   } else if (h.type === 'op') {
     S.sel = h; syncProps();
     const w = L.walls.find(v => v.id === h.wall), o = w.ops.find(q => q.id === h.id);
-    S.drag = Object.assign(base, { type: 'op', wall: w.id, id: o.id, at0: o.at, u: frame(w).u });
+    S.drag = Object.assign(base, { type: 'op', wall: w.id, id: o.id, at0: o.at, u: frame(w).u, mates: bayOf(w, o).filter(q => q !== o).map(q => q.id) });
   } else if (h.type === 'item') {
     S.sel = h; syncProps();
     const it = L.items.find(v => v.id === h.id);
@@ -951,6 +996,7 @@ function dragMove(p, e) {
   } else if (d.type === 'op') {
     const L = LV(), w = L.walls.find(v => v.id === d.wall), o = (w.ops || []).find(q => q.id === d.id), f = frame(w);
     o.at = r4(Math.max(0, Math.min(f.L - o.w, d.at0 + snapLen(dot(dv, d.u)))));
+    for (const q of w.ops) if (d.mates && d.mates.includes(q.id)) q.at = o.at;   /* the other units of a stacked bay */
     d.moved = true; d.info = mmTxt(o.at) + ' mm';
   } else if (d.type === 'item') {
     const it = LV().items.find(v => v.id === d.id);
@@ -998,10 +1044,8 @@ const DEF = {
   toilet: [0.4, 0.68], vanity: [0.75, 0.5], ub: [1.62, 1.62], shower: [0.9, 1.2], island: [2.4, 0.95], tall: [2.4, 0.45], fridge: [0.7, 0.7], washer: [0.6, 0.6],
   dryer: [0.65, 0.6], stove: [0.56, 0.5], rugRound: [1.6, 1.6], shelves: [1.2, 0.35], rail: [1.6, 0.06], post: [0.12, 0.12], beam: [3.0, 0.12],
 };
-if (PB) {
-  delete DEF.ub;                                   /* plans b + c have no unit baths (shower units only) */
-  Object.assign(DEF, { tube: [1.2, 2.0], saunaBench: [1.8, 0.5], saunaHeater: [0.45, 0.45], gymRack: [1.2, 1.2], gymBench: [1.2, 0.3], treadmill: [0.8, 1.9], mat: [2.0, 2.0], railing: [2.0, 0.05] });
-}
+delete DEF.ub;                                     /* plans b-g have no unit baths in the palette (shower units; plans e-g: the Ichijo panel) */
+Object.assign(DEF, { tube: [1.2, 2.0], saunaBench: [1.8, 0.5], saunaHeater: [0.45, 0.45], gymRack: [1.2, 1.2], gymBench: [1.2, 0.3], treadmill: [0.8, 1.9], mat: [2.0, 2.0], railing: [2.0, 0.05] });
 function placeItem(p) {
   const k = S.armed, [w, d] = DEF[k] || [1, 1];
   begin();
@@ -1107,18 +1151,41 @@ function syncProps() {
     if (!o) { S.sel = null; return syncProps(); }
     const f = frame(w);
     head(T('opening'));
-    P.appendChild(selField(T('kind'), o.type, [['window', T('oWindow')], ['door', T('oDoor')], ['double', T('oDouble')], ['sliding', T('oSliding')], ['slide', T('oSlide')], ['entry', T('oEntry')], ['hole', T('oHole')]], (v) => {
+    const mates = bayOf(w, o).filter(q => q !== o);    /* v23: the other units of a stacked bay */
+    P.appendChild(selField(T('kind'), o.type, [['window', T('oWindow')], ['door', T('oDoor')], ['double', T('oDouble')], ['parent-child', T('oParentChild')], ['sliding', T('oSliding')], ['slide', T('oSlide')], ['entry', T('oEntry')], ['hole', T('oHole')]], (v) => {
       o.type = v;
       if (v === 'window' && o.sill < 0.3) o.sill = 0.9;
       if (v !== 'window' && v !== 'hole') o.sill = Math.min(o.sill, 0);
       if (v === 'sliding' && !o.leaves) o.leaves = 2;
+      if (v === 'parent-child' && !(o.child > 0)) o.child = r4(childLeaf({}, o.w));
+      if (v !== 'window') delete o.stack;
     }));
-    P.appendChild(numField(T('width'), Math.round(o.w * 1000), 10, (v) => { o.w = Math.max(0.2, Math.min(f.L, v / 1000)); clampOps(w); }, 'mm'));
+    P.appendChild(numField(T('width'), Math.round(o.w * 1000), 10, (v) => { o.w = Math.max(0.2, Math.min(f.L, v / 1000)); clampOps(w); for (const q of mates) { q.w = o.w; q.at = o.at; } }, 'mm'));
+    if (o.type === 'parent-child') P.appendChild(numField(T('childW'), Math.round(childLeaf(o, o.w) * 1000), 10, (v) => { o.child = r4(Math.max(0.2, Math.min(o.w - 0.3, v / 1000))); }, 'mm'));
     P.appendChild(numField(T('sill'), Math.round(o.sill * 1000), 10, (v) => { o.sill = Math.min(v / 1000, o.head - 0.1); }, 'mm'));
     P.appendChild(numField(T('head'), Math.round(o.head * 1000), 10, (v) => { o.head = Math.max(v / 1000, o.sill + 0.1); }, 'mm'));
-    P.appendChild(numField(T('from'), Math.round(o.at * 1000), 10, (v) => { o.at = v / 1000; clampOps(w); }, 'mm'));
+    P.appendChild(numField(T('from'), Math.round(o.at * 1000), 10, (v) => { o.at = v / 1000; clampOps(w); for (const q of mates) q.at = o.at; }, 'mm'));
+    /* v23: windows stacked over this one (op.stack: band + height per unit, relative to the unit below) */
+    if (o.type === 'window') {
+      (o.stack || []).forEach((u, k) => {
+        P.appendChild(el('div', { class: 'note', text: T('stackH') + ' · ' + T('unit') + ' ' + (k + 2) }));
+        P.appendChild(numField(T('band'), Math.round((u.band === undefined ? STACK_BAND : u.band) * 1000), 10, (v) => { u.band = r4(Math.max(0, v / 1000)); }, 'mm'));
+        P.appendChild(numField(T('height'), Math.round((+u.h || 0) * 1000), 10, (v) => { u.h = r4(Math.max(0.1, v / 1000)); }, 'mm'));
+        P.appendChild(el('div', { class: 'row' }, [btn(T('del'), () => { begin(); o.stack.splice(k, 1); if (!o.stack.length) delete o.stack; commit(); syncProps(); redraw(); })]));
+      });
+      if (!mates.length && (o.stack || []).length < 2) {
+        P.appendChild(el('div', { class: 'row' }, [btn(T('stackAdd'), () => { begin(); (o.stack = o.stack || []).push({ h: 1.17, band: STACK_BAND, style: 'fix' }); commit(); syncProps(); redraw(); })]));
+      }
+    }
+    /* separate openings in one bay (same at + w: a window over a window, a fanlight over a door; the
+       plan shows one of them, a click picks the first): step through them bottom to top */
+    if (mates.length) {
+      const bay = [o, ...mates].sort((p, q) => p.sill - q.sill);
+      P.appendChild(el('div', { class: 'note', text: T('stackedN') + ': ' + bayUnits(bay) }));
+      P.appendChild(el('div', { class: 'row' }, [btn(T('nextUnit'), () => { const nx = bay[(bay.indexOf(o) + 1) % bay.length]; S.sel = { type: 'op', wall: w.id, id: nx.id }; syncProps(); redraw(); })]));
+    }
     const row = el('div', { class: 'row' });
-    if (o.type === 'door' || o.type === 'entry' || o.type === 'double') {
+    if (o.type === 'door' || o.type === 'entry' || o.type === 'double' || o.type === 'parent-child') {
       row.appendChild(btn(T('flip'), () => { begin(); o.side = -(o.side || 1); commit(); redraw(); }));
       if (o.type !== 'double') row.appendChild(btn(T('hinge'), () => { begin(); o.hinge = o.hinge === 'b' ? 'a' : 'b'; commit(); redraw(); }));
     }
@@ -1144,7 +1211,7 @@ function syncProps() {
     P.appendChild(textField(T('nameJa'), r.ja, (v) => { r.ja = v; }));
     P.appendChild(textField(T('name'), r.name, (v) => { r.name = v; }));
     const fins = [['oak', T('fOak')], ['tile', T('fTile')], ['stone', T('fStone')], ['concrete', T('fConcrete')], ['void', T('fVoid')]];
-    if (PB) fins.splice(4, 0, ['granite', T('fGranite')], ['hinoki', T('fHinoki')], ['rubber', T('fRubber')]);
+    fins.splice(4, 0, ['granite', T('fGranite')], ['hinoki', T('fHinoki')], ['rubber', T('fRubber')]);
     P.appendChild(selField(T('floor'), r.floor || 'oak', fins, (v) => { r.floor = v; touch(); }));
     if (S.lvl === 0) P.appendChild(selField(T('level'), String(r.dz || 0), [['0', T('lv0')], ['-0.25', T('lvE')], ['-0.45', T('lvP')]], (v) => { r.dz = +v || 0; if (!r.dz) delete r.dz; touch(); }));
     P.appendChild(el('div', { class: 'row' }, [btn(T('del'), () => { begin(); L.rooms.splice(L.rooms.indexOf(r), 1); commit(); S.sel = null; syncProps(); redraw(); })]));
@@ -1185,7 +1252,7 @@ function applyLang() {
   document.querySelectorAll('[data-it]').forEach(e => { const v = T(e.dataset.it); if (typeof v === 'string') e.title = v; });
   $('bLang').textContent = LANG === 'ja' ? 'English' : '日本語';
   $('helpBody').innerHTML = T('help');
-  document.title = PB ? T('title') : T('title') + ' — ' + (LANG === 'ja' ? (S.model && S.model.ja || '土屋建設 参考プラン') : 'Tsuchiya Kensetsu reference house');
+  document.title = T('title');
   setTool(S.tool);
   if (S.model) { syncUI(); syncProps(); }
   if (PE && ICH.panel) { ichijoChanged(); const b = $('bIch'); if (b) { b.textContent = T('ich'); b.title = T('icht'); } }
@@ -1276,7 +1343,7 @@ function ichijoOverlay(c) {
   }
 }
 async function ichijoStart() {
-  const mod = await import('./ichijo.js?v=6');
+  const mod = await import('./ichijo.js?v=8');
   ICH.mod = mod; ICH.cat = await mod.loadCatalog('catalog.json?v=2');
   const top = $('top');
   const b = el('button', { id: 'bIch', class: 'go', text: T('ich') }); b.title = T('icht');

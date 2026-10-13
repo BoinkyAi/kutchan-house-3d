@@ -1,8 +1,8 @@
 {
- "version": 7,
+ "version": 8,
  "title": "Plan B — Ichijo",
  "ja": "プランB 一条版",
- "source": "Plan B (Toby's Floor Plan Creator plan, site/plan2.json) in the editor format with Ichijo Komuten's limits (model.ichijo, applied by ichijo.js) and catalogue fittings per room (room.fit -> catalog.json); v5: the 1F re-planned (gym + bath maximised, genkan at the inner corner), default roof pitch 2 sun; v6: the stair reversed (foot at the inner corner), no corridor: genkan + hall 8.75 m2; v7: flat (parapet) main roof + the living wing's 3.5-sun mono-pitch per Ichijo's rules, high windows, den / guest bedroom instead of the wing gym, cupboard with worktop in the kitchen",
+ "source": "Plan B (Toby's Floor Plan Creator plan, site/plan2.json) in the editor format with Ichijo Komuten's limits (model.ichijo, applied by ichijo.js) and catalogue fittings per room (room.fit -> catalog.json); v5: the 1F re-planned (gym + bath maximised, genkan at the inner corner), default roof pitch 2 sun; v6: the stair reversed (foot at the inner corner), no corridor: genkan + hall 8.75 m2; v7: flat (parapet) main roof + the living wing's 3.5-sun mono-pitch per Ichijo's rules, high windows, den / guest bedroom instead of the wing gym, cupboard with worktop in the kitchen; v8: Ichijo's own sashes (high wall: sliders + stacked FIX within 7 modules, solid corner modules), a parent-child front door",
  "ground": -0.45,
  "levels": [
   {
@@ -29,29 +29,65 @@
       {
        "id": "os1",
        "type": "window",
-       "at": 0.3,
-       "w": 1.2702,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 0.1626,
+       "w": 1.545,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "max1a"
       },
       {
        "id": "os2",
        "type": "window",
-       "at": 2.2902,
-       "w": 4.5706,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 2.839,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "max2a"
+      },
+      {
+       "id": "oi1",
+       "type": "window",
+       "at": 4.659,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "max2a.2"
       },
       {
        "id": "os3",
        "type": "window",
-       "at": 7.5808,
-       "w": 6.9007,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 7.4747,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "max3a"
+      },
+      {
+       "id": "oi2",
+       "type": "window",
+       "at": 9.2947,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "max3a.2"
+      },
+      {
+       "id": "oi3",
+       "type": "window",
+       "at": 11.1147,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "max3a.3"
+      },
+      {
+       "id": "oi4",
+       "type": "window",
+       "at": 12.9347,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "max3a.4"
       }
      ]
     },
@@ -70,22 +106,33 @@
      "ops": [
       {
        "id": "o1",
-       "type": "entry",
+       "type": "parent-child",
        "at": 0.4647,
-       "w": 1.0,
+       "w": 1.235,
        "sill": -0.25,
-       "head": 2.3,
+       "head": 2.08,
        "src": "front door",
-       "side": -1
+       "side": -1,
+       "hinge": "a",
+       "child": 0.36
       },
       {
        "id": "os9",
        "type": "window",
-       "at": 2.3247,
-       "w": 3.5608,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 2.3686,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "maxWN1a"
+      },
+      {
+       "id": "oi5",
+       "type": "window",
+       "at": 4.1886,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "maxWN1a.2"
       }
      ],
      "src": "618"
@@ -107,10 +154,10 @@
       {
        "id": "os10",
        "type": "window",
-       "at": 0.3,
-       "w": 4.0916,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 1.1023,
+       "w": 2.487,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "maxWE1a"
       }
      ]
@@ -131,19 +178,46 @@
       {
        "id": "os4",
        "type": "window",
-       "at": 0.3,
-       "w": 8.1057,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 1.0989,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "maxW1a"
+      },
+      {
+       "id": "oi6",
+       "type": "window",
+       "at": 2.9189,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "maxW1a.2"
+      },
+      {
+       "id": "oi7",
+       "type": "window",
+       "at": 4.7389,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "maxW1a.3"
+      },
+      {
+       "id": "oi8",
+       "type": "window",
+       "at": 6.5589,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "maxW1a.4"
       },
       {
        "id": "os5",
        "type": "window",
-       "at": 9.1257,
-       "w": 3.0296,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 9.397,
+       "w": 2.487,
+       "sill": 0.244,
+       "head": 2.144,
        "src": "maxW2a"
       },
       {
@@ -176,11 +250,20 @@
       {
        "id": "os6",
        "type": "window",
-       "at": 0.3,
-       "w": 4.4607,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 1.0064,
+       "w": 1.653,
+       "sill": 0.244,
+       "head": 2.144,
        "src": "maxN1a"
+      },
+      {
+       "id": "oi9",
+       "type": "window",
+       "at": 2.8264,
+       "w": 1.653,
+       "sill": 0.244,
+       "head": 2.144,
+       "src": "maxN1a.2"
       }
      ]
     },
@@ -201,20 +284,29 @@
       {
        "id": "os7",
        "type": "window",
-       "at": 3.092,
-       "w": 1.4376,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 2.9843,
+       "w": 1.653,
+       "sill": 0.244,
+       "head": 2.144,
        "src": "maxE1a"
       },
       {
        "id": "os8",
        "type": "window",
-       "at": 5.2496,
-       "w": 3.2941,
-       "sill": 0.3,
-       "head": 2.5,
+       "at": 5.1601,
+       "w": 1.653,
+       "sill": 0.244,
+       "head": 2.144,
        "src": "maxE2a"
+      },
+      {
+       "id": "oi10",
+       "type": "window",
+       "at": 6.9802,
+       "w": 1.653,
+       "sill": 0.244,
+       "head": 2.144,
+       "src": "maxE2a.2"
       }
      ]
     },
@@ -926,13 +1018,14 @@
     {
      "id": "f14",
      "kind": "closet",
-     "x": 2.54,
-     "y": 2.865,
-     "w": 0.4,
-     "d": 1.15,
-     "a": 0.0,
+     "x": 2.07,
+     "y": 3.24,
+     "w": 1.34,
+     "d": 0.4,
+     "a": 3.1416,
      "h": 2.1,
-     "note": "ski / gear + shoe closet"
+     "note": "ski / gear + shoe closet",
+     "moved": "v8: off the wider front door"
     },
     {
      "id": "f29",
@@ -989,37 +1082,37 @@
       {
        "id": "o11",
        "type": "window",
-       "at": 0.1597,
-       "w": 2.8496,
+       "at": 1.0407,
+       "w": 1.653,
        "sill": 0.0,
-       "head": 3.5,
+       "head": 2.174,
        "src": "639"
       },
       {
        "id": "o12",
        "type": "window",
-       "at": 5.0892,
-       "w": 0.6533,
-       "sill": 0.5,
-       "head": 2.5,
+       "at": 5.1159,
+       "w": 0.6,
+       "sill": 0.244,
+       "head": 2.144,
        "src": "859"
       },
       {
        "id": "o13",
        "type": "window",
-       "at": 7.5625,
-       "w": 0.625,
-       "sill": 0.5,
-       "head": 2.5,
+       "at": 7.575,
+       "w": 0.6,
+       "sill": 0.244,
+       "head": 2.144,
        "src": "858"
       },
       {
        "id": "o14",
        "type": "window",
-       "at": 11.2645,
-       "w": 2.3809,
+       "at": 11.6285,
+       "w": 1.653,
        "sill": 0.0,
-       "head": 3.5,
+       "head": 2.174,
        "src": "837"
       }
      ],
@@ -1041,19 +1134,19 @@
       {
        "id": "o15",
        "type": "window",
-       "at": 0.01,
-       "w": 3.4168,
+       "at": 0.8324,
+       "w": 2.487,
        "sill": 0.0,
-       "head": 3.5,
+       "head": 2.174,
        "src": "838"
       },
       {
        "id": "o16",
        "type": "window",
-       "at": 5.6804,
-       "w": 2.8852,
+       "at": 5.8795,
+       "w": 2.487,
        "sill": 0.0,
-       "head": 3.5,
+       "head": 2.174,
        "src": "705"
       }
      ],
@@ -1075,19 +1168,19 @@
       {
        "id": "o17",
        "type": "window",
-       "at": 0.01,
-       "w": 3.1685,
+       "at": 1.1252,
+       "w": 1.653,
        "sill": 0.0,
-       "head": 3.5,
+       "head": 2.174,
        "src": "704"
       },
       {
        "id": "o18",
        "type": "window",
-       "at": 5.0166,
-       "w": 2.4236,
+       "at": 5.324,
+       "w": 1.653,
        "sill": 0.0,
-       "head": 3.5,
+       "head": 2.174,
        "src": "839"
       }
      ],
@@ -1109,11 +1202,48 @@
       {
        "id": "os11",
        "type": "window",
-       "at": 0.3,
-       "w": 6.4827,
-       "sill": 0.1,
-       "head": 2.3,
-       "src": "max1b"
+       "at": 0.898,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "max1b",
+       "stack": [
+        {
+         "h": 0.467,
+         "band": 0.15,
+         "style": "fix"
+        },
+        {
+         "h": 0.467,
+         "band": 0.15,
+         "style": "fix"
+        }
+       ]
+      },
+      {
+       "id": "oi1",
+       "type": "window",
+       "at": 2.718,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "max1b.2",
+       "stack": [
+        {
+         "h": 0.467,
+         "band": 0.15,
+         "style": "fix"
+        }
+       ]
+      },
+      {
+       "id": "oi2",
+       "type": "window",
+       "at": 4.538,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "max1b.3"
       },
       {
        "id": "o21",
@@ -1128,19 +1258,19 @@
       {
        "id": "os12",
        "type": "window",
-       "at": 8.3364,
-       "w": 2.6155,
-       "sill": 0.1,
-       "head": 2.3,
+       "at": 8.4006,
+       "w": 2.487,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "max2b"
       },
       {
        "id": "os13",
        "type": "window",
-       "at": 11.6719,
-       "w": 2.8782,
-       "sill": 0.1,
-       "head": 2.3,
+       "at": 11.8675,
+       "w": 2.487,
+       "sill": 0.0,
+       "head": 2.174,
        "src": "max3b"
       }
      ],
@@ -1162,11 +1292,39 @@
       {
        "id": "o24",
        "type": "window",
-       "at": 0.664,
-       "w": 5.6005,
+       "at": 1.9035,
+       "w": 1.653,
        "sill": 0.0,
-       "head": 3.5,
-       "src": "765"
+       "head": 2.174,
+       "src": "765",
+       "stack": [
+        {
+         "h": 0.467,
+         "band": 0.15,
+         "style": "fix"
+        }
+       ]
+      },
+      {
+       "id": "oi3",
+       "type": "window",
+       "at": 3.7235,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "765.2",
+       "stack": [
+        {
+         "h": 0.467,
+         "band": 0.15,
+         "style": "fix"
+        },
+        {
+         "h": 0.467,
+         "band": 0.15,
+         "style": "fix"
+        }
+       ]
       }
      ],
      "src": "750"
@@ -1187,11 +1345,34 @@
       {
        "id": "o25",
        "type": "window",
-       "at": 0.01,
-       "w": 4.6716,
+       "at": 0.6093,
+       "w": 1.653,
        "sill": 0.0,
-       "head": 3.5,
-       "src": "764"
+       "head": 2.174,
+       "src": "764",
+       "stack": [
+        {
+         "h": 1.9,
+         "band": 0.15,
+         "style": "fix"
+        }
+       ]
+      },
+      {
+       "id": "oi4",
+       "type": "window",
+       "at": 2.4293,
+       "w": 1.653,
+       "sill": 0.0,
+       "head": 2.174,
+       "src": "764.2",
+       "stack": [
+        {
+         "h": 1.9,
+         "band": 0.15,
+         "style": "fix"
+        }
+       ]
       }
      ],
      "src": "751"
@@ -3033,14 +3214,7 @@
   "northH": 5,
   "northK": 1.25,
   "viewWall": "s",
-  "winMaxH": 2.2,
   "winCeilGap": 0.1,
-  "transomH": 0.3,
-  "transomMaxW": 1.8,
-  "transomGap": 0.15,
-  "transomTopGap": 0.1,
-  "maxWindowW": 2.6,
-  "mullion": 0.1,
   "transom": {},
   "door": "ich-interior-door-hinged-panel-sg33-w700",
   "doorH": 2.0,
