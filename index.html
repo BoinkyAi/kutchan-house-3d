@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>倶知安 住宅計画 — 3Dウォークスルー</title>
-<script>/* old links to houses that now live in the other two apps: 1 + 2 = Toby's own plans, 7-9 = the Ichijo versions */
+<script>/* old links to houses that now live in the other two apps (1 + 2: kutchan-house-plan-a, 7-9: kutchan-house-ichijo):
+   invisible redirects only, nothing on the pages links the apps to each other */
 (function () {
   var q = new URLSearchParams(location.search), h = q.get('house'), l = q.get('lang'), u = null;
   var OWN = 'https://boinkyai.github.io/kutchan-house-plan-a/', ICH = 'https://boinkyai.github.io/kutchan-house-ichijo/';
@@ -52,10 +53,6 @@
   #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0f14;z-index:30;flex-direction:column;gap:10px}
   .sp{width:26px;height:26px;border:3px solid #223;border-top-color:var(--ac);border-radius:50%;animation:s 1s linear infinite}
   @keyframes s{to{transform:rotate(360deg)}}
-  #top .apps{flex-basis:100%;font-size:11px;opacity:.8}
-  #top .apps a{color:var(--ac);text-decoration:none}
-  #top .apps a:hover{text-decoration:underline}
-  #top .apps b{font-weight:600}
   .seg{display:inline-flex}
   .seg button{border-radius:0;margin-left:-1px}
   .seg button:first-child{border-radius:8px 0 0 8px;margin-left:0}
@@ -77,7 +74,7 @@
 
 <div id="top" class="panel">
   <span class="t" data-en="Kutchan house" data-ja="倶知安 住宅計画">倶知安 住宅計画</span>
-  <span class="seg"><button id="bH6" data-i18n="h6" data-i18n-title="h6t">プランC</button><button id="bH5" data-i18n="h5" data-i18n-title="h5t">プランB 縮小版</button><button id="bH4" data-i18n="h4" data-i18n-title="h4t">土屋 改案（予算重視案）</button></span>
+  <span class="seg"><button id="bH4" data-i18n="h4" data-i18n-title="h4t">予算プラン</button><button id="bH5" data-i18n="h5" data-i18n-title="h5t">中間プラン</button><button id="bH6" data-i18n="h6" data-i18n-title="h6t">理想プラン</button></span>
   <button id="bEdit" class="ac" data-i18n="edit" data-i18n-title="editt" hidden>間取りを編集</button>
   <button id="bPlans" data-i18n="plans" data-i18n-title="planst">図面一覧</button>
   <span id="srcBadge" class="badge" hidden></span>
@@ -92,7 +89,6 @@
   <button id="bQual" data-i18n-title="qualt">画質：高</button>
   <button id="bLang" data-i18n="lang" data-i18n-title="langt">English</button>
   <button id="bHelp">?</button>
-  <div class="apps"><b data-en="Builder plans" data-ja="建築会社向けプラン">建築会社向けプラン</b> · <a href="https://boinkyai.github.io/kutchan-house-ichijo/" data-en="Ichijo versions" data-ja="一条工務店版">一条工務店版</a> · <a href="https://boinkyai.github.io/kutchan-house-plan-a/" data-en="Toby's own plans" data-ja="トビアスの自作プラン">トビアスの自作プラン</a></div>
 </div>
 
 <div id="hud"></div>
@@ -130,6 +126,6 @@
 <script type="importmap">
 {"imports":{"three":"./three.module.min.js","three/addons/":"./jsm/"}}
 </script>
-<script type="module" src="app.js?v=24"></script>
+<script type="module" src="app.js?v=25"></script>
 </body>
 </html>

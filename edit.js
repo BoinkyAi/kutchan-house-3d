@@ -1,15 +1,15 @@
 /* Plan editor for the ref-model plans (the refplan.js format). Drag walls,
    doors, windows and furniture; the 3D walkthrough builds from the same model,
    saved in this browser or carried in a share link (#m=...).
-   ?plan=b = the revised Tsuchiya plan (ref-model-b.json, 3D: index.html?house=4),
-   ?plan=c = Plan B compact (ref-model-c.json, 3D: index.html?house=5) and
-   ?plan=d = Plan C, L-shaped (ref-model-d.json, 3D: index.html?house=6), each
-   saved under its own key. ?plan=f = Plan B — Ichijo · compact (house 8) and
-   ?plan=g = Plan B — Ichijo · 3 up, 1 down (house 9): PLANS[x].ichijo =
-   the Ichijo spec panel + catalogue fittings (ichijo.js).
-   This file is byte-identical in two apps: kutchan-house-3d (<html data-plans="d c b">) and
-   kutchan-house-ichijo (data-plans="g f"); the first plan listed is the default, any other
-   ?plan opens it (edit.html's head script sends plans that live in the other app there).
+   ?plan=b = Budget plan (ref-model-b.json, 3D: index.html?house=4),
+   ?plan=c = Mid tier plan (ref-model-c.json, 3D: index.html?house=5) and
+   ?plan=d = Ideal plan, L-shaped (ref-model-d.json, 3D: index.html?house=6), each
+   saved under its own key. ?plan=f = Compact (house 8) and ?plan=g = Full size (house 9):
+   PLANS[x].ichijo = the Ichijo spec panel + catalogue fittings (ichijo.js).
+   This file is byte-identical in two apps that never link to each other: kutchan-house-3d
+   (<html data-plans="d c b">) and kutchan-house-ichijo (data-plans="g f"); the first plan
+   listed is the default, any other ?plan opens it (edit.html's head script invisibly sends old
+   links to plans that live in the other app there).
    v20: a model's "carport" (plan d, outside the house) is drawn on the 1F as a
    dashed outline with its posts, and counted in the fit-to-screen.
    v21: a compass on every plan (rose in a corner + the four sides of the drawing
@@ -34,7 +34,7 @@ const _qPlan = (new URLSearchParams(location.search).get('plan') || '').toLowerC
 const PLAN = APP_PLANS.includes(_qPlan) ? _qPlan : APP_PLANS[0];
 const REF = PLANS[PLAN];
 try { localStorage.removeItem('h3dRefModel'); } catch (e) { /* private mode */ }   /* v23: plan a's saved copy */
-const PE = !!REF.ichijo;            /* plans f, g = the Plan B — Ichijo variants: the Ichijo spec panel + catalogue fittings (ichijo.js) */
+const PE = !!REF.ichijo;            /* plans f, g (Compact, Full size): the Ichijo spec panel + catalogue fittings (ichijo.js) */
 
 /* ------------------------------------------------------------------ text */
 const TX = {
@@ -145,46 +145,46 @@ function planHelp(lang, reset, desc, twoFloors) {
 const FIN = { en: { fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)' }, ja: { fGranite: '黒い石調タイル（浴室）', fHinoki: 'ひのき（サウナ）', fRubber: 'ゴム床（ジム）' } };
 const ICHS = { en: { ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings" }, ja: { ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備' } };
 const DESC = {
-  b: { en: "Tsuchiya rev. — budget option<br>1F: entrance, gym 43.0 m², bath 14.9 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living · dining · kitchen 44.0 m², master bedroom with an ensuite, den.<br>Loft: bedroom with an ensuite, den.",
-    ja: "土屋 改案（予算重視案）<br>1階：玄関、ジム43.0m²、浴室14.9m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：LDK 44.0m²、主寝室（専用シャワー室付き）、書斎。<br>ロフト：寝室（専用シャワー室付き）、書斎。" },
-  c: { en: "Plan B compact<br>1F: entrance, ski / gear room, hall, gym 62.1 m², bath 21.1 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living + dining, kitchen with an island, master bedroom and bedroom 2, each with an ensuite and a walk-in closet, two dens, WC.<br>Loft: bedroom / den 29.8 m² with its own bathroom and a closet.",
-    ja: "プランB 縮小版<br>1階：玄関、スキー/ギア室、ホール、ジム62.1m²、浴室21.1m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：リビング・ダイニング、アイランドのあるキッチン、主寝室と寝室2（それぞれ専用シャワー室・ウォークインクローゼット付き）、書斎2室、トイレ。<br>ロフト：寝室/書斎29.8m²（専用バスルーム・クローゼット付き）。" },
-  d: { en: "Plan C<br>1F: entrance, ski / gear room, hall, gym 65.8 m², bath 24.8 m² (two hinoki tubs) with an 8.3 m² L-shaped sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living with windows on three sides, dining + kitchen with an island, master bedroom with an ensuite and a closet, bedroom 2 with an ensuite, bedroom 3, two dens, WC.",
-    ja: "プランC<br>1階：玄関、スキー/ギア室、ホール、ジム65.8m²、浴室24.8m²（ひのき浴槽2つ）とL字型のサウナ8.3m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：3面に窓のあるリビング、アイランドのあるダイニング・キッチン、主寝室（専用シャワー室・クローゼット付き）、寝室2（専用シャワー室付き）、寝室3、書斎2室、トイレ。" },
-  f: { en: "Plan B — Ichijo · compact<br>1F: entrance, hall, gym 52.0 m², bath 23.2 m² (two hinoki tubs) with a 4.0 m² sauna, changing room, laundry, WC, boiler room, bedroom 3 (14.2 m²) with its own bathroom.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (11.2, 11.5 and 13.0 m²), each with its own bathroom; walk-in closets for bedrooms 2 and 4.",
-    ja: "プランB 一条版・コンパクト<br>1階：玄関、ホール、ジム52.0m²、浴室23.2m²（ひのき浴槽2つ）とサウナ4.0m²、脱衣室、洗濯室、トイレ、機械室、寝室3（14.2m²、専用バスルーム付き）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（11.2・11.5・13.0m²、それぞれ専用バスルーム付き、寝室2・4はウォークインクローゼット付き）。" },
-  g: { en: "Plan B — Ichijo · 3 up, 1 down<br>1F: entrance, hall, gym 52.1 m², bath 32.1 m² (two hinoki tubs) with a 5.5 m² sauna, changing + rest room, laundry, WC, boiler room, bedroom 3 (18.4 m²) with its own shower room across the hall.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (18.2, 19.9 and 14.1 m²), each with a walk-in closet and its own bathroom.",
-    ja: "プランB 一条版・寝室1つ下階<br>1階：玄関、ホール、ジム52.1m²、浴室32.1m²（ひのき浴槽2つ）とサウナ5.5m²、脱衣・休憩室、洗濯室、トイレ、機械室、寝室3（18.4m²、ホールの向かいに専用シャワールーム）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（18.2・19.9・14.1m²、それぞれウォークインクローゼットと専用バスルーム付き）。" },
+  b: { en: "Budget plan<br>1F: entrance, gym 43.0 m², bath 14.9 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living · dining · kitchen 44.0 m², master bedroom with an ensuite, den.<br>Loft: bedroom with an ensuite, den.",
+    ja: "予算プラン<br>1階：玄関、ジム43.0m²、浴室14.9m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：LDK 44.0m²、主寝室（専用シャワー室付き）、書斎。<br>ロフト：寝室（専用シャワー室付き）、書斎。" },
+  c: { en: "Mid tier plan<br>1F: entrance, ski / gear room, hall, gym 62.1 m², bath 21.1 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living + dining, kitchen with an island, master bedroom and bedroom 2, each with an ensuite and a walk-in closet, two dens, WC.<br>Loft: bedroom / den 29.8 m² with its own bathroom and a closet.",
+    ja: "中間プラン<br>1階：玄関、スキー/ギア室、ホール、ジム62.1m²、浴室21.1m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：リビング・ダイニング、アイランドのあるキッチン、主寝室と寝室2（それぞれ専用シャワー室・ウォークインクローゼット付き）、書斎2室、トイレ。<br>ロフト：寝室/書斎29.8m²（専用バスルーム・クローゼット付き）。" },
+  d: { en: "Ideal plan<br>1F: entrance, ski / gear room, hall, gym 65.8 m², bath 24.8 m² (two hinoki tubs) with an 8.3 m² L-shaped sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living with windows on three sides, dining + kitchen with an island, master bedroom with an ensuite and a closet, bedroom 2 with an ensuite, bedroom 3, two dens, WC.",
+    ja: "理想プラン<br>1階：玄関、スキー/ギア室、ホール、ジム65.8m²、浴室24.8m²（ひのき浴槽2つ）とL字型のサウナ8.3m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：3面に窓のあるリビング、アイランドのあるダイニング・キッチン、主寝室（専用シャワー室・クローゼット付き）、寝室2（専用シャワー室付き）、寝室3、書斎2室、トイレ。" },
+  f: { en: "Compact<br>1F: entrance, hall, gym 52.0 m², bath 23.2 m² (two hinoki tubs) with a 4.0 m² sauna, changing room, laundry, WC, boiler room, bedroom 3 (14.2 m²) with its own bathroom.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (11.2, 11.5 and 13.0 m²), each with its own bathroom; walk-in closets for bedrooms 2 and 4.",
+    ja: "コンパクト<br>1階：玄関、ホール、ジム52.0m²、浴室23.2m²（ひのき浴槽2つ）とサウナ4.0m²、脱衣室、洗濯室、トイレ、機械室、寝室3（14.2m²、専用バスルーム付き）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（11.2・11.5・13.0m²、それぞれ専用バスルーム付き、寝室2・4はウォークインクローゼット付き）。" },
+  g: { en: "Full size<br>1F: entrance, hall, gym 52.1 m², bath 32.1 m² (two hinoki tubs) with a 5.5 m² sauna, changing + rest room, laundry, WC, boiler room, bedroom 3 (18.4 m²) with its own shower room across the hall.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (18.2, 19.9 and 14.1 m²), each with a walk-in closet and its own bathroom.",
+    ja: "フルサイズ<br>1階：玄関、ホール、ジム52.1m²、浴室32.1m²（ひのき浴槽2つ）とサウナ5.5m²、脱衣・休憩室、洗濯室、トイレ、機械室、寝室3（18.4m²、ホールの向かいに専用シャワールーム）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（18.2・19.9・14.1m²、それぞれウォークインクローゼットと専用バスルーム付き）。" },
 };
 const TXB = {
-  en: Object.assign({ title: "Plan editor · Tsuchiya rev. — budget option", resetQ: "Throw away your changes and go back to the revised plan as first drawn?",
-    help: planHelp('en', "<b>Reset</b> goes back to the revised plan as first drawn.", DESC.b.en, false) }, FIN.en),
-  ja: Object.assign({ title: "間取り編集・土屋 改案（予算重視案）", resetQ: "変更をすべて破棄して、改案の最初の間取りに戻しますか？",
-    help: planHelp('ja', "<b>元の図面に戻す</b>で改案の最初の間取りに戻ります。", DESC.b.ja, false) }, FIN.ja),
+  en: Object.assign({ title: "Plan editor · Budget plan", resetQ: "Throw away your changes and go back to the Budget plan as first drawn?",
+    help: planHelp('en', "<b>Reset</b> goes back to the Budget plan as first drawn.", DESC.b.en, false) }, FIN.en),
+  ja: Object.assign({ title: "間取り編集・予算プラン", resetQ: "変更をすべて破棄して、予算プランの最初の間取りに戻しますか？",
+    help: planHelp('ja', "<b>元の図面に戻す</b>で予算プランの最初の間取りに戻ります。", DESC.b.ja, false) }, FIN.ja),
 };
 const TXC = {
-  en: Object.assign({ title: "Plan editor · Plan B compact", resetQ: "Throw away your changes and go back to Plan B compact as first drawn?",
-    help: planHelp('en', "<b>Reset</b> goes back to Plan B compact as first drawn.", DESC.c.en, false) }, FIN.en),
-  ja: Object.assign({ title: "間取り編集・プランB 縮小版", resetQ: "変更をすべて破棄して、プランB 縮小版の最初の間取りに戻しますか？",
-    help: planHelp('ja', "<b>元の図面に戻す</b>でプランB 縮小版の最初の間取りに戻ります。", DESC.c.ja, false) }, FIN.ja),
+  en: Object.assign({ title: "Plan editor · Mid tier plan", resetQ: "Throw away your changes and go back to the Mid tier plan as first drawn?",
+    help: planHelp('en', "<b>Reset</b> goes back to the Mid tier plan as first drawn.", DESC.c.en, false) }, FIN.en),
+  ja: Object.assign({ title: "間取り編集・中間プラン", resetQ: "変更をすべて破棄して、中間プランの最初の間取りに戻しますか？",
+    help: planHelp('ja', "<b>元の図面に戻す</b>で中間プランの最初の間取りに戻ります。", DESC.c.ja, false) }, FIN.ja),
 };
 const TXD = {
-  en: Object.assign({ title: "Plan editor · Plan C", resetQ: "Throw away your changes and go back to Plan C as first drawn?",
-    help: planHelp('en', "<b>Reset</b> goes back to Plan C as first drawn.", DESC.d.en, true) }, FIN.en),
-  ja: Object.assign({ title: "間取り編集・プランC", resetQ: "変更をすべて破棄して、プランCの最初の間取りに戻しますか？",
-    help: planHelp('ja', "<b>元の図面に戻す</b>でプランCの最初の間取りに戻ります。", DESC.d.ja, true) }, FIN.ja),
+  en: Object.assign({ title: "Plan editor · Ideal plan", resetQ: "Throw away your changes and go back to the Ideal plan as first drawn?",
+    help: planHelp('en', "<b>Reset</b> goes back to the Ideal plan as first drawn.", DESC.d.en, true) }, FIN.en),
+  ja: Object.assign({ title: "間取り編集・理想プラン", resetQ: "変更をすべて破棄して、理想プランの最初の間取りに戻しますか？",
+    help: planHelp('ja', "<b>元の図面に戻す</b>で理想プランの最初の間取りに戻ります。", DESC.d.ja, true) }, FIN.ja),
 };
 const TXF = {
-  en: Object.assign({ title: "Plan editor · Plan B — Ichijo · compact", resetQ: "Throw away your changes (walls and catalogue choices) and go back to Plan B — Ichijo · compact as first drawn?",
-    help: planHelp('en', "<b>Reset</b> goes back to Plan B — Ichijo · compact as first drawn.", DESC.f.en, true) }, FIN.en, ICHS.en),
-  ja: Object.assign({ title: "間取り編集・プランB 一条版・コンパクト", resetQ: "変更（壁・設備の選択）をすべて破棄して、プランB 一条版・コンパクトの最初の間取りに戻しますか？",
-    help: planHelp('ja', "<b>元の図面に戻す</b>でプランB 一条版・コンパクトの最初の間取りに戻ります。", DESC.f.ja, true) }, FIN.ja, ICHS.ja),
+  en: Object.assign({ title: "Plan editor · Compact", resetQ: "Throw away your changes (walls and catalogue choices) and go back to “Compact” as first drawn?",
+    help: planHelp('en', "<b>Reset</b> goes back to “Compact” as first drawn.", DESC.f.en, true) }, FIN.en, ICHS.en),
+  ja: Object.assign({ title: "間取り編集・コンパクト", resetQ: "変更（壁・設備の選択）をすべて破棄して、「コンパクト」の最初の間取りに戻しますか？",
+    help: planHelp('ja', "<b>元の図面に戻す</b>で「コンパクト」の最初の間取りに戻ります。", DESC.f.ja, true) }, FIN.ja, ICHS.ja),
 };
 const TXG = {
-  en: Object.assign({ title: "Plan editor · Plan B — Ichijo · 3 up, 1 down", resetQ: "Throw away your changes (walls and catalogue choices) and go back to Plan B — Ichijo · 3 up, 1 down as first drawn?",
-    help: planHelp('en', "<b>Reset</b> goes back to Plan B — Ichijo · 3 up, 1 down as first drawn.", DESC.g.en, true) }, FIN.en, ICHS.en),
-  ja: Object.assign({ title: "間取り編集・プランB 一条版・寝室1つ下階", resetQ: "変更（壁・設備の選択）をすべて破棄して、プランB 一条版・寝室1つ下階の最初の間取りに戻しますか？",
-    help: planHelp('ja', "<b>元の図面に戻す</b>でプランB 一条版・寝室1つ下階の最初の間取りに戻ります。", DESC.g.ja, true) }, FIN.ja, ICHS.ja),
+  en: Object.assign({ title: "Plan editor · Full size", resetQ: "Throw away your changes (walls and catalogue choices) and go back to “Full size” as first drawn?",
+    help: planHelp('en', "<b>Reset</b> goes back to “Full size” as first drawn.", DESC.g.en, true) }, FIN.en, ICHS.en),
+  ja: Object.assign({ title: "間取り編集・フルサイズ", resetQ: "変更（壁・設備の選択）をすべて破棄して、「フルサイズ」の最初の間取りに戻しますか？",
+    help: planHelp('ja', "<b>元の図面に戻す</b>で「フルサイズ」の最初の間取りに戻ります。", DESC.g.ja, true) }, FIN.ja, ICHS.ja),
 };
 const TXP = { b: TXB, c: TXC, d: TXD, f: TXF, g: TXG };
 let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
