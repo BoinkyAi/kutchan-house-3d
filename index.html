@@ -25,9 +25,19 @@
   #c.look{cursor:grabbing}
   .panel{position:fixed;background:rgba(17,22,28,.86);backdrop-filter:blur(8px);
     border:1px solid var(--bd);border-radius:12px;padding:8px}
-  #top{top:8px;left:8px;right:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-  #top .t{font-weight:700;margin-right:4px;white-space:nowrap}
+  #top{top:8px;left:8px;right:8px;padding:5px 8px;font-size:0;line-height:38px}
+  #top > *{font-size:13px;line-height:1.35;vertical-align:middle;margin-right:6px}
+  #top .t{font-weight:700;margin-right:10px;white-space:nowrap}
   #top .sub{opacity:.55;font-size:11px;white-space:nowrap}
+  #top .badge{font-size:11px}
+  #top > .lang{float:right;margin:3px 0 0 6px}
+  .lang{display:inline-flex;white-space:nowrap}
+  .lang button{background:#1b2430;color:#e8eef5;border:1px solid #2c3a4a;border-radius:0;margin:0 0 0 -1px;padding:6px 11px;
+    font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;cursor:pointer;white-space:nowrap}
+  .lang button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+  .lang button:last-child{border-radius:0 8px 8px 0}
+  .lang button:hover{border-color:#5ac8fa}
+  .lang button.on{background:#5ac8fa;color:#04121c;border-color:#5ac8fa;font-weight:700}
   button{background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;
     padding:6px 9px;font:inherit;cursor:pointer;white-space:nowrap}
   button:hover{border-color:var(--ac)}
@@ -64,7 +74,7 @@
   #roofp label{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;white-space:nowrap}
   #roofp label b{min-width:38px;text-align:right}
   #roofp input[type=range]{width:118px}
-  @media (max-width:560px){ #mid{display:none} #top{gap:4px;padding:6px} #top .sub{display:none}
+  @media (max-width:560px){ #mid{display:none} #top{padding:4px 6px;line-height:35px} #top > *{margin-right:4px} #top .t{margin-right:8px} #top > .lang{margin:2px 0 0 4px} #top .sub{display:none}
     #roofp{width:auto;max-width:calc(100vw - 16px);padding:6px 8px;gap:3px}
     #roofp #roofRead{white-space:normal;font-size:11px} #roofp input[type=range]{width:84px} #roofp label{font-size:10px} }
 </style>
@@ -73,6 +83,7 @@
 <canvas id="c"></canvas>
 
 <div id="top" class="panel">
+  <span id="bLang" class="lang"><button type="button" data-l="en" lang="en">EN</button><button type="button" data-l="ja" lang="ja" class="on">日本語</button></span>
   <span class="t" data-en="Kutchan house" data-ja="倶知安 住宅計画">倶知安 住宅計画</span>
   <span class="seg"><button id="bH4" data-i18n="h4" data-i18n-title="h4t">予算プラン</button><button id="bH5" data-i18n="h5" data-i18n-title="h5t">中間プラン</button><button id="bH6" data-i18n="h6" data-i18n-title="h6t">理想プラン</button></span>
   <button id="bEdit" class="ac" data-i18n="edit" data-i18n-title="editt" hidden>間取りを編集</button>
@@ -87,7 +98,6 @@
   <button id="bLbl" data-i18n="labels" data-i18n-title="labelst">部屋名</button>
   <button id="bMouse" data-i18n="mouse" data-i18n-title="mouset">マウス視点</button>
   <button id="bQual" data-i18n-title="qualt">画質：高</button>
-  <button id="bLang" data-i18n="lang" data-i18n-title="langt">English</button>
   <button id="bHelp">?</button>
 </div>
 
@@ -126,6 +136,6 @@
 <script type="importmap">
 {"imports":{"three":"./three.module.min.js","three/addons/":"./jsm/"}}
 </script>
-<script type="module" src="app.js?v=25"></script>
+<script type="module" src="app.js?v=26"></script>
 </body>
 </html>

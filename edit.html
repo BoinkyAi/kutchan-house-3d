@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-plans="d c b">
+<html lang="ja" data-plans="d c b">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Plan editor</title>
+<title>間取り編集</title>
 <script>/* old links to plans that now live in the Ichijo app: e (removed; opens g), f, g */
 (function () {
   var q = new URLSearchParams(location.search), p = (q.get('plan') || '').toLowerCase(), l = q.get('lang'), t = null;
@@ -21,9 +21,18 @@
     -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
   #cv{position:fixed;inset:0;display:block;touch-action:none}
   .panel{position:fixed;background:rgba(17,22,28,.92);backdrop-filter:blur(8px);border:1px solid var(--bd);border-radius:12px;padding:6px}
-  #top{top:8px;left:8px;right:8px;display:flex;gap:5px;align-items:center;flex-wrap:wrap}
-  #top .t{font-weight:700;margin:0 4px;white-space:nowrap}
+  #top{top:8px;left:8px;right:8px;padding:3px 6px;font-size:0;line-height:37px}
+  #top > *{font-size:13px;line-height:1.35;vertical-align:middle;margin-right:5px}
+  #top .t{font-weight:700;margin:0 9px 0 4px;white-space:nowrap}
   #top .sub{opacity:.6;font-size:11px;white-space:nowrap}
+  #top > .lang{float:right;margin:3px 0 0 5px}
+  .lang{display:inline-flex;white-space:nowrap}
+  .lang button{background:#1b2430;color:#e8eef5;border:1px solid #2c3a4a;border-radius:0;margin:0 0 0 -1px;padding:6px 11px;
+    font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;cursor:pointer;white-space:nowrap}
+  .lang button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+  .lang button:last-child{border-radius:0 8px 8px 0}
+  .lang button:hover{border-color:#5ac8fa}
+  .lang button.on{background:#5ac8fa;color:#04121c;border-color:#5ac8fa;font-weight:700}
   button,select,input{font:inherit}
   button{background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px 9px;cursor:pointer;white-space:nowrap}
   button:hover{border-color:var(--ac)}
@@ -56,7 +65,7 @@
   #shareUrl{width:100%;height:90px;background:var(--ui2);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;font:11px monospace;-webkit-user-select:text;user-select:text}
   kbd{background:var(--ui2);border:1px solid var(--bd);border-radius:5px;padding:1px 6px;font:12px monospace}
   @media (max-width:640px){
-    #top{gap:3px;padding:5px} #top .sub{display:none}
+    #top{padding:3px 5px;line-height:35px} #top > *{margin-right:3px} #top .t{margin:0 7px 0 4px} #top > .lang{margin:2px 0 0 3px} #top .sub{display:none}
     #tools{top:auto;bottom:8px;left:8px;right:8px;flex-direction:row;flex-wrap:wrap;justify-content:center}
     #tools .h{display:none}
     #props{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:48vh}
@@ -69,30 +78,30 @@
 <canvas id="cv"></canvas>
 
 <div id="top" class="panel">
-  <span class="t" data-i="title">Plan editor</span>
+  <span id="bLang" class="lang"><button type="button" data-l="en" lang="en">EN</button><button type="button" data-l="ja" lang="ja" class="on">日本語</button></span>
+  <span class="t" data-i="title">間取り編集</span>
   <span class="seg" id="floors"></span>
-  <button id="bUndo" data-i="undo" title="Ctrl+Z">Undo</button>
-  <button id="bRedo" data-i="redo" title="Ctrl+Shift+Z">Redo</button>
-  <button id="b3d" class="go" data-i="view3d">View in 3D</button>
-  <button id="bShare" data-i="share">Share link</button>
-  <button id="bReset" data-i="reset">Reset</button>
-  <button id="bPlans" data-i="plans" data-it="plansT">Plans</button>
+  <button id="bUndo" data-i="undo" title="Ctrl+Z">取り消し</button>
+  <button id="bRedo" data-i="redo" title="Ctrl+Shift+Z">やり直し</button>
+  <button id="b3d" class="go" data-i="view3d">3Dで見る</button>
+  <button id="bShare" data-i="share">共有リンク</button>
+  <button id="bReset" data-i="reset">元の図面に戻す</button>
+  <button id="bPlans" data-i="plans" data-it="plansT">図面一覧</button>
   <span class="sub" id="areas"></span>
-  <button id="bLang">日本語</button>
   <button id="bHelp">?</button>
 </div>
 
 <div id="tools" class="panel">
-  <div class="h" data-i="toolsH">TOOLS</div>
-  <button data-tool="select" data-i="tSelect">Select / move</button>
-  <button data-tool="wall" data-i="tWall">Draw wall</button>
-  <button data-tool="door" data-i="tDoor">Add door</button>
-  <button data-tool="window" data-i="tWindow">Add window</button>
-  <button data-tool="item" data-i="tItem">Add furniture</button>
-  <button data-tool="room" data-i="tRoom">Name a room</button>
-  <div class="h" data-i="optH">OPTIONS</div>
-  <button id="bLink" class="on" data-i="link" data-it="linkT">Outside walls: all floors</button>
-  <button id="bGrid" data-i="grid" data-it="gridT">Snap to 455 grid</button>
+  <div class="h" data-i="toolsH">ツール</div>
+  <button data-tool="select" data-i="tSelect">選択・移動</button>
+  <button data-tool="wall" data-i="tWall">壁を描く</button>
+  <button data-tool="door" data-i="tDoor">ドアを追加</button>
+  <button data-tool="window" data-i="tWindow">窓を追加</button>
+  <button data-tool="item" data-i="tItem">家具を追加</button>
+  <button data-tool="room" data-i="tRoom">部屋名をつける</button>
+  <div class="h" data-i="optH">オプション</div>
+  <button id="bLink" class="on" data-i="link" data-it="linkT">外壁は全フロア連動</button>
+  <button id="bGrid" data-i="grid" data-it="gridT">455グリッドに吸着</button>
 </div>
 
 <div id="props" class="panel"></div>
@@ -100,21 +109,21 @@
 <div id="toast"></div>
 
 <div id="share"><div class="box">
-  <h3 data-i="shareH">Share this plan</h3>
-  <div class="note" data-i="shareNote" style="margin-bottom:8px">Anyone with this link sees your edited plan (in the editor and in 3D). Nothing is uploaded: the plan is inside the link.</div>
+  <h3 data-i="shareH">この間取りを共有</h3>
+  <div class="note" data-i="shareNote" style="margin-bottom:8px">このリンクを開くと、編集した間取り（編集画面と3D）を見られます。データはリンクの中にあり、どこにもアップロードされません。</div>
   <textarea id="shareUrl" readonly></textarea>
   <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-    <button id="bCopy" class="on" data-i="copy">Copy link</button>
-    <button id="bCopy3d" data-i="copy3d">Copy 3D link</button>
-    <button onclick="document.getElementById('share').classList.remove('show')" data-i="close">Close</button>
+    <button id="bCopy" class="on" data-i="copy">リンクをコピー</button>
+    <button id="bCopy3d" data-i="copy3d">3Dのリンクをコピー</button>
+    <button onclick="document.getElementById('share').classList.remove('show')" data-i="close">閉じる</button>
   </div>
 </div></div>
 
 <div id="help"><div class="box">
   <div id="helpBody"></div>
-  <div style="margin-top:12px"><button onclick="document.getElementById('help').classList.remove('show')" data-i="close">Close</button></div>
+  <div style="margin-top:12px"><button onclick="document.getElementById('help').classList.remove('show')" data-i="close">閉じる</button></div>
 </div></div>
 
-<script type="module" src="edit.js?v=16"></script>
+<script type="module" src="edit.js?v=17"></script>
 </body>
 </html>

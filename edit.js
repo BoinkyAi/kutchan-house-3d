@@ -187,8 +187,12 @@ const TXG = {
     help: planHelp('ja', "<b>元の図面に戻す</b>で「フルサイズ」の最初の間取りに戻ります。", DESC.g.ja, true) }, FIN.ja, ICHS.ja),
 };
 const TXP = { b: TXB, c: TXC, d: TXD, f: TXF, g: TXG };
-let LANG = new URLSearchParams(location.search).get('lang') || localStorage.getItem('h3dEditLang') || 'en';
-if (!TX[LANG]) LANG = 'en';
+/* UI language: Japanese by default; ?lang=en|ja forces; the EN / 日本語 toggle's choice is remembered
+   under the same key as the 3D page (app.js LANG_KEY; the old h3dEditLang is ignored) */
+const LANG_KEY = 'h3dLang26', _qLang = new URLSearchParams(location.search).get('lang');
+let LANG = 'ja';
+try { if (localStorage.getItem(LANG_KEY) === 'en') LANG = 'en'; } catch (e) { /* storage blocked */ }
+if (_qLang === 'en' || _qLang === 'ja') LANG = _qLang;
 const T = (k) => TXP[PLAN][LANG][k] !== undefined ? TXP[PLAN][LANG][k] : TX[LANG][k] !== undefined ? TX[LANG][k] : TX.en[k];
 const $ = (id) => document.getElementById(id);
 
@@ -1243,7 +1247,7 @@ function applyLang() {
   document.documentElement.lang = LANG;
   document.querySelectorAll('[data-i]').forEach(e => { const v = T(e.dataset.i); if (typeof v === 'string') e.textContent = v; });
   document.querySelectorAll('[data-it]').forEach(e => { const v = T(e.dataset.it); if (typeof v === 'string') e.title = v; });
-  $('bLang').textContent = LANG === 'ja' ? 'English' : '日本語';
+  for (const b of document.querySelectorAll('#bLang button[data-l]')) b.classList.toggle('on', b.dataset.l === LANG);
   $('helpBody').innerHTML = T('help');
   document.title = T('title');
   setTool(S.tool);
@@ -1262,7 +1266,7 @@ function bindUI() {
   $('b3d').onclick = () => { try { localStorage.setItem(REF.key, JSON.stringify(S.model)); } catch (e) { /* */ } location.href = REF.view; };
   $('bShare').onclick = async () => { const l = await shareLinks(); $('shareUrl').value = l.edit; $('share').classList.add('show'); $('bCopy').onclick = () => copy(l.edit); $('bCopy3d').onclick = () => copy(l.view); };
   $('bReset').onclick = () => { if (!confirm(T('resetQ'))) return; begin(); S.model = clone(S.orig); commit(); S.sel = null; syncProps(); fit(); redraw(); };
-  $('bLang').onclick = () => { LANG = LANG === 'ja' ? 'en' : 'ja'; try { localStorage.setItem('h3dEditLang', LANG); } catch (e) { /* */ } applyLang(); redraw(); };
+  for (const b of document.querySelectorAll('#bLang button[data-l]')) b.onclick = () => { LANG = b.dataset.l; try { localStorage.setItem(LANG_KEY, LANG); } catch (e) { /* */ } applyLang(); redraw(); };
   $('bHelp').onclick = () => $('help').classList.add('show');
   $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
   const bp = $('bPlans'); if (bp) bp.onclick = () => { try { localStorage.setItem(REF.key, JSON.stringify(S.model)); } catch (e) { /* */ } location.href = 'plans.html'; };

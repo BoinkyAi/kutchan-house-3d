@@ -73,10 +73,15 @@ const REFS = {
 };
 const REF = REFS[HOUSE] || null;
 const IJH = !!(REFS[HOUSE] && REFS[HOUSE].ichijo);   /* an Ichijo house (8, 9) */
-/* UI language: Japanese by default, English as a toggle (Toby 2026-10-05).
-   ?lang=en|ja overrides; the choice is remembered in localStorage. */
+/* UI language: Japanese by default on every page; the EN / 日本語 toggle (#bLang) sits at the right
+   end of the top bar. ?lang=en|ja forces a language; a toggle choice is remembered in localStorage
+   LANG_KEY, one key for every page of the apps (the older keys h3dLang / h3dEditLang / h3dPlansLang
+   are ignored, so an old remembered English does not override the Japanese default). */
+const LANG_KEY = 'h3dLang26';
 const _qLang = new URLSearchParams(location.search).get('lang');
-let LANG = (_qLang === 'en' || _qLang === 'ja') ? _qLang : (localStorage.getItem('h3dLang') === 'en' ? 'en' : 'ja');
+let LANG = 'ja';
+try { if (localStorage.getItem(LANG_KEY) === 'en') LANG = 'en'; } catch (e) { /* storage blocked */ }
+if (_qLang === 'en' || _qLang === 'ja') LANG = _qLang;
 const TXT = {
   ja: {
     title: '倶知安 住宅計画',
@@ -92,7 +97,6 @@ const TXT = {
     floors: '全フロア', upto: (f) => f + 'まで', floorst: '上の階から順に切断表示', roof: '屋根', rooft: '屋根を外す（C）',
     labels: '部屋名', labelst: '部屋名の表示（T）', mouse: 'マウス視点', mouset: 'マウスを固定してFPSのように視点を操作',
     qhi: '画質：高', qlo: '画質：軽量', qualt: '高＝陰影とアンチエイリアスあり／軽量＝動きが重い場合に',
-    lang: 'English', langt: 'Switch to English',
     roofp: '屋根・2階天井', livs: 'リビング側', beds: '寝室側',
     livst: 'リビング側の端の壁での2階床からの天井高', bedst: '寝室側の端の壁での2階床からの天井高',
     roofread: (a, b, c, p) => '1階 ' + a + 'm・2階 ' + b + '→' + c + 'm・勾配 ' + p + '°',
@@ -130,7 +134,6 @@ const TXT = {
     floors: 'All floors', upto: (f) => 'Up to ' + f, floorst: 'Cut the house away floor by floor', roof: 'Roof', rooft: 'Take the roof off (C)',
     labels: 'Labels', labelst: 'Room labels (T)', mouse: 'Mouse look', mouset: 'Lock the mouse for FPS-style looking',
     qhi: 'Quality: high', qlo: 'Quality: fast', qualt: 'High = ambient occlusion + antialiasing. Fast = drop them if it stutters',
-    lang: '日本語', langt: '日本語に切り替え',
     roofp: 'ROOF · 2F CEILING', livs: 'Living side', beds: 'Bedroom side',
     livst: 'Ceiling height above the 2F floor at the living-room end wall', bedst: 'Ceiling height above the 2F floor at the bedroom end wall',
     roofread: (a, b, c, p) => '1F ' + a + ' m · 2F ' + b + ' → ' + c + ' m · pitch ' + p + '°',
@@ -3293,7 +3296,7 @@ function bindUI() {
   const jump = $('jump');
   fillJump();
   jump.value = 0;
-  $('bLang').onclick = () => { LANG = LANG === 'ja' ? 'en' : 'ja'; try { localStorage.setItem('h3dLang', LANG); } catch (e) {} applyLang(); };
+  for (const b of document.querySelectorAll('#bLang button[data-l]')) b.onclick = () => { LANG = b.dataset.l; try { localStorage.setItem(LANG_KEY, LANG); } catch (e) { /* */ } applyLang(); };
   jump.addEventListener('change', () => { goView(VIEWS[+jump.value]); jump.blur(); });
 
   $('bWalk').onclick = () => {
@@ -3403,6 +3406,7 @@ function fillJump() {
 /* every UI string from TXT: [data-i18n] = text, [data-i18n-title] = tooltip */
 function applyLang() {
   document.documentElement.lang = LANG;
+  for (const b of document.querySelectorAll('#bLang button[data-l]')) b.classList.toggle('on', b.dataset.l === LANG);
   document.querySelectorAll('[data-i18n]').forEach(e => { const v = T(e.dataset.i18n); if (typeof v === 'string') e.textContent = v; });
   document.querySelectorAll('[data-i18n-title]').forEach(e => { const v = T(e.dataset.i18nTitle); if (typeof v === 'string') e.title = v; });
   document.querySelectorAll('[data-en]').forEach(e => { e.textContent = (LANG === 'ja' && e.dataset.ja) || e.dataset.en; });
