@@ -45,6 +45,10 @@
   figure{margin:0;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:#f4f2ee}
   figure img{display:block;width:100%;height:auto}
   figcaption{font-size:13px;font-weight:600;padding:4px 10px;background:#fff;border-top:1px solid var(--bd)}
+  details.alt{margin:18px 0}
+  details.alt>summary{cursor:pointer;font-size:19px;font-weight:700;padding:14px 18px;background:#fff;border:1px solid var(--bd);border-radius:12px}
+  details.alt>summary:hover{background:#f1f3f5}
+  details.alt>summary:focus-visible{outline:3px solid #8cc4ea;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -53,6 +57,30 @@
   <span id="bLang" class="lang"><button type="button" data-l="en" lang="en">EN</button><button type="button" data-l="ja" lang="ja" class="on">日本語</button></span></div>
 </header>
 <main>
+<section id="plan-d">
+  <div class="head">
+    <h2><a href="index.html?house=6"><span class="en">Ideal plan</span><span class="ja" lang="ja">理想プラン</span></a></h2>
+    <a class="b3d" href="index.html?house=6"><span class="en">View in 3D</span><span class="ja" lang="ja">3Dで見る</span></a>
+    <a class="edit" href="edit.html?plan=d"><span class="en">Edit plan</span><span class="ja" lang="ja">間取りを編集</span></a>
+  </div>
+  <p class="what"><span class="en">L-shaped two-storey house; the living wing has windows on three sides.</span><span class="ja" lang="ja">L字型の2階建て。リビングの翼棟は3面に窓。</span></p>
+  <dl>
+    <dt><span class="en">Floor area</span><span class="ja" lang="ja">延床面積</span></dt><dd><span class="en">256 m² ≈ 77 tsubo</span><span class="ja" lang="ja">256 m²（約77坪）</span><br><small><span class="en">1F 129.2 · 2F 126.7 m²</span><span class="ja" lang="ja">1階 129.2・2階 126.7 m²</span></small></dd>
+    <dt><span class="en">Bedrooms</span><span class="ja" lang="ja">寝室</span></dt><dd><span class="en">3, 2 with their own bathroom</span><span class="ja" lang="ja">3室（うち2室は専用バスルーム付き）</span></dd>
+    <dt><span class="en">Dens</span><span class="ja" lang="ja">書斎</span></dt><dd><span class="en">2</span><span class="ja" lang="ja">2室</span></dd>
+    <dt><span class="en">Gym</span><span class="ja" lang="ja">ジム</span></dt><dd><span class="en">65.8 m²</span><span class="ja" lang="ja">65.8 m²</span></dd>
+    <dt><span class="en">Bath + sauna</span><span class="ja" lang="ja">浴室＋サウナ</span></dt><dd><span class="en">24.8 + 8.3 m²</span><span class="ja" lang="ja">24.8＋8.3 m²</span></dd>
+    <dt><span class="en">Living · dining · kitchen</span><span class="ja" lang="ja">LDK</span></dt><dd><span class="en">46.4 m²</span><span class="ja" lang="ja">46.4 m²</span></dd>
+    <dt><span class="en">Roof height</span><span class="ja" lang="ja">最高高さ</span></dt><dd><span class="en">9.9 m above ground</span><span class="ja" lang="ja">地面から9.9 m</span></dd>
+    <dt><span class="en">Front door</span><span class="ja" lang="ja">玄関ドア</span></dt><dd><span class="en">double, 1.69 × 2.33 m</span><span class="ja" lang="ja">両開き 1.69×2.33m</span></dd>
+  </dl>
+  <div class="floors">
+    <figure><a class="ja" lang="ja" href="plans-img/d_1F_ja.png?v=26"><img src="plans-img/d_1F_ja.png?v=26" alt="理想プラン・1階" width="1400" height="950" loading="lazy"></a><a class="en" href="plans-img/d_1F.png?v=25"><img src="plans-img/d_1F.png?v=25" alt="Ideal plan, 1F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">1F</span><span class="ja" lang="ja">1階</span></figcaption></figure>
+    <figure><a class="ja" lang="ja" href="plans-img/d_2F_ja.png?v=26"><img src="plans-img/d_2F_ja.png?v=26" alt="理想プラン・2階" width="1400" height="950" loading="lazy"></a><a class="en" href="plans-img/d_2F.png?v=25"><img src="plans-img/d_2F.png?v=25" alt="Ideal plan, 2F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">2F</span><span class="ja" lang="ja">2階</span></figcaption></figure>
+  </div>
+</section>
+<details class="alt" id="alternatives">
+<summary><span class="en">Alternatives</span><span class="ja" lang="ja">代替案</span></summary>
 <section id="plan-b">
   <div class="head">
     <h2><a href="index.html?house=4"><span class="en">Budget plan</span><span class="ja" lang="ja">予算プラン</span></a></h2>
@@ -99,28 +127,7 @@
     <figure><a class="ja" lang="ja" href="plans-img/c_loft_ja.png?v=26"><img src="plans-img/c_loft_ja.png?v=26" alt="中間プラン・ロフト" width="1400" height="950" loading="lazy"></a><a class="en" href="plans-img/c_loft.png?v=25"><img src="plans-img/c_loft.png?v=25" alt="Mid tier plan, Loft" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">Loft</span><span class="ja" lang="ja">ロフト</span></figcaption></figure>
   </div>
 </section>
-<section id="plan-d">
-  <div class="head">
-    <h2><a href="index.html?house=6"><span class="en">Ideal plan</span><span class="ja" lang="ja">理想プラン</span></a></h2>
-    <a class="b3d" href="index.html?house=6"><span class="en">View in 3D</span><span class="ja" lang="ja">3Dで見る</span></a>
-    <a class="edit" href="edit.html?plan=d"><span class="en">Edit plan</span><span class="ja" lang="ja">間取りを編集</span></a>
-  </div>
-  <p class="what"><span class="en">L-shaped two-storey house; the living wing has windows on three sides.</span><span class="ja" lang="ja">L字型の2階建て。リビングの翼棟は3面に窓。</span></p>
-  <dl>
-    <dt><span class="en">Floor area</span><span class="ja" lang="ja">延床面積</span></dt><dd><span class="en">256 m² ≈ 77 tsubo</span><span class="ja" lang="ja">256 m²（約77坪）</span><br><small><span class="en">1F 129.2 · 2F 126.7 m²</span><span class="ja" lang="ja">1階 129.2・2階 126.7 m²</span></small></dd>
-    <dt><span class="en">Bedrooms</span><span class="ja" lang="ja">寝室</span></dt><dd><span class="en">3, 2 with their own bathroom</span><span class="ja" lang="ja">3室（うち2室は専用バスルーム付き）</span></dd>
-    <dt><span class="en">Dens</span><span class="ja" lang="ja">書斎</span></dt><dd><span class="en">2</span><span class="ja" lang="ja">2室</span></dd>
-    <dt><span class="en">Gym</span><span class="ja" lang="ja">ジム</span></dt><dd><span class="en">65.8 m²</span><span class="ja" lang="ja">65.8 m²</span></dd>
-    <dt><span class="en">Bath + sauna</span><span class="ja" lang="ja">浴室＋サウナ</span></dt><dd><span class="en">24.8 + 8.3 m²</span><span class="ja" lang="ja">24.8＋8.3 m²</span></dd>
-    <dt><span class="en">Living · dining · kitchen</span><span class="ja" lang="ja">LDK</span></dt><dd><span class="en">46.4 m²</span><span class="ja" lang="ja">46.4 m²</span></dd>
-    <dt><span class="en">Roof height</span><span class="ja" lang="ja">最高高さ</span></dt><dd><span class="en">9.9 m above ground</span><span class="ja" lang="ja">地面から9.9 m</span></dd>
-    <dt><span class="en">Front door</span><span class="ja" lang="ja">玄関ドア</span></dt><dd><span class="en">double, 1.69 × 2.33 m</span><span class="ja" lang="ja">両開き 1.69×2.33m</span></dd>
-  </dl>
-  <div class="floors">
-    <figure><a class="ja" lang="ja" href="plans-img/d_1F_ja.png?v=26"><img src="plans-img/d_1F_ja.png?v=26" alt="理想プラン・1階" width="1400" height="950" loading="lazy"></a><a class="en" href="plans-img/d_1F.png?v=25"><img src="plans-img/d_1F.png?v=25" alt="Ideal plan, 1F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">1F</span><span class="ja" lang="ja">1階</span></figcaption></figure>
-    <figure><a class="ja" lang="ja" href="plans-img/d_2F_ja.png?v=26"><img src="plans-img/d_2F_ja.png?v=26" alt="理想プラン・2階" width="1400" height="950" loading="lazy"></a><a class="en" href="plans-img/d_2F.png?v=25"><img src="plans-img/d_2F.png?v=25" alt="Ideal plan, 2F" width="1400" height="950" loading="lazy"></a><figcaption><span class="en">2F</span><span class="ja" lang="ja">2階</span></figcaption></figure>
-  </div>
-</section>
+</details>
 </main>
 <script>
 (function () {
@@ -133,6 +140,11 @@
   }
   for (var i = 0; i < B.length; i++) B[i].onclick = function () { set(this.getAttribute('data-l'), true); };
   set(R.className === 'en' ? 'en' : 'ja', false);
+  function openAlt() {   // links to a folded card (#plan-b, #plan-c) open the dropdown
+    var t = location.hash && document.getElementById(location.hash.slice(1)), d = t && t.closest && t.closest('details');
+    if (d && !d.open) { d.open = true; t.scrollIntoView(); }
+  }
+  openAlt(); window.addEventListener('hashchange', openAlt);
 })();
 </script>
 </body>
