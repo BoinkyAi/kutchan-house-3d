@@ -1,6 +1,6 @@
 /* Kutchan house — interactive 3D walkthrough. ONE renderer, byte-identical in three apps that
    never link to each other (Toby 2026-10-13): kutchan-house-3d (house 4 = Budget plan,
-   5 = Mid tier plan, 6 = Ideal plan), kutchan-house-ichijo (8 = Compact, 9 = Full size) and
+   5 = Mid tier plan, 6 = Ideal plan, 12 = Ideal — compact), kutchan-house-ichijo (8 = Compact, 9 = Full size) and
    kutchan-house-plan-a (Plan B = house 2 in plan-b/; Plan A = house 1 is that app's older
    renderer at its root). The page's <html data-houses="..."> lists its houses (the first = the
    default; the switcher shows index.html's buttons in their own order) and data-assets the
@@ -63,11 +63,13 @@ const ASSETS = (document.documentElement.dataset.assets || '') + 'assets/';   /*
    "compact", ref-model-g.json "3 up, 1 down"; the editor's ?plan=f / ?plan=g) on house 7's
    path: every Ichijo house (REFS[n].ichijo, IJH below) gets the Ichijo spec panel, the
    ceilings / roof / outside stair of buildIchijo7 and the presets computed from its rooms. */
-const H3 = HOUSE >= 4 && HOUSE <= 9;   /* houses 4-9 (the name is from house 3, the first): built from an editable model (refplan.js); 7-9 = Plan B — Ichijo + variants (ichijo.js, see the house 7 section) */
+const H3 = (HOUSE >= 4 && HOUSE <= 9) || HOUSE === 12;   /* houses 4-9 + 12 (the name is from house 3, the first): built from an editable model (refplan.js); 7-9 = Plan B — Ichijo + variants (ichijo.js, see the house 7 section) */
 const REFS = {
   4: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
   5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
+  /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
+  12: { url: 'ref-model-j.json?v=1', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -91,6 +93,9 @@ const TXT = {
     h5: '中間プラン', h5t: "13.65×9.1mの箱型2階建て＋ロフト、長辺が眺望側",
     origt5: '中間プランの最初の間取りを表示（編集はそのまま残ります）',
     h6: '理想プラン', h6t: "L字型の2階建て。リビングの翼棟は3面に窓", origt6: '理想プランの最初の間取りを表示（編集はそのまま残ります）',
+    h12: '理想プラン（コンパクト）', h12t: "コンパクトなL字型の2階建て。L字の内側にカーポート、リビングの翼棟は3面にガラス", origt12: '「理想プラン（コンパクト）」の最初の間取りを表示（編集はそのまま残ります）',
+    doc12: '倶知安 住宅計画 理想プラン（コンパクト） — 3D',
+    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム41.7m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・洗濯室、トイレ、書斎1（二段ベッド付き）、ゲスト寝室15.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（11.5・13.9m²、それぞれウォークインクローゼットと専用バスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
     edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
@@ -128,6 +133,9 @@ const TXT = {
     h5: 'Mid tier plan', h5t: "13.65 × 9.1 m two-storey box with a loft, long side facing the view",
     origt5: 'Show the Mid tier plan as first drawn (your edits stay saved)',
     h6: 'Ideal plan', h6t: "L-shaped two-storey house; the living wing has windows on three sides", origt6: 'Show the Ideal plan as first drawn (your edits stay saved)',
+    h12: 'Ideal — compact', h12t: "Compact L-shaped two-storey house; carport in the L's inner corner, the living wing glazed on three sides", origt12: 'Show “Ideal — compact” as first drawn (your edits stay saved)',
+    doc12: 'Kutchan house — Ideal — compact — 3D',
+    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 41.7 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing room + laundry, WC, den 1 (office with a bunk bed), guest bedroom 15.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (11.5 and 13.9 m²), each with a walk-in closet and its own bathroom, den 2 (office with a bunk bed), WC.",
     edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
@@ -213,6 +221,9 @@ Object.assign(JA_NAMES, {                              /* house 7 presets */
   'Outside — south (view side, outside stair)': '外観 — 南（眺望側・外部階段）', '1F — Hall + stair': '1F — ホール・階段', '1F — Bedroom 3': '1F — 寝室3',
   '1F — Den / guest bedroom': '1F — 書斎・客間',                     /* v22 (house 7) */
   'Outside — north-east (entrance, carport)': '外観 — 北東（玄関・カーポート）',
+  'Outside — carport + entrance (north-east)': '外観 — カーポート・玄関（北東）', 'Outside — west (snow side)': '外観 — 西（落雪側）',
+  '1F — Guest bedroom': '1F — ゲスト寝室', '2F — Living (glass on three sides)': '2F — リビング（3面ガラス）',
+  '2F — Dining + kitchen': '2F — ダイニング・キッチン', '2F — Master bedroom 1': '2F — 主寝室1', '2F — Master bedroom 2': '2F — 主寝室2',
   /* house 4: the editor's compass (north at the bottom of plan b) */
   'Outside — north-west': '外観 — 北西', 'Outside — south-east (view side, roof high)': '外観 — 南東（眺望側・屋根が高い側）',
   'Outside — west (carport, front door)': '外観 — 西（カーポート・玄関）', '2F — Living (view glass, stove)': '2F — リビング（眺望側の大開口・薪ストーブ）',
@@ -842,14 +853,18 @@ function wallRun(G, w, lvl, L) {
   }
   if (cur < runEnd) { solid(cur, runEnd, yB, yT); skirt(Math.max(cur, 0), len); }
   own.c1 = COLL.length;
-  if (H3 && ext) {                                   /* house 3: clad the exposed corner ends (refplan.js joins) */
+  if (H3 && ext) {                                   /* house 3: clad the exposed corner ends (refplan.js joins); an end that
+                                                        faces a room (the L's inner corner where the rooms open round it, 2026-10-20) gets plaster */
     for (const [on, sc] of [[w.cap, len + 0.005], [w.capA, -0.005]]) {
       if (!on) continue;
-      const cg = B(0.01, yT - yB, n1 - n0, MAT.clad);
+      const sp = sc + (sc > 0 ? 0.05 : -0.05), qx = ax + ux * sp + nx * (n0 + n1) / 2, qz = az + uz * sp + nz * (n0 + n1) / 2;
+      const inRoom = (L.faces || []).some(f => inside(f.poly, qx, qz) && !(f.holes || []).some(h => inside(h, qx, qz)));
+      const cm = inRoom ? MAT.plaster : MAT.clad;
+      const cg = B(0.01, yT - yB, n1 - n0, cm);
       const cx = ax + ux * sc + nx * (n0 + n1) / 2, cy = (yB + yT) / 2, cz = az + uz * sc + nz * (n0 + n1) / 2;
       if (roof) roofTop(cg, cx, cy, cz, th, roof, true);
-      cladUV(cg, 0, 8, 0, yB, 0, 1);
-      const m = new THREE.Mesh(cg, MAT.clad);
+      if (!inRoom) cladUV(cg, 0, 8, 0, yB, 0, 1);
+      const m = new THREE.Mesh(cg, cm);
       m.position.set(cx, cy, cz); m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
     }
   }
@@ -2162,6 +2177,22 @@ function makeProp3(s, lvl) {
   const g = new THREE.Group(), w = s.w, d = s.d, top = s.top;
   const L = LV[lvl];
   switch (s.name) {
+    case 'bunk': {                                     /* house 12: bunk bed, oak frame, two mattresses (heads at local -y, as 'bed'), ladder on the +x side at the foot */
+      const p = 0.06, ys = [0.32, Math.max(1.25, top - 0.4)], mh = 0.15;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(p, top, p, MAT.oakFurn, 'y'), MAT.oakFurn, sx * (w / 2 - p / 2), top / 2, sz * (d / 2 - p / 2));
+      for (const y of ys) {
+        for (const sx of [-1, 1]) mk(g, B(0.04, 0.14, d - 2 * p, MAT.oakFurn, 'z'), MAT.oakFurn, sx * (w / 2 - 0.02), y - 0.07, 0);
+        for (const sz of [-1, 1]) mk(g, B(w - 2 * p, 0.14, 0.04, MAT.oakFurn), MAT.oakFurn, 0, y - 0.07, sz * (d / 2 - 0.02));
+        mk(g, RS(w - 0.1, mh, d - 0.14, 0.04, MAT.linenWhite, 0.05), MAT.linenWhite, 0, y + mh / 2, 0);
+        mk(g, RS(w - 0.06, 0.06, (d - 0.14) * 0.68, 0.03, MAT.linen, 0.03), MAT.linen, 0, y + mh + 0.03, (d - 0.14) * 0.16);
+        mk(g, RS(w * 0.62, 0.1, 0.32, 0.04, MAT.linenWhite, 0.05), MAT.linenWhite, 0, y + mh + 0.05, -d / 2 + 0.26);
+      }
+      for (const sx of [-1, 1]) mk(g, B(0.04, 0.05, d - 2 * p, MAT.oakFurn, 'z'), MAT.oakFurn, sx * (w / 2 - 0.02), ys[1] + 0.32, -0.15);   /* top bunk guard rails */
+      const lz0 = d / 2 - 0.5, lz1 = d / 2 - 0.12, lx = w / 2 + 0.03;                                                            /* ladder */
+      for (const z of [lz0, lz1]) mk(g, B(0.04, ys[1] + 0.3, 0.04, MAT.oakFurn, 'y'), MAT.oakFurn, lx, (ys[1] + 0.3) / 2, z);
+      for (let y = 0.3; y < ys[1] + 0.1; y += 0.28) mk(g, B(0.04, 0.03, lz1 - lz0, MAT.oakFurn, 'z'), MAT.oakFurn, lx, y, (lz0 + lz1) / 2);
+      break;
+    }
     case 'closet': case 'wardrobe': {                 /* built-in storage, walnut-stained pine, doors at local +y */
       mk(g, B(w, top, d, MAT.walnut, 'y'), MAT.walnut, 0, top / 2, 0);
       const nd = Math.max(2, Math.round(w / 0.45));
@@ -3013,6 +3044,21 @@ const VIEWS6 = [
   ['1F — Entrance (genkan)', -0.55, 1.75, -0.33, -0.06, 0],
   ['2F — Living wing', 1.55, -2.1, -0.62, 0.0, 1],
 ];
+/* house 12 presets (Ideal — compact: model x east, z south, the house centred; the carport in the north-east corner) */
+const VIEWS12 = [
+  ['Outside — south-east (view side)', 13.5, 17.0, 0.67, 0.08, null, 2.2],
+  ['Outside — carport + entrance (north-east)', 14.5, -12.5, 2.25, 0.02, null, 1.8],
+  ['Outside — west (snow side)', -18.0, 3.0, -1.4, 0.06, null, 2.6],
+  ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
+  ['1F — Entrance (genkan)', 0.62, -1.74, 2.4, -0.06, 0],
+  ['1F — Gym', -0.95, 4.85, 0.8, -0.02, 0],
+  ['1F — Bath (hinoki tubs)', -4.68, -5.25, 2.64, -0.18, 0],
+  ['1F — Guest bedroom', 3.45, 2.5, -2.05, -0.06, 0],
+  ['2F — Living (glass on three sides)', 1.1, 4.85, -0.97, 0.06, 1],
+  ['2F — Dining + kitchen', 0.8, 4.85, 0.49, 0.0, 1],
+  ['2F — Master bedroom 1', -4.25, -1.95, 0.71, 0.0, 1],
+  ['2F — Master bedroom 2', 0.3, -1.75, 0.67, 0.0, 1],
+];
 /* Collapse single-material static meshes into one mesh per material. */
 function mergeStatic(group) {
   const buckets = new Map(), victims = [];
@@ -3073,7 +3119,7 @@ const VIEWS2 = [
   ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
 ];
 const VIEWS7 = [];   /* house 7: computed from the rooms after every build (views7) */
-const VIEWS = IJH ? VIEWS7 : HOUSE === 6 ? VIEWS6 : HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : VIEWS2;
+const VIEWS = IJH ? VIEWS7 : HOUSE === 12 ? VIEWS12 : HOUSE === 6 ? VIEWS6 : HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : VIEWS2;
 
 /* ---------------------------------------------------------------- controls */
 const st = {
@@ -3081,7 +3127,7 @@ const st = {
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
-const ORBIT_T = IJH ? new V(-0.3, 4.5, 0.1) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 || HOUSE === 6 ? new V(0, 4.0, 0) : new V(0, 3, 0);
+const ORBIT_T = IJH ? new V(-0.3, 4.5, 0.1) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 || HOUSE === 6 || HOUSE === 12 ? new V(0, 4.0, 0) : new V(0, 3, 0);
 const act = new Set();
 const KEYMAP = {
   KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',

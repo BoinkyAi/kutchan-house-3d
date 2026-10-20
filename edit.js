@@ -3,7 +3,8 @@
    saved in this browser or carried in a share link (#m=...).
    ?plan=b = Budget plan (ref-model-b.json, 3D: index.html?house=4),
    ?plan=c = Mid tier plan (ref-model-c.json, 3D: index.html?house=5) and
-   ?plan=d = Ideal plan, L-shaped (ref-model-d.json, 3D: index.html?house=6), each
+   ?plan=d = Ideal plan, L-shaped (ref-model-d.json, 3D: index.html?house=6),
+   ?plan=j = Ideal — compact (ref-model-j.json, 3D: index.html?house=12), each
    saved under its own key. ?plan=f = Compact (house 8) and ?plan=g = Full size (house 9):
    PLANS[x].ichijo = the Ichijo spec panel + catalogue fittings (ichijo.js).
    This file is byte-identical in two apps that never link to each other: kutchan-house-3d
@@ -26,6 +27,7 @@ const PLANS = {
   b: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
+  j: { url: 'ref-model-j.json?v=1', key: 'h3dRefModelJ', view: 'index.html?house=12', edit: 'edit.html?plan=j' },
   f: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
   g: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -72,7 +74,8 @@ const TX = {
       tube: 'Soaking tub (hinoki)', saunaBench: 'Sauna bench', saunaHeater: 'Sauna heater', gymRack: 'Power rack', gymBench: 'Weight bench',
       treadmill: 'Treadmill', mat: 'Exercise mat', railing: 'Glass railing',
       showerSystem: 'Shower column', armchair: 'Armchair', bookcase: 'Bookcase', water_heater: 'Water heater', coatHanger: 'Hanging rail',
-      tv: 'TV / media unit', 'kitchen.cabinet': 'Kitchen unit', fence: 'Fence', shade: 'Pergola', wallCabinet: 'Wall cabinets', sinkDouble: 'Double sink' },
+      tv: 'TV / media unit', 'kitchen.cabinet': 'Kitchen unit', fence: 'Fence', shade: 'Pergola', wallCabinet: 'Wall cabinets', sinkDouble: 'Double sink',
+      bunk: 'Bunk bed', rug: 'Rug', hob: 'Hob' },
     help: '<h3>Plan editor</h3>'
       + '<b>Move a wall</b>: drag it. The walls joined to it stretch with it, rooms reshape and their areas update. A straight run of walls moves together. With <b>Outside walls: all floors</b> on, moving an outside wall moves it on every floor (the roof follows).<br>'
       + '<b>Wall ends</b>: select a wall, then drag the round handle at an end to make it longer or shorter.<br>'
@@ -119,7 +122,8 @@ const TX = {
       tube: '浴槽（ひのき）', saunaBench: 'サウナベンチ', saunaHeater: 'サウナストーブ', gymRack: 'パワーラック', gymBench: 'トレーニングベンチ',
       treadmill: 'ランニングマシン', mat: 'トレーニングマット', railing: 'ガラス手すり',
       showerSystem: 'シャワー水栓', armchair: 'アームチェア', bookcase: '本棚', water_heater: '給湯器', coatHanger: 'ハンガーパイプ',
-      tv: 'テレビ台', 'kitchen.cabinet': 'キッチンユニット', fence: 'フェンス', shade: 'パーゴラ', wallCabinet: '吊戸棚', sinkDouble: 'ダブルシンク' },
+      tv: 'テレビ台', 'kitchen.cabinet': 'キッチンユニット', fence: 'フェンス', shade: 'パーゴラ', wallCabinet: '吊戸棚', sinkDouble: 'ダブルシンク',
+      bunk: '二段ベッド', rug: 'ラグ', hob: 'コンロ' },
     help: '<h3>間取り編集</h3>'
       + '<b>壁を動かす</b>：壁をドラッグします。つながっている壁が伸び縮みし、部屋の形と面積も更新されます。一直線に並んだ壁は一緒に動きます。<b>外壁は全フロア連動</b>がオンのとき、外壁を動かすと全フロアの外壁が動きます（屋根も追従）。<br>'
       + '<b>壁の長さ</b>：壁を選択し、端の丸いハンドルをドラッグして伸ばす・縮める。<br>'
@@ -151,6 +155,8 @@ const DESC = {
     ja: "中間プラン<br>1階：玄関、スキー/ギア室、ホール、ジム62.1m²、浴室21.1m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：リビング・ダイニング、アイランドのあるキッチン、主寝室と寝室2（それぞれ専用シャワー室・ウォークインクローゼット付き）、書斎2室、トイレ。<br>ロフト：寝室/書斎29.8m²（専用バスルーム・クローゼット付き）。" },
   d: { en: "Ideal plan<br>1F: entrance, ski / gear room, hall, gym 65.8 m², bath 24.8 m² (two hinoki tubs) with an 8.3 m² L-shaped sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living with windows on three sides, dining + kitchen with an island, master bedroom with an ensuite and a closet, bedroom 2 with an ensuite, bedroom 3, two dens, WC.",
     ja: "理想プラン<br>1階：玄関、スキー/ギア室、ホール、ジム65.8m²、浴室24.8m²（ひのき浴槽2つ）とL字型のサウナ8.3m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：3面に窓のあるリビング、アイランドのあるダイニング・キッチン、主寝室（専用シャワー室・クローゼット付き）、寝室2（専用シャワー室付き）、寝室3、書斎2室、トイレ。" },
+  j: { en: "Ideal — compact<br>1F: entrance, ski / gear room, hall, gym 41.7 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing room + laundry, WC, den 1 (office with a bunk bed), guest bedroom 15.5 m².<br>2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (11.5 and 13.9 m²), each with a walk-in closet and its own bathroom, den 2 (office with a bunk bed), WC.",
+    ja: "理想プラン（コンパクト）<br>1階：玄関、スキー/ギア室、ホール、ジム41.7m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・洗濯室、トイレ、書斎1（二段ベッド付き）、ゲスト寝室15.5m²。<br>2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（11.5・13.9m²、それぞれウォークインクローゼットと専用バスルーム付き）、書斎2（二段ベッド付き）、トイレ。" },
   f: { en: "Compact<br>1F: entrance, hall, gym 52.0 m², bath 23.2 m² (two hinoki tubs) with a 4.0 m² sauna, changing room, laundry, WC, boiler room, bedroom 3 (14.2 m²) with its own bathroom.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (11.2, 11.5 and 13.0 m²), each with its own bathroom; walk-in closets for bedrooms 2 and 4.",
     ja: "コンパクト<br>1階：玄関、ホール、ジム52.0m²、浴室23.2m²（ひのき浴槽2つ）とサウナ4.0m²、脱衣室、洗濯室、トイレ、機械室、寝室3（14.2m²、専用バスルーム付き）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（11.2・11.5・13.0m²、それぞれ専用バスルーム付き、寝室2・4はウォークインクローゼット付き）。" },
   g: { en: "Full size<br>1F: entrance, hall, gym 52.1 m², bath 32.1 m² (two hinoki tubs) with a 5.5 m² sauna, changing + rest room, laundry, WC, boiler room, bedroom 3 (18.4 m²) with its own shower room across the hall.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (18.2, 19.9 and 14.1 m²), each with a walk-in closet and its own bathroom.",
@@ -174,6 +180,12 @@ const TXD = {
   ja: Object.assign({ title: "間取り編集・理想プラン", resetQ: "変更をすべて破棄して、理想プランの最初の間取りに戻しますか？",
     help: planHelp('ja', "<b>元の図面に戻す</b>で理想プランの最初の間取りに戻ります。", DESC.d.ja, true) }, FIN.ja),
 };
+const TXJ = {
+  en: Object.assign({ title: "Plan editor · Ideal — compact", resetQ: "Throw away your changes and go back to “Ideal — compact” as first drawn?",
+    help: planHelp('en', "<b>Reset</b> goes back to “Ideal — compact” as first drawn.", DESC.j.en, true) }, FIN.en),
+  ja: Object.assign({ title: "間取り編集・理想プラン（コンパクト）", resetQ: "変更をすべて破棄して、「理想プラン（コンパクト）」の最初の間取りに戻しますか？",
+    help: planHelp('ja', "<b>元の図面に戻す</b>で「理想プラン（コンパクト）」の最初の間取りに戻ります。", DESC.j.ja, true) }, FIN.ja),
+};
 const TXF = {
   en: Object.assign({ title: "Plan editor · Compact", resetQ: "Throw away your changes (walls and catalogue choices) and go back to “Compact” as first drawn?",
     help: planHelp('en', "<b>Reset</b> goes back to “Compact” as first drawn.", DESC.f.en, true) }, FIN.en, ICHS.en),
@@ -186,7 +198,7 @@ const TXG = {
   ja: Object.assign({ title: "間取り編集・フルサイズ", resetQ: "変更（壁・設備の選択）をすべて破棄して、「フルサイズ」の最初の間取りに戻しますか？",
     help: planHelp('ja', "<b>元の図面に戻す</b>で「フルサイズ」の最初の間取りに戻ります。", DESC.g.ja, true) }, FIN.ja, ICHS.ja),
 };
-const TXP = { b: TXB, c: TXC, d: TXD, f: TXF, g: TXG };
+const TXP = { b: TXB, c: TXC, d: TXD, j: TXJ, f: TXF, g: TXG };
 /* UI language: Japanese by default; ?lang=en|ja forces; the EN / 日本語 toggle's choice is remembered
    under the same key as the 3D page (app.js LANG_KEY; the old h3dEditLang is ignored) */
 const LANG_KEY = 'h3dLang26', _qLang = new URLSearchParams(location.search).get('lang');
@@ -366,7 +378,7 @@ function draw() {
    the screen (x right, y down: the editor draws model x / y as they are); a model's own
    compass.north wins (plan c). Plan b is drawn with north at the bottom. Purely an
    overlay: the view transform, hit tests and dragging are untouched. */
-const NORTH = { b: [0, 1], c: [0, -1], d: [-1, 0], e: [0, -1], f: [0, -1], g: [0, -1] };
+const NORTH = { b: [0, 1], c: [0, -1], d: [-1, 0], e: [0, -1], f: [0, -1], g: [0, -1], j: [0, -1] };
 function compassDirs() {
   const mc = S.model && S.model.compass;
   const n0 = mc && Array.isArray(mc.north) ? mc.north : NORTH[PLAN];
@@ -581,6 +593,7 @@ function drawItem1(c, it) {
   c.lineWidth = 1; c.strokeStyle = sel ? '#1d7fb8' : '#a99a88';
   switch (it.kind) {
     case 'bed': L(-hw, -hd + 0.35, hw, -hd + 0.35); L(-hw * 0.85, -hd + 0.12, -0.08, -hd + 0.12); L(0.08, -hd + 0.12, hw * 0.85, -hd + 0.12); L(-hw, hd * 0.2, hw, hd * 0.2); break;
+    case 'bunk': L(-hw, -hd + 0.35, hw, -hd + 0.35); L(-hw * 0.7, -hd + 0.12, hw * 0.7, -hd + 0.12); L(-hw, -hd, hw, hd); L(hw, -hd, -hw, hd); break;   /* two beds stacked: crossed */
     case 'sofa': L(-hw, -hd + 0.2, hw, -hd + 0.2); if (it.chaise) { const [x, w2, d2] = it.chaise; const Q = [[x - w2 / 2, hd], [x + w2 / 2, hd], [x + w2 / 2, hd + d2], [x - w2 / 2, hd + d2]].map(([a, b]) => loc(it, a, b)); c.beginPath(); Q.forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.closePath(); c.fillStyle = '#fff'; c.fill(); c.stroke(); } break;
     case 'toilet': { const q = loc(it, 0, -0.04); c.beginPath(); c.ellipse(q[0], q[1], hw * 0.8 * S.view.s, hd * 0.55 * S.view.s, it.a || 0, 0, 7); c.stroke(); L(-hw, hd - 0.16, hw, hd - 0.16); break; }
     case 'rugRound': { const q = toS([it.x, it.y]); c.beginPath(); c.arc(q[0], q[1], hw * S.view.s, 0, 7); c.strokeStyle = sel ? '#1d7fb8' : '#b5a48f'; c.stroke(); break; }
