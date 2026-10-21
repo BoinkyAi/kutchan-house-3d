@@ -69,7 +69,7 @@ const REFS = {
   5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
-  12: { url: 'ref-model-j.json?v=1', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  12: { url: 'ref-model-j.json?v=2', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -95,7 +95,7 @@ const TXT = {
     h6: '理想プラン', h6t: "L字型の2階建て。リビングの翼棟は3面に窓", origt6: '理想プランの最初の間取りを表示（編集はそのまま残ります）',
     h12: '理想プラン（コンパクト）', h12t: "コンパクトなL字型の2階建て。L字の内側にカーポート、リビングの翼棟は3面にガラス", origt12: '「理想プラン（コンパクト）」の最初の間取りを表示（編集はそのまま残ります）',
     doc12: '倶知安 住宅計画 理想プラン（コンパクト） — 3D',
-    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム41.7m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・洗濯室、トイレ、書斎1（二段ベッド付き）、ゲスト寝室15.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（11.5・13.9m²、それぞれウォークインクローゼットと専用バスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
+    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム41.3m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー・洗濯機）、トイレ、階段下の機械室、書斎1（二段ベッド付き）、ゲスト寝室15.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（各13.5m²、それぞれ5.0m²のウォークインクローゼットと5.7m²のバスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
     edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
@@ -135,7 +135,7 @@ const TXT = {
     h6: 'Ideal plan', h6t: "L-shaped two-storey house; the living wing has windows on three sides", origt6: 'Show the Ideal plan as first drawn (your edits stay saved)',
     h12: 'Ideal — compact', h12t: "Compact L-shaped two-storey house; carport in the L's inner corner, the living wing glazed on three sides", origt12: 'Show “Ideal — compact” as first drawn (your edits stay saved)',
     doc12: 'Kutchan house — Ideal — compact — 3D',
-    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 41.7 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing room + laundry, WC, den 1 (office with a bunk bed), guest bedroom 15.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (11.5 and 13.9 m²), each with a walk-in closet and its own bathroom, den 2 (office with a bunk bed), WC.",
+    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 41.3 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger and the laundry, WC, boiler room under the stairs, den 1 (office with a bunk bed), guest bedroom 15.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (13.5 m² each), each with a 5.0 m² walk-in closet and a 5.7 m² bathroom, den 2 (office with a bunk bed), WC.",
     edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
@@ -2177,6 +2177,15 @@ function makeProp3(s, lvl) {
   const g = new THREE.Group(), w = s.w, d = s.d, top = s.top;
   const L = LV[lvl];
   switch (s.name) {
+    case 'lounger': {                                  /* house 12 (v2): pool lounger, hinoki slats on four legs, backrest raised at local -y, a linen pad */
+      const Hs = Math.max(0.25, Math.min(0.45, top)), bk = Math.min(0.7, d * 0.36), seat = d - bk, th = 0.7;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.05, Hs - 0.03, 0.05, MAT.hinoki), MAT.hinoki, sx * (w / 2 - 0.05), (Hs - 0.03) / 2, sz * (d / 2 - 0.08));
+      mk(g, B(w, 0.04, seat, MAT.hinoki), MAT.hinoki, 0, Hs, d / 2 - seat / 2);
+      mk(g, B(w - 0.08, 0.03, seat - 0.06, MAT.linenWhite), MAT.linenWhite, 0, Hs + 0.035, d / 2 - seat / 2);
+      const zh = -d / 2 + bk;
+      const bb = mk(g, B(w, 0.04, bk, MAT.hinoki), MAT.hinoki, 0, Hs + Math.sin(th) * bk / 2, zh - Math.cos(th) * bk / 2); bb.rotation.x = th;
+      break;
+    }
     case 'bunk': {                                     /* house 12: bunk bed, oak frame, two mattresses (heads at local -y, as 'bed'), ladder on the +x side at the foot */
       const p = 0.06, ys = [0.32, Math.max(1.25, top - 0.4)], mh = 0.15;
       for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(p, top, p, MAT.oakFurn, 'y'), MAT.oakFurn, sx * (w / 2 - p / 2), top / 2, sz * (d / 2 - p / 2));
@@ -3052,7 +3061,7 @@ const VIEWS12 = [
   ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
   ['1F — Entrance (genkan)', 0.62, -1.74, 2.4, -0.06, 0],
   ['1F — Gym', -0.95, 4.85, 0.8, -0.02, 0],
-  ['1F — Bath (hinoki tubs)', -4.68, -5.25, 2.64, -0.18, 0],
+  ['1F — Bath (hinoki tubs)', -3.98, -5.14, 2.34, -0.18, 0],
   ['1F — Guest bedroom', 3.45, 2.5, -2.05, -0.06, 0],
   ['2F — Living (glass on three sides)', 1.1, 4.85, -0.97, 0.06, 1],
   ['2F — Dining + kitchen', 0.8, 4.85, 0.49, 0.0, 1],

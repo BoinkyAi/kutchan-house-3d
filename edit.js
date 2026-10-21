@@ -27,7 +27,7 @@ const PLANS = {
   b: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
-  j: { url: 'ref-model-j.json?v=1', key: 'h3dRefModelJ', view: 'index.html?house=12', edit: 'edit.html?plan=j' },
+  j: { url: 'ref-model-j.json?v=2', key: 'h3dRefModelJ', view: 'index.html?house=12', edit: 'edit.html?plan=j' },
   f: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
   g: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -75,7 +75,7 @@ const TX = {
       treadmill: 'Treadmill', mat: 'Exercise mat', railing: 'Glass railing',
       showerSystem: 'Shower column', armchair: 'Armchair', bookcase: 'Bookcase', water_heater: 'Water heater', coatHanger: 'Hanging rail',
       tv: 'TV / media unit', 'kitchen.cabinet': 'Kitchen unit', fence: 'Fence', shade: 'Pergola', wallCabinet: 'Wall cabinets', sinkDouble: 'Double sink',
-      bunk: 'Bunk bed', rug: 'Rug', hob: 'Hob' },
+      bunk: 'Bunk bed', rug: 'Rug', hob: 'Hob', lounger: 'Lounger', boiler: 'Boiler' },
     help: '<h3>Plan editor</h3>'
       + '<b>Move a wall</b>: drag it. The walls joined to it stretch with it, rooms reshape and their areas update. A straight run of walls moves together. With <b>Outside walls: all floors</b> on, moving an outside wall moves it on every floor (the roof follows).<br>'
       + '<b>Wall ends</b>: select a wall, then drag the round handle at an end to make it longer or shorter.<br>'
@@ -123,7 +123,7 @@ const TX = {
       treadmill: 'ランニングマシン', mat: 'トレーニングマット', railing: 'ガラス手すり',
       showerSystem: 'シャワー水栓', armchair: 'アームチェア', bookcase: '本棚', water_heater: '給湯器', coatHanger: 'ハンガーパイプ',
       tv: 'テレビ台', 'kitchen.cabinet': 'キッチンユニット', fence: 'フェンス', shade: 'パーゴラ', wallCabinet: '吊戸棚', sinkDouble: 'ダブルシンク',
-      bunk: '二段ベッド', rug: 'ラグ', hob: 'コンロ' },
+      bunk: '二段ベッド', rug: 'ラグ', hob: 'コンロ', lounger: 'ラウンジャー', boiler: 'ボイラー' },
     help: '<h3>間取り編集</h3>'
       + '<b>壁を動かす</b>：壁をドラッグします。つながっている壁が伸び縮みし、部屋の形と面積も更新されます。一直線に並んだ壁は一緒に動きます。<b>外壁は全フロア連動</b>がオンのとき、外壁を動かすと全フロアの外壁が動きます（屋根も追従）。<br>'
       + '<b>壁の長さ</b>：壁を選択し、端の丸いハンドルをドラッグして伸ばす・縮める。<br>'
@@ -155,8 +155,8 @@ const DESC = {
     ja: "中間プラン<br>1階：玄関、スキー/ギア室、ホール、ジム62.1m²、浴室21.1m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：リビング・ダイニング、アイランドのあるキッチン、主寝室と寝室2（それぞれ専用シャワー室・ウォークインクローゼット付き）、書斎2室、トイレ。<br>ロフト：寝室/書斎29.8m²（専用バスルーム・クローゼット付き）。" },
   d: { en: "Ideal plan<br>1F: entrance, ski / gear room, hall, gym 65.8 m², bath 24.8 m² (two hinoki tubs) with an 8.3 m² L-shaped sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living with windows on three sides, dining + kitchen with an island, master bedroom with an ensuite and a closet, bedroom 2 with an ensuite, bedroom 3, two dens, WC.",
     ja: "理想プラン<br>1階：玄関、スキー/ギア室、ホール、ジム65.8m²、浴室24.8m²（ひのき浴槽2つ）とL字型のサウナ8.3m²、脱衣・休憩室、洗濯室、トイレ、機械室。<br>2階：3面に窓のあるリビング、アイランドのあるダイニング・キッチン、主寝室（専用シャワー室・クローゼット付き）、寝室2（専用シャワー室付き）、寝室3、書斎2室、トイレ。" },
-  j: { en: "Ideal — compact<br>1F: entrance, ski / gear room, hall, gym 41.7 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing room + laundry, WC, den 1 (office with a bunk bed), guest bedroom 15.5 m².<br>2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (11.5 and 13.9 m²), each with a walk-in closet and its own bathroom, den 2 (office with a bunk bed), WC.",
-    ja: "理想プラン（コンパクト）<br>1階：玄関、スキー/ギア室、ホール、ジム41.7m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・洗濯室、トイレ、書斎1（二段ベッド付き）、ゲスト寝室15.5m²。<br>2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（11.5・13.9m²、それぞれウォークインクローゼットと専用バスルーム付き）、書斎2（二段ベッド付き）、トイレ。" },
+  j: { en: "Ideal — compact<br>1F: entrance, ski / gear room, hall, gym 41.3 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger and the laundry, WC, boiler room under the stairs, den 1 (office with a bunk bed), guest bedroom 15.5 m².<br>2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (13.5 m² each), each with a 5.0 m² walk-in closet and a 5.7 m² bathroom, den 2 (office with a bunk bed), WC.",
+    ja: "理想プラン（コンパクト）<br>1階：玄関、スキー/ギア室、ホール、ジム41.3m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー・洗濯機）、トイレ、階段下の機械室、書斎1（二段ベッド付き）、ゲスト寝室15.5m²。<br>2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（各13.5m²、それぞれ5.0m²のウォークインクローゼットと5.7m²のバスルーム付き）、書斎2（二段ベッド付き）、トイレ。" },
   f: { en: "Compact<br>1F: entrance, hall, gym 52.0 m², bath 23.2 m² (two hinoki tubs) with a 4.0 m² sauna, changing room, laundry, WC, boiler room, bedroom 3 (14.2 m²) with its own bathroom.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (11.2, 11.5 and 13.0 m²), each with its own bathroom; walk-in closets for bedrooms 2 and 4.",
     ja: "コンパクト<br>1階：玄関、ホール、ジム52.0m²、浴室23.2m²（ひのき浴槽2つ）とサウナ4.0m²、脱衣室、洗濯室、トイレ、機械室、寝室3（14.2m²、専用バスルーム付き）。<br>2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（11.2・11.5・13.0m²、それぞれ専用バスルーム付き、寝室2・4はウォークインクローゼット付き）。" },
   g: { en: "Full size<br>1F: entrance, hall, gym 52.1 m², bath 32.1 m² (two hinoki tubs) with a 5.5 m² sauna, changing + rest room, laundry, WC, boiler room, bedroom 3 (18.4 m²) with its own shower room across the hall.<br>2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (18.2, 19.9 and 14.1 m²), each with a walk-in closet and its own bathroom.",
@@ -268,12 +268,20 @@ function resize() {
   cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px';
   redraw();
 }
-const toS = (p) => [(p[0] - S.view.cx) * S.view.s + W / 2, (p[1] - S.view.cy) * S.view.s + H / 2];
-const toW = (x, y) => [(x - W / 2) / S.view.s + S.view.cx, (y - H / 2) / S.view.s + S.view.cy];
+/* v28 (Toby 2026-10-21): the Ideal plan (d) is drawn north-up. Its model keeps its own frame (north = model -x, as
+   the 3D uses it): the drawing turns a quarter clockwise. VQ = quarter turns; S.view.cx / cy live in the turned
+   (view) frame; every model point goes to the screen through toS and back through toW; item angles get VA added. */
+const VQ = ({ d: 1 })[PLAN] || 0, VA = VQ * Math.PI / 2;
+const rotV = (p) => VQ ? [-p[1], p[0]] : p;
+const unrotV = (v) => VQ ? [v[1], -v[0]] : v;
+const toS = (p) => { const v = rotV(p); return [(v[0] - S.view.cx) * S.view.s + W / 2, (v[1] - S.view.cy) * S.view.s + H / 2]; };
+const toV = (x, y) => [(x - W / 2) / S.view.s + S.view.cx, (y - H / 2) / S.view.s + S.view.cy];
+const toW = (x, y) => unrotV(toV(x, y));
 function fit() {
   const pts = S.model.levels.flatMap(L => L.walls.flatMap(w => [w.a, w.b]));
   const cp = S.model.carport;
   if (cp && cp.rect) pts.push([cp.rect[0], cp.rect[1]], [cp.rect[2], cp.rect[3]]);
+  if (VQ) pts.splice(0, pts.length, ...pts.map(rotV));
   if (!pts.length) return;
   const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), y1 = Math.max(...pts.map(p => p[1]));
   const mobile = W < 640;
@@ -293,11 +301,11 @@ function draw() {
   c.fillStyle = '#f4f2ee'; c.fillRect(0, 0, W, H);
   /* grid: 455 / 910 */
   if (s * 0.455 > 7) {
-    const a = toW(0, 0), b = toW(W, H);
+    const a = toV(0, 0), b = toV(W, H);
     for (const [step, col] of [[0.455, '#ebe7e0'], [0.91, '#dfdad1']]) {
       c.strokeStyle = col; c.lineWidth = 1; c.beginPath();
-      for (let x = Math.floor(a[0] / step) * step; x <= b[0]; x += step) { const X = toS([x, 0])[0]; c.moveTo(X, 0); c.lineTo(X, H); }
-      for (let y = Math.floor(a[1] / step) * step; y <= b[1]; y += step) { const Y = toS([0, y])[1]; c.moveTo(0, Y); c.lineTo(W, Y); }
+      for (let x = Math.floor(a[0] / step) * step; x <= b[0]; x += step) { const X = (x - S.view.cx) * s + W / 2; c.moveTo(X, 0); c.lineTo(X, H); }
+      for (let y = Math.floor(a[1] / step) * step; y <= b[1]; y += step) { const Y = (y - S.view.cy) * s + H / 2; c.moveTo(0, Y); c.lineTo(W, Y); }
       c.stroke();
     }
   }
@@ -378,10 +386,10 @@ function draw() {
    the screen (x right, y down: the editor draws model x / y as they are); a model's own
    compass.north wins (plan c). Plan b is drawn with north at the bottom. Purely an
    overlay: the view transform, hit tests and dragging are untouched. */
-const NORTH = { b: [0, 1], c: [0, -1], d: [-1, 0], e: [0, -1], f: [0, -1], g: [0, -1], j: [0, -1] };
+const NORTH = { b: [0, 1], c: [0, -1], d: [0, -1], e: [0, -1], f: [0, -1], g: [0, -1], j: [0, -1] };   /* v28: d is drawn turned (VQ), north up */
 function compassDirs() {
   const mc = S.model && S.model.compass;
-  const n0 = mc && Array.isArray(mc.north) ? mc.north : NORTH[PLAN];
+  const n0 = mc && Array.isArray(mc.north) ? rotV(mc.north) : NORTH[PLAN];
   if (!n0) return null;
   const l = Math.hypot(n0[0], n0[1]) || 1, N = [n0[0] / l, n0[1] / l], E = [-N[1], N[0]];   /* east = north turned 90deg clockwise */
   const D = { n: N, e: E, s: [-N[0], -N[1]], w: [-E[0], -E[1]] };
@@ -403,7 +411,7 @@ function drawCompass(c) {
   for (const st of S.model.stairs || []) for (const t of st.treads || []) pts.push(...t);
   const cp = S.model.carport; if (cp && cp.rect) pts.push([cp.rect[0], cp.rect[1]], [cp.rect[2], cp.rect[3]]);
   if (pts.length) {
-    const A = toS([Math.min(...pts.map(p => p[0])), Math.min(...pts.map(p => p[1]))]), B = toS([Math.max(...pts.map(p => p[0])), Math.max(...pts.map(p => p[1]))]);
+    const SQ = pts.map(toS), A = [Math.min(...SQ.map(p => p[0])), Math.min(...SQ.map(p => p[1]))], B = [Math.max(...SQ.map(p => p[0])), Math.max(...SQ.map(p => p[1]))];   /* v28: the screen box (the view may be turned) */
     const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, g = 10;
     c.font = '700 11px -apple-system,Segoe UI,Roboto,"Hiragino Sans","Noto Sans JP",sans-serif';
     c.textAlign = 'center'; c.lineJoin = 'round';
@@ -475,7 +483,8 @@ function drawCarport(c, cp) {
   const nm = LANG === 'ja' ? (cp.ja || cp.name || 'カーポート') : (cp.name || 'Carport');
   c.fillText(nm, (A[0] + Bq[0]) / 2, (A[1] + Bq[1]) / 2 - 7);
   c.font = '11px -apple-system,Segoe UI,Roboto,sans-serif'; c.fillStyle = '#7a7f86';
-  c.fillText(((x1 - x0) * 1000).toFixed(0) + ' × ' + ((y1 - y0) * 1000).toFixed(0), (A[0] + Bq[0]) / 2, (A[1] + Bq[1]) / 2 + 8);
+  const dX = ((x1 - x0) * 1000).toFixed(0), dY = ((y1 - y0) * 1000).toFixed(0);   /* v28: across x on the screen first, also in a turned view */
+  c.fillText((VQ ? dY : dX) + ' × ' + (VQ ? dX : dY), (A[0] + Bq[0]) / 2, (A[1] + Bq[1]) / 2 + 8);
   c.restore();
 }
 function path(c, poly, holes) {
@@ -585,7 +594,7 @@ function drawItem1(c, it) {
   const P = itemPoly(it).map(toS);
   c.beginPath(); P.forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.closePath();
   const fills = { island: '#4a4c50', tall: '#4a4c50', closet: '#d8c3a5', wardrobe: '#d8c3a5', stove: '#3d3d3d', rugRound: 'rgba(0,0,0,0)', post: '#c9a77c', beam: 'rgba(201,167,124,.55)',
-    tube: '#e6cf9f', saunaBench: '#ead7ae', saunaHeater: '#3d3d3d', gymRack: 'rgba(60,62,66,.25)', gymBench: '#5a5d61', treadmill: '#5a5d61', mat: '#8e9196', railing: 'rgba(120,180,215,.7)' };
+    tube: '#e6cf9f', saunaBench: '#ead7ae', lounger: '#ead7ae', saunaHeater: '#3d3d3d', gymRack: 'rgba(60,62,66,.25)', gymBench: '#5a5d61', treadmill: '#5a5d61', mat: '#8e9196', railing: 'rgba(120,180,215,.7)' };
   c.fillStyle = fills[it.kind] || '#ffffff'; if (it.kind !== 'rugRound') c.fill();
   c.strokeStyle = sel ? '#1d7fb8' : '#8b7c6c'; c.lineWidth = sel ? 2.5 : 1; c.stroke();
   const hw = it.w / 2, hd = it.d / 2;
@@ -593,14 +602,15 @@ function drawItem1(c, it) {
   c.lineWidth = 1; c.strokeStyle = sel ? '#1d7fb8' : '#a99a88';
   switch (it.kind) {
     case 'bed': L(-hw, -hd + 0.35, hw, -hd + 0.35); L(-hw * 0.85, -hd + 0.12, -0.08, -hd + 0.12); L(0.08, -hd + 0.12, hw * 0.85, -hd + 0.12); L(-hw, hd * 0.2, hw, hd * 0.2); break;
+    case 'lounger': L(-hw, -hd + 0.62, hw, -hd + 0.62); for (let k = 1; k < 6; k++) L(-hw + 0.06, -hd + 0.62 + k * (2 * hd - 0.62) / 6, hw - 0.06, -hd + 0.62 + k * (2 * hd - 0.62) / 6); break;   /* backrest + slats */
     case 'bunk': L(-hw, -hd + 0.35, hw, -hd + 0.35); L(-hw * 0.7, -hd + 0.12, hw * 0.7, -hd + 0.12); L(-hw, -hd, hw, hd); L(hw, -hd, -hw, hd); break;   /* two beds stacked: crossed */
     case 'sofa': L(-hw, -hd + 0.2, hw, -hd + 0.2); if (it.chaise) { const [x, w2, d2] = it.chaise; const Q = [[x - w2 / 2, hd], [x + w2 / 2, hd], [x + w2 / 2, hd + d2], [x - w2 / 2, hd + d2]].map(([a, b]) => loc(it, a, b)); c.beginPath(); Q.forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.closePath(); c.fillStyle = '#fff'; c.fill(); c.stroke(); } break;
-    case 'toilet': { const q = loc(it, 0, -0.04); c.beginPath(); c.ellipse(q[0], q[1], hw * 0.8 * S.view.s, hd * 0.55 * S.view.s, it.a || 0, 0, 7); c.stroke(); L(-hw, hd - 0.16, hw, hd - 0.16); break; }
+    case 'toilet': { const q = loc(it, 0, -0.04); c.beginPath(); c.ellipse(q[0], q[1], hw * 0.8 * S.view.s, hd * 0.55 * S.view.s, (it.a || 0) + VA, 0, 7); c.stroke(); L(-hw, hd - 0.16, hw, hd - 0.16); break; }
     case 'rugRound': { const q = toS([it.x, it.y]); c.beginPath(); c.arc(q[0], q[1], hw * S.view.s, 0, 7); c.strokeStyle = sel ? '#1d7fb8' : '#b5a48f'; c.stroke(); break; }
     case 'stove': c.strokeStyle = '#fff'; L(-hw * 0.6, hd - 0.05, hw * 0.6, hd - 0.05); break;
     case 'island': c.strokeStyle = '#ddd'; { const q = loc(it, -hw + 0.6, 0.05), r = loc(it, hw - 0.62, 0); c.strokeRect(q[0] - 12, q[1] - 8, 24, 16); c.beginPath(); c.arc(r[0], r[1], 9, 0, 7); c.stroke(); } break;
     case 'closet': case 'wardrobe': case 'tall': L(-hw, hd - 0.03, hw, hd - 0.03); break;
-    case 'ub': { const q = loc(it, 0, -hd + 0.43); c.beginPath(); c.ellipse(q[0], q[1], (Math.min(hw - 0.06, 0.8) - 0.05) * S.view.s, 0.32 * S.view.s, it.a || 0, 0, 7); c.stroke(); break; }
+    case 'ub': { const q = loc(it, 0, -hd + 0.43); c.beginPath(); c.ellipse(q[0], q[1], (Math.min(hw - 0.06, 0.8) - 0.05) * S.view.s, 0.32 * S.view.s, (it.a || 0) + VA, 0, 7); c.stroke(); break; }
     case 'chair': L(-hw, -hd + 0.06, hw, -hd + 0.06); break;
     default: break;
   }
@@ -609,7 +619,7 @@ function drawItem1(c, it) {
     const nm = (TX[LANG].kinds[it.kind] || it.kind);
     if (['closet', 'wardrobe', 'island', 'tall', 'stove', 'post', 'beam', 'rugRound'].includes(it.kind) || S.view.s * it.w < 50) return;
     c.save(); const q = toS([it.x, it.y]); c.translate(q[0], q[1]);
-    let a = it.a || 0; while (a > Math.PI / 2) a -= Math.PI; while (a < -Math.PI / 2) a += Math.PI; c.rotate(a);
+    let a = (it.a || 0) + VA; while (a > Math.PI / 2) a -= Math.PI; while (a < -Math.PI / 2) a += Math.PI; c.rotate(a);
     c.font = '10px sans-serif'; c.fillStyle = '#9a8b79'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(nm, 0, 0); c.restore();
   }
 }
@@ -889,9 +899,9 @@ cv.addEventListener('pointercancel', endPtr);
 cv.addEventListener('contextmenu', (e) => e.preventDefault());
 cv.addEventListener('wheel', (e) => {
   e.preventDefault();
-  const before = toW(e.clientX, e.clientY);
+  const before = toV(e.clientX, e.clientY);
   S.view.s = Math.max(8, Math.min(400, S.view.s * Math.exp(-e.deltaY * 0.0015)));
-  const after = toW(e.clientX, e.clientY);
+  const after = toV(e.clientX, e.clientY);
   S.view.cx += before[0] - after[0]; S.view.cy += before[1] - after[1];
   redraw();
 }, { passive: false });
