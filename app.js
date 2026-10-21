@@ -69,7 +69,7 @@ const REFS = {
   5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
-  12: { url: 'ref-model-j.json?v=2', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  12: { url: 'ref-model-j.json?v=3', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -95,7 +95,7 @@ const TXT = {
     h6: '理想プラン', h6t: "L字型の2階建て。リビングの翼棟は3面に窓", origt6: '理想プランの最初の間取りを表示（編集はそのまま残ります）',
     h12: '理想プラン（コンパクト）', h12t: "コンパクトなL字型の2階建て。L字の内側にカーポート、リビングの翼棟は3面にガラス", origt12: '「理想プラン（コンパクト）」の最初の間取りを表示（編集はそのまま残ります）',
     doc12: '倶知安 住宅計画 理想プラン（コンパクト） — 3D',
-    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム41.3m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー・洗濯機）、トイレ、階段下の機械室、書斎1（二段ベッド付き）、ゲスト寝室15.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（各13.5m²、それぞれ5.0m²のウォークインクローゼットと5.7m²のバスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
+    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム42.4m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー・洗濯機）、トイレ、階段下の機械室、書斎1（二段ベッド付き）、ゲスト寝室12.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（各13.5m²、それぞれ5.0m²のウォークインクローゼットと5.7m²のバスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
     edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
@@ -135,7 +135,7 @@ const TXT = {
     h6: 'Ideal plan', h6t: "L-shaped two-storey house; the living wing has windows on three sides", origt6: 'Show the Ideal plan as first drawn (your edits stay saved)',
     h12: 'Ideal — compact', h12t: "Compact L-shaped two-storey house; carport in the L's inner corner, the living wing glazed on three sides", origt12: 'Show “Ideal — compact” as first drawn (your edits stay saved)',
     doc12: 'Kutchan house — Ideal — compact — 3D',
-    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 41.3 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger and the laundry, WC, boiler room under the stairs, den 1 (office with a bunk bed), guest bedroom 15.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (13.5 m² each), each with a 5.0 m² walk-in closet and a 5.7 m² bathroom, den 2 (office with a bunk bed), WC.",
+    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 42.4 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger and the laundry, WC, boiler room under the stairs, den 1 (office with a bunk bed), guest bedroom 12.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (13.5 m² each), each with a 5.0 m² walk-in closet and a 5.7 m² bathroom, den 2 (office with a bunk bed), WC.",
     edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
