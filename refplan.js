@@ -15,7 +15,7 @@
             at + w at different heights are a stack too), child? (parent-child: the narrow
             leaf, default 0.3 w), hinge? 'a'|'b' (the parent leaf's end), side? }
           see /workspace/house3d/ref/PRIMITIVES.md
-     rooms[] { id, name, ja, at:[x,y], floor: oak|tile|stone|concrete|void, dz? }
+     rooms[] { id, name, ja, at:[x,y], floor: oak|tile|stone|concrete|carpet|bathstone|void, dz?, ceil?: wood|beams, wall?: stone }
         a room is the region the walls close round its `at` point
      items[] { id, kind, x, y, w, d, a, ... } }
    stairs[] { id, from (level index), treads[] (polygons, bottom step first), hole?: 'void' }
@@ -345,7 +345,8 @@ export function toPlan(model) {
       const fin = r.floor || 'oak';
       const poly = f.poly.map(pt);
       lv.rooms.push({ id: (r.id || 'f') + '_' + k, poly, area: r4(f.netArea), voids: [], furniture: [], holes: f.holes.map(h => h.map(pt)) });
-      lv.faces.push({ poly, holes: f.holes.map(h => h.map(pt)), area: r4(f.netArea), name: r.name || '', ja: r.ja || '', floor: fin, dz: r.dz || 0, label: pt(r.at || labelPoint(f.poly, f.holes)), anchored: !!f.room });
+      lv.faces.push({ poly, holes: f.holes.map(h => h.map(pt)), area: r4(f.netArea), name: r.name || '', ja: r.ja || '', floor: fin, dz: r.dz || 0, label: pt(r.at || labelPoint(f.poly, f.holes)), anchored: !!f.room,
+        ceil: r.ceil || '', wall: r.wall || '' });   /* v8: the room's ceiling / wall finish (app.js 'warm' style) */
       if (fin !== 'void') lv.floors.push({ poly, holes: f.holes.map(h => h.map(pt)).concat(holes[li].map(h => h.map(pt))), mat: fin, dz: r.dz || 0 });
     });
     /* walls -> runs */

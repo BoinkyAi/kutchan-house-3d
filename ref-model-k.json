@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "title": "Ideal — 75 tsubo",
  "ja": "理想プラン（75坪）",
  "source": "Ideal — 75 tsubo: the Ideal — compact plan (Toby's own Floor Plan Creator design) enlarged to about 75 tsubo: bigger master suites, dens, living + dining + kitchen, bath and gym; the guest bedroom, WCs, ski room, boiler room and stair as in the compact plan. L-shaped, 2 storeys: a main block + a wing to the east along the south (view) side; carport over two cars in the L's inner corner by the front door. 1F: gym, bath (2 shower stalls, 2 hinoki tubs), sauna, changing + rest room with a lounger, laundry, WC, ski / gear room, entrance, hall + stair, boiler room under the stair, den 1 (office + bunk), guest bedroom. 2F: two master bedrooms, each with a walk-in closet + ensuite; WC; den 2 (office + bunk); dining + kitchen with an island, open to the living in the wing (glass on three sides). One roof plane falling west. Windows = standard YKK APW 430 / 431 columns in Toby's openings.",
@@ -629,7 +629,8 @@
       -4.6,
       1.934
      ],
-     "floor": "rubber"
+     "floor": "rubber",
+     "ceil": "beams"
     },
     {
      "id": "r2",
@@ -639,7 +640,9 @@
       -5.9,
       -4.566
      ],
-     "floor": "granite"
+     "floor": "bathstone",
+     "ceil": "wood",
+     "wall": "stone"
     },
     {
      "id": "r3",
@@ -659,7 +662,8 @@
       -3.6,
       -4.566
      ],
-     "floor": "tile"
+     "floor": "bathstone",
+     "ceil": "wood"
     },
     {
      "id": "r5",
@@ -669,7 +673,7 @@
       -1.7,
       -2.716
      ],
-     "floor": "tile"
+     "floor": "bathstone"
     },
     {
      "id": "r6",
@@ -679,7 +683,7 @@
       0.35,
       -4.566
      ],
-     "floor": "tile"
+     "floor": "bathstone"
     },
     {
      "id": "r7",
@@ -701,7 +705,8 @@
       -0.716
      ],
      "floor": "stone",
-     "dz": -0.25
+     "dz": -0.25,
+     "ceil": "wood"
     },
     {
      "id": "r9",
@@ -711,7 +716,8 @@
       0.1,
       1.034
      ],
-     "floor": "oak"
+     "floor": "stone",
+     "ceil": "wood"
     },
     {
      "id": "r10",
@@ -721,7 +727,8 @@
       2.55,
       4.484
      ],
-     "floor": "oak"
+     "floor": "oak",
+     "ceil": "beams"
     },
     {
      "id": "r11",
@@ -731,7 +738,8 @@
       5.3165,
       3.534
      ],
-     "floor": "oak"
+     "floor": "carpet",
+     "ceil": "beams"
     },
     {
      "id": "r12",
@@ -1793,7 +1801,8 @@
       -5.4,
       -4.866
      ],
-     "floor": "oak"
+     "floor": "carpet",
+     "ceil": "beams"
     },
     {
      "id": "r14",
@@ -1813,7 +1822,9 @@
       -6.51,
       1.534
      ],
-     "floor": "tile"
+     "floor": "bathstone",
+     "ceil": "wood",
+     "wall": "stone"
     },
     {
      "id": "r16",
@@ -1823,7 +1834,7 @@
       -4.8,
       2.234
      ],
-     "floor": "tile"
+     "floor": "bathstone"
     },
     {
      "id": "r17",
@@ -1833,7 +1844,8 @@
       -5.5,
       4.884
      ],
-     "floor": "oak"
+     "floor": "oak",
+     "ceil": "beams"
     },
     {
      "id": "r18",
@@ -1843,7 +1855,8 @@
       -0.9,
       -2.216
      ],
-     "floor": "oak"
+     "floor": "carpet",
+     "ceil": "beams"
     },
     {
      "id": "r19",
@@ -1863,7 +1876,9 @@
       -0.9,
       -1.016
      ],
-     "floor": "tile"
+     "floor": "bathstone",
+     "ceil": "wood",
+     "wall": "stone"
     },
     {
      "id": "r21",
@@ -1873,7 +1888,8 @@
       -3.15,
       -0.466
      ],
-     "floor": "oak"
+     "floor": "oak",
+     "ceil": "wood"
     },
     {
      "id": "r22",
@@ -1883,7 +1899,8 @@
       -1.6,
       3.034
      ],
-     "floor": "oak"
+     "floor": "oak",
+     "ceil": "wood"
     },
     {
      "id": "r23",
@@ -1893,7 +1910,8 @@
       4.7,
       3.634
      ],
-     "floor": "oak"
+     "floor": "oak",
+     "ceil": "wood"
     },
     {
      "id": "r24",
@@ -1903,7 +1921,8 @@
       4.0,
       1.434
      ],
-     "floor": "void"
+     "floor": "void",
+     "ceil": "wood"
     }
    ],
    "items": [
@@ -2734,5 +2753,213 @@
    0.553,
    -0.4
   ]
- }
+ },
+ "finish": {
+  "style": "warm",
+  "black": [
+   [
+    0.699,
+    -1.787,
+    1.099,
+    0.667
+   ]
+  ]
+ },
+ "beams": [
+  {
+   "kind": "girt",
+   "level": 1,
+   "a": [
+    -3.911,
+    5.715
+   ],
+   "b": [
+    7.133,
+    5.715
+   ],
+   "z": 3.0,
+   "w": 0.12,
+   "h": 0.3
+  },
+  {
+   "kind": "girt",
+   "level": 1,
+   "a": [
+    7.073,
+    0.733
+   ],
+   "b": [
+    7.073,
+    5.775
+   ],
+   "z": 3.0,
+   "w": 0.12,
+   "h": 0.3
+  },
+  {
+   "kind": "girt",
+   "level": 1,
+   "a": [
+    0.899,
+    0.793
+   ],
+   "b": [
+    7.133,
+    0.793
+   ],
+   "z": 3.0,
+   "w": 0.12,
+   "h": 0.3
+  },
+  {
+   "kind": "tie",
+   "level": 1,
+   "a": [
+    0.899,
+    0.733
+   ],
+   "b": [
+    0.899,
+    5.775
+   ],
+   "z": 3.0,
+   "w": 0.12,
+   "h": 0.3
+  },
+  {
+   "kind": "tie",
+   "level": 1,
+   "a": [
+    -1.506,
+    0.334
+   ],
+   "b": [
+    -1.506,
+    5.775
+   ],
+   "z": 3.0,
+   "w": 0.12,
+   "h": 0.3
+  },
+  {
+   "kind": "tie",
+   "level": 1,
+   "a": [
+    2.977,
+    0.733
+   ],
+   "b": [
+    2.977,
+    5.775
+   ],
+   "z": 3.0,
+   "w": 0.12,
+   "h": 0.3
+  },
+  {
+   "kind": "tie",
+   "level": 1,
+   "a": [
+    5.055,
+    0.733
+   ],
+   "b": [
+    5.055,
+    5.775
+   ],
+   "z": 3.0,
+   "w": 0.12,
+   "h": 0.3
+  },
+  {
+   "kind": "brace",
+   "level": 1,
+   "a": [
+    6.113,
+    5.655
+   ],
+   "b": [
+    7.013,
+    4.755
+   ],
+   "z": 3.0,
+   "w": 0.105,
+   "h": 0.105
+  },
+  {
+   "kind": "brace",
+   "level": 1,
+   "a": [
+    6.113,
+    0.853
+   ],
+   "b": [
+    7.013,
+    1.753
+   ],
+   "z": 3.0,
+   "w": 0.105,
+   "h": 0.105
+  },
+  {
+   "kind": "brace",
+   "level": 1,
+   "a": [
+    1.859,
+    0.853
+   ],
+   "b": [
+    0.959,
+    1.753
+   ],
+   "z": 3.0,
+   "w": 0.105,
+   "h": 0.105
+  },
+  {
+   "kind": "brace",
+   "level": 1,
+   "a": [
+    1.859,
+    5.655
+   ],
+   "b": [
+    0.959,
+    4.755
+   ],
+   "z": 3.0,
+   "w": 0.105,
+   "h": 0.105
+  },
+  {
+   "kind": "brace",
+   "level": 1,
+   "a": [
+    -0.061,
+    5.655
+   ],
+   "b": [
+    0.839,
+    4.755
+   ],
+   "z": 3.0,
+   "w": 0.105,
+   "h": 0.105
+  },
+  {
+   "kind": "brace",
+   "level": 1,
+   "a": [
+    -3.011,
+    5.655
+   ],
+   "b": [
+    -3.911,
+    4.755
+   ],
+   "z": 3.0,
+   "w": 0.105,
+   "h": 0.105
+  }
+ ]
 }

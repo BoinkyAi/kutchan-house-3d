@@ -21,15 +21,15 @@
    bay: a unit-count tag on the outside face, dragged together, units edited in the
    panel; door type parent-child (親子) next to double, both leaves with a swing. */
 'use strict';
-import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, loadModel, STACK_BAND, childLeaf } from './refplan.js?v=7';
+import { levelGraph, faceAt, polyArea, inPoly, labelPoint, packModel, loadModel, STACK_BAND, childLeaf } from './refplan.js?v=8';
 
 /* the built-in plans: model file, saved copy (localStorage key), 3D page, editor page */
 const PLANS = {
   b: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', view: 'index.html?house=4', edit: 'edit.html?plan=b' },
   c: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
-  j: { url: 'ref-model-j.json?v=4', key: 'h3dRefModelJ', view: 'index.html?house=12', edit: 'edit.html?plan=j' },
-  k: { url: 'ref-model-k.json?v=1', key: 'h3dRefModelK', view: 'index.html?house=13', edit: 'edit.html?plan=k' },
+  j: { url: 'ref-model-j.json?v=5', key: 'h3dRefModelJ', view: 'index.html?house=12', edit: 'edit.html?plan=j' },
+  k: { url: 'ref-model-k.json?v=2', key: 'h3dRefModelK', view: 'index.html?house=13', edit: 'edit.html?plan=k' },
   f: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
   g: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -148,7 +148,8 @@ function planHelp(lang, reset, desc, twoFloors) {
   if (twoFloors) h = h.replace(HELP_FLOORS[lang][0], HELP_FLOORS[lang][1]);
   return h.replace(/<span style="opacity:\.6">[\s\S]*<\/span>$/, () => '<span style="opacity:.6">' + desc + '</span>');
 }
-const FIN = { en: { fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)' }, ja: { fGranite: '黒い石調タイル（浴室）', fHinoki: 'ひのき（サウナ）', fRubber: 'ゴム床（ジム）' } };
+const FIN = { en: { fGranite: 'Dark stone (bath)', fHinoki: 'Hinoki (sauna)', fRubber: 'Rubber (gym)', fCarpet: 'Carpet', fBathstone: 'Stone tile (wet rooms)' },
+  ja: { fGranite: '黒い石調タイル（浴室）', fHinoki: 'ひのき（サウナ）', fRubber: 'ゴム床（ジム）', fCarpet: 'カーペット', fBathstone: '石調タイル（水回り）' } };
 const ICHS = { en: { ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings" }, ja: { ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備' } };
 const DESC = {
   b: { en: "Budget plan<br>1F: entrance, gym 43.0 m², bath 14.9 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.<br>2F: living · dining · kitchen 44.0 m², master bedroom with an ensuite, den.<br>Loft: bedroom with an ensuite, den.",
@@ -304,7 +305,8 @@ let _raf = 0;
 function redraw() { if (!_raf) _raf = requestAnimationFrame(() => { _raf = 0; draw(); }); }
 
 /* ------------------------------------------------------------- drawing */
-const FILL = { oak: '#f3e6cf', tile: '#e3e7eb', stone: '#d6d2cb', concrete: '#e0dfdc', void: '#ffffff', granite: '#c9cccf', hinoki: '#f2e4c2', rubber: '#c2c5c9' };
+const FILL = { oak: '#f3e6cf', tile: '#e3e7eb', stone: '#d6d2cb', concrete: '#e0dfdc', void: '#ffffff', granite: '#c9cccf', hinoki: '#f2e4c2', rubber: '#c2c5c9',
+  carpet: '#e5ddd2', bathstone: '#d9d3cb' };   /* v24: the 'warm' finish's carpet + wet-room stone (plans j, k) */
 function draw() {
   const c = cx, s = S.view.s;
   c.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1241,7 +1243,7 @@ function syncProps() {
     P.appendChild(textField(T('nameJa'), r.ja, (v) => { r.ja = v; }));
     P.appendChild(textField(T('name'), r.name, (v) => { r.name = v; }));
     const fins = [['oak', T('fOak')], ['tile', T('fTile')], ['stone', T('fStone')], ['concrete', T('fConcrete')], ['void', T('fVoid')]];
-    fins.splice(4, 0, ['granite', T('fGranite')], ['hinoki', T('fHinoki')], ['rubber', T('fRubber')]);
+    fins.splice(4, 0, ['granite', T('fGranite')], ['hinoki', T('fHinoki')], ['rubber', T('fRubber')], ['carpet', T('fCarpet')], ['bathstone', T('fBathstone')]);
     P.appendChild(selField(T('floor'), r.floor || 'oak', fins, (v) => { r.floor = v; touch(); }));
     if (S.lvl === 0) P.appendChild(selField(T('level'), String(r.dz || 0), [['0', T('lv0')], ['-0.25', T('lvE')], ['-0.45', T('lvP')]], (v) => { r.dz = +v || 0; if (!r.dz) delete r.dz; touch(); }));
     P.appendChild(el('div', { class: 'row' }, [btn(T('del'), () => { begin(); L.rooms.splice(L.rooms.indexOf(r), 1); commit(); S.sel = null; syncProps(); redraw(); })]));
