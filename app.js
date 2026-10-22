@@ -1,6 +1,6 @@
 /* Kutchan house — interactive 3D walkthrough. ONE renderer, byte-identical in three apps that
    never link to each other (Toby 2026-10-13): kutchan-house-3d (house 4 = Budget plan,
-   5 = Mid tier plan, 6 = Ideal plan, 12 = Ideal — compact), kutchan-house-ichijo (8 = Compact, 9 = Full size) and
+   5 = Mid tier plan, 6 = Ideal plan, 12 = Ideal — compact, 13 = Ideal — 75 tsubo), kutchan-house-ichijo (8 = Compact, 9 = Full size) and
    kutchan-house-plan-a (Plan B = house 2 in plan-b/; Plan A = house 1 is that app's older
    renderer at its root). The page's <html data-houses="..."> lists its houses (the first = the
    default; the switcher shows index.html's buttons in their own order) and data-assets the
@@ -63,13 +63,15 @@ const ASSETS = (document.documentElement.dataset.assets || '') + 'assets/';   /*
    "compact", ref-model-g.json "3 up, 1 down"; the editor's ?plan=f / ?plan=g) on house 7's
    path: every Ichijo house (REFS[n].ichijo, IJH below) gets the Ichijo spec panel, the
    ceilings / roof / outside stair of buildIchijo7 and the presets computed from its rooms. */
-const H3 = (HOUSE >= 4 && HOUSE <= 9) || HOUSE === 12;   /* houses 4-9 + 12 (the name is from house 3, the first): built from an editable model (refplan.js); 7-9 = Plan B — Ichijo + variants (ichijo.js, see the house 7 section) */
+const H3 = (HOUSE >= 4 && HOUSE <= 9) || HOUSE === 12 || HOUSE === 13;   /* houses 4-9 + 12, 13 (the name is from house 3, the first): built from an editable model (refplan.js); 7-9 = Plan B — Ichijo + variants (ichijo.js, see the house 7 section) */
 const REFS = {
   4: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
   5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
-  12: { url: 'ref-model-j.json?v=3', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  12: { url: 'ref-model-j.json?v=4', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
+  13: { url: 'ref-model-k.json?v=1', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -95,7 +97,10 @@ const TXT = {
     h6: '理想プラン', h6t: "L字型の2階建て。リビングの翼棟は3面に窓", origt6: '理想プランの最初の間取りを表示（編集はそのまま残ります）',
     h12: '理想プラン（コンパクト）', h12t: "コンパクトなL字型の2階建て。L字の内側にカーポート、リビングの翼棟は3面にガラス", origt12: '「理想プラン（コンパクト）」の最初の間取りを表示（編集はそのまま残ります）',
     doc12: '倶知安 住宅計画 理想プラン（コンパクト） — 3D',
-    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム42.4m²、浴室7.6m²（ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー・洗濯機）、トイレ、階段下の機械室、書斎1（二段ベッド付き）、ゲスト寝室12.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（各13.5m²、それぞれ5.0m²のウォークインクローゼットと5.7m²のバスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
+    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム42.7m²、浴室10.7m²（シャワー2つ・ひのき浴槽2つ）とサウナ3.2m²、脱衣・休憩室（ラウンジャー付き）、洗濯室、トイレ、階段下の機械室、書斎1（二段ベッド付き）、ゲスト寝室12.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（各13.5m²、それぞれ5.0m²のウォークインクローゼットと5.7m²のバスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
+    h13: '理想プラン（75坪）', h13t: "「理想プラン（コンパクト）」を約75坪に拡大：主寝室・クローゼット・バスルーム・書斎・リビング・キッチン・浴室・ジムを広く", origt13: '「理想プラン（75坪）」の最初の間取りを表示（編集はそのまま残ります）',
+    doc13: '倶知安 住宅計画 理想プラン（75坪） — 3D',
+    geo13: "理想プラン（75坪）\n「理想プラン（コンパクト）」を約75坪に拡大。\n1階：玄関、スキー/ギア室、ホール、ジム47.8m²、浴室12.4m²（シャワー2つ・ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー付き）、洗濯室、トイレ、階段下の機械室、書斎1 9.7m²（二段ベッド付き）、ゲスト寝室12.6m²。\n2階：3面にガラスのあるリビング27.2m²、アイランドのあるダイニング・キッチン26.9m²、主寝室1・2（各15.0m²、それぞれ5.3m²のウォークインクローゼットと6.2m²のバスルーム付き）、書斎2 9.6m²（二段ベッド付き）、トイレ。",
     edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
@@ -135,7 +140,10 @@ const TXT = {
     h6: 'Ideal plan', h6t: "L-shaped two-storey house; the living wing has windows on three sides", origt6: 'Show the Ideal plan as first drawn (your edits stay saved)',
     h12: 'Ideal — compact', h12t: "Compact L-shaped two-storey house; carport in the L's inner corner, the living wing glazed on three sides", origt12: 'Show “Ideal — compact” as first drawn (your edits stay saved)',
     doc12: 'Kutchan house — Ideal — compact — 3D',
-    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 42.4 m², bath 7.6 m² (two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger and the laundry, WC, boiler room under the stairs, den 1 (office with a bunk bed), guest bedroom 12.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (13.5 m² each), each with a 5.0 m² walk-in closet and a 5.7 m² bathroom, den 2 (office with a bunk bed), WC.",
+    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 42.7 m², bath 10.7 m² (two showers, two hinoki tubs) with a 3.2 m² sauna, changing + rest room with a lounger, laundry, WC, boiler room under the stairs, den 1 (office with a bunk bed), guest bedroom 12.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (13.5 m² each), each with a 5.0 m² walk-in closet and a 5.7 m² bathroom, den 2 (office with a bunk bed), WC.",
+    h13: 'Ideal — 75 tsubo', h13t: "“Ideal — compact” enlarged to about 75 tsubo: bigger master bedrooms, closets, bathrooms, dens, living, kitchen, bath and gym", origt13: 'Show “Ideal — 75 tsubo” as first drawn (your edits stay saved)',
+    doc13: 'Kutchan house — Ideal — 75 tsubo — 3D',
+    geo13: "Ideal — 75 tsubo\n“Ideal — compact” enlarged to about 75 tsubo.\n1F: entrance, ski / gear room, hall, gym 47.8 m², bath 12.4 m² (two showers, two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger, laundry, WC, boiler room under the stairs, den 1 9.7 m² (office with a bunk bed), guest bedroom 12.6 m².\n2F: living 27.2 m² with glass on three sides, dining + kitchen 26.9 m² with an island, master bedrooms 1 and 2 (15.0 m² each), each with a 5.3 m² walk-in closet and a 6.2 m² bathroom, den 2 9.6 m² (office with a bunk bed), WC.",
     edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
@@ -3059,14 +3067,29 @@ const VIEWS12 = [
   ['Outside — carport + entrance (north-east)', 14.5, -12.5, 2.25, 0.02, null, 1.8],
   ['Outside — west (snow side)', -18.0, 3.0, -1.4, 0.06, null, 2.6],
   ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
-  ['1F — Entrance (genkan)', 0.62, -1.74, 2.4, -0.06, 0],
+  ['1F — Entrance (genkan)', 0.625, -1.341, 2.4, -0.06, 0],
   ['1F — Gym', -0.95, 4.85, 0.8, -0.02, 0],
-  ['1F — Bath (hinoki tubs)', -3.98, -5.14, 2.34, -0.18, 0],
-  ['1F — Guest bedroom', 3.45, 2.5, -2.05, -0.06, 0],
+  ['1F — Bath (hinoki tubs)', -5.575, -4.341, 3.142, -0.2, 0],
+  ['1F — Guest bedroom', 4.325, 2.659, -2.05, -0.06, 0],
   ['2F — Living (glass on three sides)', 1.1, 4.85, -0.97, 0.06, 1],
   ['2F — Dining + kitchen', 0.8, 4.85, 0.49, 0.0, 1],
   ['2F — Master bedroom 1', -4.25, -1.95, 0.71, 0.0, 1],
   ['2F — Master bedroom 2', 0.3, -1.75, 0.67, 0.0, 1],
+];
+/* house 13 presets (Ideal — 75 tsubo): house 12's, moved with the plan's stretch (gen_model_j.py INS_X / INS_Y) */
+const VIEWS13 = [
+  ['Outside — south-east (view side)', 13.5, 17.0, 0.67, 0.08, null, 2.2],
+  ['Outside — carport + entrance (north-east)', 14.5, -12.5, 2.25, 0.02, null, 1.8],
+  ['Outside — west (snow side)', -18.0, 3.0, -1.4, 0.06, null, 2.6],
+  ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
+  ['1F — Entrance (genkan)', 0.7, -1.416, 2.4, -0.06, 0],
+  ['1F — Gym', -0.875, 5.275, 0.8, -0.02, 0],
+  ['1F — Bath (hinoki tubs)', -5.5, -4.766, 3.142, -0.2, 0],
+  ['1F — Guest bedroom', 4.4, 2.734, -2.05, -0.06, 0],
+  ['2F — Living (glass on three sides)', 1.175, 5.275, -0.97, 0.06, 1],
+  ['2F — Dining + kitchen', 0.875, 5.275, 0.49, 0.0, 1],
+  ['2F — Master bedroom 1', -4.175, -2.025, 0.71, 0.0, 1],
+  ['2F — Master bedroom 2', 0.375, -1.825, 0.67, 0.0, 1],
 ];
 /* Collapse single-material static meshes into one mesh per material. */
 function mergeStatic(group) {
@@ -3128,7 +3151,7 @@ const VIEWS2 = [
   ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
 ];
 const VIEWS7 = [];   /* house 7: computed from the rooms after every build (views7) */
-const VIEWS = IJH ? VIEWS7 : HOUSE === 12 ? VIEWS12 : HOUSE === 6 ? VIEWS6 : HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : VIEWS2;
+const VIEWS = IJH ? VIEWS7 : HOUSE === 12 ? VIEWS12 : HOUSE === 13 ? VIEWS13 : HOUSE === 6 ? VIEWS6 : HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : VIEWS2;
 
 /* ---------------------------------------------------------------- controls */
 const st = {
@@ -3136,7 +3159,7 @@ const st = {
   fmode: 'all', roof: true, labels: false, orbit: false, quality: 1,
   az: 0.84, el: 0.5, rad: 24, locked: false
 };
-const ORBIT_T = IJH ? new V(-0.3, 4.5, 0.1) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 || HOUSE === 6 || HOUSE === 12 ? new V(0, 4.0, 0) : new V(0, 3, 0);
+const ORBIT_T = IJH ? new V(-0.3, 4.5, 0.1) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 || HOUSE === 6 || HOUSE === 12 || HOUSE === 13 ? new V(0, 4.0, 0) : new V(0, 3, 0);
 const act = new Set();
 const KEYMAP = {
   KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',
