@@ -21,7 +21,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toPlan, loadModel, expandStack, childLeaf } from './refplan.js?v=9';
+import { toPlan, loadModel, expandStack, childLeaf } from './refplan.js?v=10';
 
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
@@ -72,9 +72,9 @@ const REFS = {
   5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
-  12: { url: 'ref-model-j.json?v=8', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  12: { url: 'ref-model-j.json?v=9', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=5', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
+  13: { url: 'ref-model-k.json?v=6', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -552,7 +552,7 @@ function buildMaterials() {
 /* v31 'warm' finish (Toby's reference renders, 2026-10-22): warm grey walls, honey cedar board ceilings, light
    oak, loop-pile carpet, brown-grey stone tile in the wet rooms, grey stone in the entrance + hall; outside dark
    grey brick on the 1F, light grey stone on the 2F, matt black round the front door, the cedar soffit as before.
-   New scans (Poly Haven, CC0): brick_wall_13, stone_tile_wall (assets/tex) */
+   New scans (Poly Haven, CC0): castle_wall_slates, long_white_tiles, concrete_tile_facade (assets/tex) */
 function styleMaterials(IN) {
   MAT.plaster.color.setRGB(0.56, 0.56, 0.55);
   MAT.woodCeil = pbr('hinoki_boards', 1.2, { env: IN, rough: 1.0, color: [0.8, 0.6, 0.4],
@@ -564,11 +564,18 @@ function styleMaterials(IN) {
   MAT.bathStone = pbr('bath_tile', 2.4, { env: IN, rough: 1.0, ao: 0.8, color: [0.8, 0.72, 0.62],
     macro: { cells: [4, 4], tint: 0.03, albedo: 0.05, rough: 0.1, scale: 5 } });
   MAT.greyStone = pbr('granite_tile', 2.29, { env: IN, rough: 0.75, color: [1.05, 1.05, 1.08], macro: { albedo: 0.08, rough: 0.1, scale: 5 } });
-  MAT.cladLight = pbr('stone_tile_wall', 2.0, { env: 0.85, rough: 1.0, color: [0.74, 0.735, 0.72], nScale: 1.2,
-    macro: { albedo: 0.05, rough: 0.06, scale: 7 } });
-  MAT.cladDark = pbr('brick_wall_13', 2.0, { env: 0.8, rough: 1.0, color: [0.56, 0.55, 0.54], nScale: 1.2,
+  /* v36 (Toby 2026-10-24, his photo: muted greys, more texture, nothing too white, no cheap brick): stacked stone
+     (castle-wall slates), muted grey long tiles, dark slate tiles; a dark slate floor tile (1F) */
+  MAT.cladStone = pbr('castle_wall_slates', 2.5, { env: 0.8, rough: 1.0, color: [0.6, 0.65, 0.74], nScale: 1.5,
+    macro: { albedo: 0.06, rough: 0.06, scale: 7 } });
+  MAT.cladTiles = pbr('long_white_tiles', 1.27, { env: 0.85, rough: 0.9, color: [0.34, 0.345, 0.355], nScale: 1.0,
     macro: { albedo: 0.08, rough: 0.06, scale: 6 } });
-  MAT.cladLight.userData.facade = MAT.cladDark.userData.facade = true;
+  MAT.cladSlate = pbr('concrete_tile_facade', 2.09, { env: 0.9, rough: 0.8, color: [1.9, 1.9, 1.92], nScale: 1.0,
+    macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
+  MAT.slateFloor = pbr('concrete_tile_facade', 4.18, { env: IN, rough: 0.65, color: [1.7, 1.73, 1.8], nScale: 0.6,
+    macro: { albedo: 0.06, rough: 0.08, scale: 6 } });
+  for (const m of [MAT.cladStone, MAT.cladTiles, MAT.cladSlate]) m.userData.facade = true;
+  MAT.cladLight = MAT.cladTiles; MAT.cladDark = MAT.cladStone;
   MAT.cladBlack = std({ color: 0x18191b, roughness: 0.62, metalness: 0.1, envMapIntensity: 0.55 });
   /* v32 (Toby 2026-10-23: variation, Sumitomo-style black accents): lighter + darker paint, matt black, charcoal stone
      tile (walls + floors), light stone floor tile, smoked oak, dark skirting */
@@ -748,10 +755,20 @@ function cladUV(geo, i0, i1, s0, y0, base, dir, mat) {
     else uv.setXY(i, a / CLAD_U, h / CLAD_V);
   }
 }
-/* v31: where a wall's line runs through the model's finish.black rects ([x0, z0, x1, z1], 1F): [s0, s1] along it */
-function blackSpans(ax, az, ux, uz, len) {
+/* v36: the cladding of each stretch of an outside wall: finish.zones [{ rect [x0, z0, x1, z1], mat }] (and the older
+   finish.black rects) -> [[s0, s1, material]] along the wall */
+const CLADS = () => ({ stone: MAT.cladStone, tiles: MAT.cladTiles, slate: MAT.cladSlate, black: MAT.cladBlack });
+function zoneSpans(ax, az, ux, uz, len) {
+  const F = (PLAN.model && PLAN.model.finish) || {}, C = CLADS();
+  const zs = (F.zones || []).map(z => [z.rect, C[z.mat] || MAT.cladBlack]).concat((F.black || []).map(r => [r, MAT.cladBlack]));
   const out = [];
-  for (const r of (PLAN.model && PLAN.model.finish && PLAN.model.finish.black) || []) {
+  for (const [r, m] of zs) for (const [a, b] of blackSpans(ax, az, ux, uz, len, [r])) out.push([a, b, m]);
+  return out.sort((p, q) => p[0] - q[0]);
+}
+/* v31: where a wall's line runs through the model's finish.black rects ([x0, z0, x1, z1], 1F): [s0, s1] along it */
+function blackSpans(ax, az, ux, uz, len, rects) {
+  const out = [];
+  for (const r of rects || (PLAN.model && PLAN.model.finish && PLAN.model.finish.black) || []) {
     let t0 = 0, t1 = len;
     for (const [p, d, lo, hi] of [[ax, ux, r[0], r[2]], [az, uz, r[1], r[3]]]) {
       if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) { t0 = 1; t1 = 0; } continue; }
@@ -789,8 +806,9 @@ function wallRun(G, w, lvl, L) {
      level a roof covers is clipped DOWN to it (roofFor) */
   const roof = H3 ? roofFor(w, lvl) : (isTop ? ROOF : null);
   /* v31 warm finish: brick on the 1F, stone above, black where the model says (1F) */
-  const SK = STY ? (lvl === 0 ? MAT.cladDark : MAT.cladLight) : MAT.clad;
-  const BLK = STY && ext ? blackSpans(ax, az, ux, uz, len) : [];
+  const FC = STY && PLAN.model.finish.clad, CL = STY ? CLADS() : null;
+  const SK = STY ? ((FC && CL[FC[Math.min(lvl, FC.length - 1)]]) || (lvl === 0 ? MAT.cladStone : MAT.cladTiles)) : MAT.clad;
+  const BLK = STY && ext ? zoneSpans(ax, az, ux, uz, len) : [];
   /* piece: s in [s0,s1], y in [y0,y1] (absolute), across n in [q0,q1] */
   const piece = (s0, s1, y0, y1, q0, q1, mat, coll, bf) => {
     if (s1 - s0 < 0.004 || y1 - y0 < 0.004 || q1 - q0 < 0.002) return;
@@ -839,11 +857,11 @@ function wallRun(G, w, lvl, L) {
     } else if (ext) {
       piece(s0, s1, y0, y1, n0, n1 - SKIN, MAT.plaster, true, bf);
       let c = s0;
-      for (const [k0, k1] of BLK) {                    /* v31: the black stretch of this wall */
+      for (const [k0, k1, km] of BLK) {                /* v31/v36: the stretches in another cladding zone */
         const a = Math.max(c, k0), b = Math.min(s1, k1);
         if (b <= a) continue;
         if (a > c) piece(c, a, y0, y1, n1 - SKIN, n1, SK, false, bf);
-        piece(a, b, y0, y1, n1 - SKIN, n1, MAT.cladBlack, false, bf);
+        piece(a, b, y0, y1, n1 - SKIN, n1, km, false, bf);
         c = b;
       }
       if (c < s1) piece(c, s1, y0, y1, n1 - SKIN, n1, SK, false, bf);
@@ -930,11 +948,12 @@ function wallRun(G, w, lvl, L) {
       if (!on) continue;
       const sp = sc + (sc > 0 ? 0.05 : -0.05), qx = ax + ux * sp + nx * (n0 + n1) / 2, qz = az + uz * sp + nz * (n0 + n1) / 2;
       const inRoom = (L.faces || []).some(f => inside(f.poly, qx, qz) && !(f.holes || []).some(h => inside(h, qx, qz)));
-      const cm = inRoom ? MAT.plaster : (BLK.some(([k0, k1]) => sc > k0 - 0.06 && sc < k1 + 0.06) ? MAT.cladBlack : SK);
+      const zm = BLK.find(([k0, k1]) => sc > k0 - 0.06 && sc < k1 + 0.06);
+      const cm = inRoom ? MAT.plaster : (zm ? zm[2] : SK);
       const cg = B(0.01, yT - yB, n1 - n0, cm);
       const cx = ax + ux * sc + nx * (n0 + n1) / 2, cy = (yB + yT) / 2, cz = az + uz * sc + nz * (n0 + n1) / 2;
       if (roof) roofTop(cg, cx, cy, cz, th, roof, true);
-      if (!inRoom && cm !== MAT.cladBlack) cladUV(cg, 0, 8, 0, yB, 0, 1, cm);
+      if (!inRoom && (cm === MAT.clad || cm.userData.facade)) cladUV(cg, 0, 8, 0, yB, 0, 1, cm);
       const m = new THREE.Mesh(cg, cm);
       m.position.set(cx, cy, cz); m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
     }
@@ -1065,10 +1084,19 @@ function opening(G, o, w, lvl, L, c) {
   const leafMat = MAT.oakFurn;
   const q = ext ? n1 - 0.12 : 0;
   const casing = (s0, s1, y0, y1) => put(B(s1 - s0, y1 - y0, (n1 - n0) + 0.02, MAT.white), MAT.white, (s0 + s1) / 2, (n0 + n1) / 2, (y0 + y1) / 2, true);
-  if (!ext) { casing(s - 0.04, s, bot, top + 0.04); casing(e, e + 0.04, bot, top + 0.04); casing(s - 0.04, e + 0.04, top, top + 0.04); }
+  if (!ext && !o.glass) { casing(s - 0.04, s, bot, top + 0.04); casing(e, e + 0.04, bot, top + 0.04); casing(s - 0.04, e + 0.04, top, top + 0.04); }
   const LW = leafWidths(o, W), nLeaf = LW.length, lw = W / nLeaf;
   const lx = (i) => s + LW.slice(0, i).reduce((a, b) => a + b, 0) + LW[i] / 2;   /* leaf i's centre along the wall */
   const isChild = (i) => o.type === 'parent-child' && LW[i] < W / 2 - 1e-6;      /* the narrow leaf: bolts, no handle */
+  if (!ext && o.glass) {
+    /* v36 (Toby 2026-10-24): a glass door (the bath): clear leaf in a slim black frame */
+    for (const [a, b] of [[s - 0.03, s], [e, e + 0.03]]) put(B(b - a, top - bot + 0.03, (n1 - n0) + 0.02), MAT.accBlack || MAT.blackSteel, (a + b) / 2, (n0 + n1) / 2, (bot + top + 0.03) / 2, true);
+    put(B(W + 0.06, 0.03, (n1 - n0) + 0.02), MAT.accBlack || MAT.blackSteel, (s + e) / 2, (n0 + n1) / 2, top + 0.015, true);
+    const gl = put(B(W - 0.01, H - 0.01, 0.01), MAT.glassIn, (s + e) / 2, 0, bot + H / 2, false); gl.renderOrder = 2;
+    for (const [y0, y1] of [[bot, bot + 0.04], [top - 0.04, top]]) put(B(W - 0.01, y1 - y0, 0.03), MAT.accBlack || MAT.blackSteel, (s + e) / 2, 0, (y0 + y1) / 2, false);
+    put(B(0.02, 0.6, 0.05), MAT.steel, s + (W - 0.08), 0, bot + 1.0, false);
+    return;
+  }
   if (!ext) {
     /* Interior doors (Toby 2026-10-05): shown CLOSED in their own openings as
        see-through leaves with a handle -- no swing or parked sliding leaf can
@@ -2228,7 +2256,7 @@ function buildSite2() {
    corners they own), stairs are tread polygons, roofs are planes. */
 let ROOFS3 = [];
 const FLOORMAT3 = () => STY ? ({ oak: MAT.oakS, oakdark: MAT.oakDark, carpet: MAT.carpet, bathstone: MAT.bathStone, tile: MAT.bathStone, stone: MAT.lightStone,
-  darkstone: MAT.darkTile, granite: MAT.bathStone,
+  darkstone: MAT.darkTile, slate: MAT.slateFloor, granite: MAT.bathStone,
   concrete: MAT.concrete, hinoki: MAT.hinoki, rubber: MAT.rubber || MAT.concrete }) : ({ oak: MAT.pine, tile: MAT.greyTile, stone: MAT.entranceStone, concrete: MAT.concrete, granite: MAT.granite, hinoki: MAT.hinoki, rubber: MAT.rubber || MAT.concrete });
 function mkRoof3(r) {
   /* underside (ceiling) plane: h0 at plan y = y0 (the low edge), rising k per
@@ -2558,9 +2586,10 @@ function buildStairs3(list) {
       const q0 = Math.min(...P.map(p => p[1])), q1 = Math.max(...P.map(p => p[1]));
       const n = open.length, go = (s1 - s0) / n, thick = 0.16;
       const sh = new THREE.Shape();
+      const tt = STY ? 0.045 : 0;                    /* v36: the body stops under the 45 mm treads */
       sh.moveTo(s0, open[0].top - rise - thick);
-      sh.lineTo(s0, open[0].top);
-      for (let k = 0; k < n; k++) { sh.lineTo(s0 + go * (k + 1), open[k].top); if (k + 1 < n) sh.lineTo(s0 + go * (k + 1), open[k + 1].top); }
+      sh.lineTo(s0, open[0].top - tt);
+      for (let k = 0; k < n; k++) { sh.lineTo(s0 + go * (k + 1), open[k].top - tt); if (k + 1 < n) sh.lineTo(s0 + go * (k + 1), open[k + 1].top - tt); }
       sh.lineTo(s1, open[n - 1].top - thick);
       sh.lineTo(s0, open[0].top - rise - thick);
       if (THREE.ShapeUtils.isClockWise(sh.getPoints())) { const pts = sh.getPoints().reverse(); sh.curves = []; sh.setFromPoints(pts); }
@@ -2610,8 +2639,7 @@ function buildRoofs3() {
     if (STY) for (const f of faces) for (const p of f.poly) if (p[0] > X0 && p[0] < X1 && p[1] > Z0 && p[1] < Z1) { xs.push(p[0]); zs.push(p[1]); }
     const ceilOf = (x, z) => {
       if (!STY) return MAT.ceiling;
-      const f = faceAt3(lv, x, z);
-      return f && f.ceil === 'wood' ? MAT.woodCeil : MAT.ceiling;
+      return MAT.ceiling;                            /* v36: board ceilings hang under it (ceilings3) */
     };
     const all = gridRects(xs, zs, () => true);
     const th = r.th || 0.3;
@@ -2720,7 +2748,7 @@ function lights3() {
       const r = ROOFS3.find(rr => !rr.outside && x > rr.rect[0] && x < rr.rect[2] && z > rr.rect[1] && z < rr.rect[3]);
       if (sloped && r) q.setFromUnitVectors(new V(0, 0, 1), r.n.clone().negate()); else q.setFromUnitVectors(new V(0, 0, 1), new V(0, -1, 0));
       if (lit) { const pl = new THREE.PointLight(0xffdcb0, f.area > 20 ? 8 : 5, 9, 1.5); pl.position.set(x, y - 0.3, z); G.furn[i].add(pl); }
-      const yl = y - (f.floor === 'hinoki' ? 0.021 : 0) - (STY && f.ceil === 'wood' && y === L.base + L.h ? LINER : 0);
+      const yl = y - (f.floor === 'hinoki' ? 0.021 : 0) - (STY && f.ceil === 'wood' && inside(insetOrtho(f.poly, PANEL_IN), x, z) ? PANEL_DROP + PANEL_T : 0);
       const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow); lens.quaternion.copy(q); lens.position.set(x, yl - 0.004, z); G.furn[i].add(lens);
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white); ring.quaternion.copy(q); ring.position.set(x, yl - 0.003, z); G.furn[i].add(ring);
     }
@@ -2845,7 +2873,7 @@ function accents3() {
     const s0 = Math.max(0, Math.min(sOf(A.a), sOf(A.b))), s1 = Math.min(len, Math.max(sOf(A.a), sOf(A.b)));
     const f = faceAt3(A.level, A.at[0], A.at[1]);
     const RF = roofOver3(A.level, A.at[0], A.at[1]);
-    const yb = L.base + ((f && f.dz) || 0), yt = (RF ? L.base + 6 : ceilAt3(A.at[0], A.at[1], A.level) - (f && f.ceil === 'wood' ? LINER : 0)) - 0.004;
+    const yb = L.base + ((f && f.dz) || 0), yt = (RF ? L.base + 6 : ceilAt3(A.at[0], A.at[1], A.level)) - 0.004;
     const M = { dark: MAT.plasterDark, light: MAT.plasterLight, black: MAT.accBlack, darktile: MAT.darkTile, slat: MAT.plasterDark }[A.mat] || MAT.plasterDark;
     const OFF = 0.016, T = A.mat === 'darktile' ? 0.012 : 0.006;
     const spans = [];                                /* the solid stretches between the openings, full height */
@@ -2882,14 +2910,13 @@ function ceilings3() {
       if (!rs.length) continue;
       const flat = (x, z) => LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0);
       const [cx, cz] = f.label;
-      if (f.ceil === 'wood') {
-        if (flat(cx, cz)) slabRects(G.ceil[i], rs, L.base + L.h, LINER, MAT.woodCeil, MAT.woodCeil, MAT.woodCeil);
-        continue;                                    /* under the roof: buildRoofs3 boards the roof's underside */
-      }
+      if (f.ceil === 'wood') { hangPanel(i, f); continue; }
       if (f.ceil !== 'beams') continue;
+      coveGlow(i, f);
       const bb = bbox(f.poly);
       if (flat(cx, cz)) {
         const alongX = bb[2] - bb[0] <= bb[3] - bb[1], y = L.base + L.h - JH / 2;
+        const vacant = (x0, z0, x1, z1) => !flat((x0 + x1) / 2, (z0 + z1) / 2);   /* v36: none over the stair void */
         const [p0, p1] = alongX ? [bb[1], bb[3]] : [bb[0], bb[2]];
         const n = Math.max(1, Math.round((p1 - p0) / JS)), sp = (p1 - p0) / n;
         for (let k = 0; k < n; k++) {
@@ -2898,6 +2925,7 @@ function ceilings3() {
             if (alongX && (p < r[1] + 0.1 || p > r[3] - 0.1)) continue;
             if (!alongX && (p < r[0] + 0.1 || p > r[2] - 0.1)) continue;
             const l = alongX ? r[2] - r[0] : r[3] - r[1];
+            if (alongX ? vacant(r[0], p, r[2], p) : vacant(p, r[1], p, r[3])) continue;
             if (alongX) mk(G.ceil[i], B(l, JH, JW, MAT.timber, 'x'), MAT.timber, (r[0] + r[2]) / 2, y, p);
             else mk(G.ceil[i], B(JW, JH, l, MAT.timber, 'z'), MAT.timber, p, y, (r[1] + r[3]) / 2);
           }
@@ -2918,6 +2946,88 @@ function ceilings3() {
       }
     }
   });
+}
+/* v36 (Toby 2026-10-24: "more variation in the ceiling", indirect lighting, the wood lowered ~5 cm like it hangs):
+   board-ceiling rooms get a white ceiling with a hanging board panel PANEL_DROP under it, PANEL_IN in from the walls
+   (none over the stair void), its edge lit (a warm wash on the ceiling round it); beam-ceiling rooms get a cove of
+   light round the ceiling's edge */
+const PANEL_IN = 0.4, PANEL_DROP = 0.05, PANEL_T = 0.03, GLOW_W = 0.32;
+let _glow = null;
+function glowMat() {
+  if (_glow) return _glow;
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64;
+  const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, 'rgba(255,214,160,1)'); gr.addColorStop(0.25, 'rgba(255,214,160,0.62)'); gr.addColorStop(1, 'rgba(255,214,160,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 4, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return (_glow = new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 1.0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+}
+/* an orthogonal polygon (plan [x, z]) moved in by d on every side */
+function insetOrtho(P, d) {
+  const n = P.length; let A = 0;
+  for (let i = 0; i < n; i++) { const p = P[i], q = P[(i + 1) % n]; A += p[0] * q[1] - q[0] * p[1]; }
+  const sg = A > 0 ? 1 : -1, ln = [];
+  for (let i = 0; i < n; i++) {
+    const p = P[i], q = P[(i + 1) % n], dx = q[0] - p[0], dz = q[1] - p[1], L = Math.hypot(dx, dz) || 1;
+    ln.push({ p: [p[0] - dz / L * sg * d, p[1] + dx / L * sg * d], u: [dx / L, dz / L] });
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = ln[(i + n - 1) % n], b = ln[i], den = a.u[0] * b.u[1] - a.u[1] * b.u[0];
+    if (Math.abs(den) < 1e-9) { out.push(b.p); continue; }
+    const t = ((b.p[0] - a.p[0]) * b.u[1] - (b.p[1] - a.p[1]) * b.u[0]) / den;
+    out.push([a.p[0] + a.u[0] * t, a.p[1] + a.u[1] * t]);
+  }
+  return out;
+}
+/* a strip of light on the ceiling from p->q (plan), w wide toward side (nx, nz), bright at the p->q edge; yAt = the
+   ceiling height under a plan point */
+function glowStrip(g, p, q, nx, nz, w, yAt) {
+  const v = [[p[0], p[1]], [q[0], q[1]], [q[0] + nx * w, q[1] + nz * w], [p[0] + nx * w, p[1] + nz * w]];
+  const pos = [], uv = [[0, 1], [1, 1], [1, 0], [0, 0]];
+  for (const [x, z] of v) pos.push(x, yAt(x, z) - 0.004, z);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv.flat(), 2));
+  geo.setIndex([0, 1, 2, 0, 2, 3]);
+  const m = new THREE.Mesh(geo, glowMat()); m.renderOrder = 3; m.userData.keep = true; g.add(m);
+}
+function hangPanel(i, f) {
+  const L = LV[i], P = insetOrtho(f.poly, PANEL_IN);
+  const flat = LV[i + 1] && onRects(FLOOR_RECTS[i + 1], f.label[0], f.label[1], 0);
+  const over = (x, z) => !LV[i + 1] || !flat || onRects(FLOOR_RECTS[i + 1], x, z, 0);
+  const xs = P.map(p => p[0]), zs = P.map(p => p[1]);
+  if (flat) for (const r of FLOOR_RECTS[i + 1]) { xs.push(r[0], r[2]); zs.push(r[1], r[3]); }
+  const rs = gridRects(xs, zs, (x, z) => inside(P, x, z) && over(x, z));
+  if (!rs.length) return;
+  const yc = (x, z) => flat ? L.base + L.h : (roofOver3(i, x, z) || { y: () => L.base + L.h }).y(x, z);
+  const g = flat ? G.ceil[i] : G.roof;
+  if (flat) slabRects(g, rs, L.base + L.h - PANEL_DROP, PANEL_T, MAT.woodCeil, MAT.woodCeil, MAT.woodCeil);
+  else for (const r of rs) { const R = roofOver3(i, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2); if (R) slopedSlab(g, [r], -PANEL_DROP - PANEL_T, PANEL_T, MAT.woodCeil, MAT.woodCeil, () => MAT.woodCeil, R); }
+  /* the lit edge: round the panel's outline, out toward the walls */
+  const n = P.length; let A = 0;
+  for (let k = 0; k < n; k++) { const p = P[k], q = P[(k + 1) % n]; A += p[0] * q[1] - q[0] * p[1]; }
+  const sg = A > 0 ? 1 : -1;
+  for (let k = 0; k < n; k++) {
+    const p = P[k], q = P[(k + 1) % n], dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz);
+    if (len < 0.2) continue;
+    const nx = dz / len * sg, nz = -dx / len * sg;     /* outward */
+    if (!over((p[0] + q[0]) / 2 + nx * 0.1, (p[1] + q[1]) / 2 + nz * 0.1)) continue;
+    glowStrip(g, p, q, nx, nz, Math.min(GLOW_W, PANEL_IN - 0.08), yc);
+  }
+}
+function coveGlow(i, f) {
+  const L = LV[i], P = insetOrtho(f.poly, 0.07);
+  const flat = LV[i + 1] && onRects(FLOOR_RECTS[i + 1], f.label[0], f.label[1], 0);
+  const yc = (x, z) => flat ? L.base + L.h : (roofOver3(i, x, z) || { y: () => L.base + L.h }).y(x, z);
+  const n = P.length; let A = 0;
+  for (let k = 0; k < n; k++) { const p = P[k], q = P[(k + 1) % n]; A += p[0] * q[1] - q[0] * p[1]; }
+  const sg = A > 0 ? 1 : -1;
+  for (let k = 0; k < n; k++) {
+    const p = P[k], q = P[(k + 1) % n], dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz);
+    if (len < 0.3) continue;
+    glowStrip(flat ? G.ceil[i] : G.roof, p, q, -dz / len * sg, dx / len * sg, 0.28, yc);   /* inward */
+  }
 }
 /* v31: the model's structural beams (the builder's "about 3 m" beams in the big sloped space): girts along the
    outside walls, ties across, braces in the corners; their own group, the Beams button shows / hides them */
@@ -2956,7 +3066,7 @@ function buildHouse3(plan) {
   LV.forEach((L, i) => {
     const GL = { walls: G.walls[i], furn: G.furn[i] };
     for (const w of L.walls) wallRun(GL, w, i, L);
-    for (const f of L.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base; G.furn[i].add(p); } }
+    for (const f of L.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base + (STY ? ((faceAt3(i, f.x, f.y) || {}).dz || 0) : 0); G.furn[i].add(p); } }
   });
   lineRooms3();
   if (STY) accents3();

@@ -480,7 +480,7 @@ export function toPlan(model) {
           const a0 = Math.max(o.at, sA), a1 = Math.min(o.at + o.w, sB);
           if (a1 - a0 < 0.02) continue;
           const kind = OP_KIND[o.type] || 'WINDOW';
-          const op = { kind, off: r4(a0 - sA), w: r4(a1 - a0), top: o.head, bottom: o.sill, id: o.id, solid: (o.type === 'entry' || o.solid) ? 1 : 0, leaves: o.leaves || 0, style: o.style || '', frost: (o.frost || o.frosted) ? 1 : 0 };
+          const op = { kind, off: r4(a0 - sA), w: r4(a1 - a0), top: o.head, bottom: o.sill, id: o.id, solid: (o.type === 'entry' || o.solid) ? 1 : 0, leaves: o.leaves || 0, style: o.style || '', frost: (o.frost || o.frosted) ? 1 : 0, glass: o.glass ? 1 : 0 };   /* v10: glass (interior glass door) */
           /* v23: two-leaf entrance doors (app.js: solid leaves outside, the parent-child split) */
           if (o.type === 'double' || o.type === 'parent-child') {
             Object.assign(op, { type: o.type, leaves: 2, hinge: o.hinge === 'b' ? 'b' : 'a' });
