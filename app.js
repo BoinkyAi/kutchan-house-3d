@@ -29,7 +29,7 @@ const floorName = (i) => (H3 && i === 2) ? T('loft') : FLOOR_NAMES[i];
 const EYE = 1.62;
 /* Lens. st.fov is the field of view across the WIDER screen axis (horizontal
    on landscape, vertical on portrait); 72deg ~ a 24 mm archviz lens. */
-const FOV = { def: 100, min: 40, max: 100, wide: 90, narrow: 50 };   /* default = the widest (Toby 2026-10-05) */
+const FOV = { def: 100, min: 40, max: 130, wide: 120, narrow: 50 };   /* default 100 (Toby 2026-10-05: the widest then); v33 (Toby 2026-10-23): up to 130 */
 /* Two-point perspective: looking up/down by up to SHIFT is a vertical lens
    shift (camera stays level, verticals stay vertical, like an architectural
    shift lens); only pitch beyond +-SHIFT tilts the camera. */
@@ -116,7 +116,7 @@ const TXT = {
     rooftip: (dir) => '片流れの屋根1枚。リビング側から寝室側へ下がります（' + dir + '）。高さは、各端の壁の外面位置での2階床からの天井高です。',
     dirs: { ns: '北→南', sn: '南→北', ew: '東→西', we: '西→東' },
     move: '移動', moveh: '▲▼ 前後・◀▶ 左右・↑↓ 上下', look: '視点', lvlt: '水平に戻す', wt: '広角に', ot: '建物の周りを周回', nt: '望遠に',
-    fov: '画角', fovt: '画面の長辺方向の角度', speed: '速度', wide: '広角', narrow: '望遠', widet: '広角（90°）', narrowt: '望遠（50°）',
+    fov: '画角', fovt: '画面の長辺方向の角度', speed: '速度', wide: '広角', narrow: '望遠', widet: '広角（120°）', narrowt: '望遠（50°）',
     hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
     loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
     doc4: '倶知安 住宅計画 予算プラン — 3D', doc5: '倶知安 住宅計画 中間プラン — 3D', doc6: '倶知安 住宅計画 理想プラン — 3D',
@@ -159,7 +159,7 @@ const TXT = {
     rooftip: (dir) => 'One sloped (mono-pitch) roof, falling ' + dir + ' from the living room to the bedrooms. Heights: ceiling above the 2F floor at the outside face of each end wall.',
     dirs: { ns: 'north to south', sn: 'south to north', ew: 'east to west', we: 'west to east' },
     move: 'MOVE', moveh: '▲▼ fwd/back · ◀▶ strafe · ↑↓ height', look: 'LOOK', lvlt: 'Level the view', wt: 'Wider angle', ot: 'Orbit the building', nt: 'Narrower / zoom in',
-    fov: 'FIELD OF VIEW', fovt: "Measured across the screen's long side", speed: 'SPEED', wide: 'Wide', narrow: 'Narrow', widet: 'Wide angle (90°)', narrowt: 'Narrow / zoom (50°)',
+    fov: 'FIELD OF VIEW', fovt: "Measured across the screen's long side", speed: 'SPEED', wide: 'Wide', narrow: 'Narrow', widet: 'Wide angle (120°)', narrowt: 'Narrow / zoom (50°)',
     hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
     loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
     doc4: 'Kutchan house — Budget plan — 3D', doc5: 'Kutchan house — Mid tier plan — 3D', doc6: 'Kutchan house — Ideal plan — 3D',
@@ -3497,6 +3497,20 @@ function blocked(x, y, z) {
   }
   return false;
 }
+/* v33 (Toby 2026-10-23: in the doll-house view the arrow keys spun the house round a point off to the side): flying
+   outside, turning left / right goes ROUND the point at the centre of the view (the house stays centred, a turntable)
+   - the point on the view's centre line nearest the house's middle; inside, or looking away from the house, the
+   camera turns on the spot as before */
+function lookTurn(a) {
+  const p = camera.position, cp = Math.cos(st.pitch);
+  const dir = new V(-Math.sin(st.yaw) * cp, Math.sin(st.pitch), -Math.cos(st.yaw) * cp);
+  const d = ORBIT_T.clone().sub(p).dot(dir);
+  if (!st.fly || st.orbit || d < 3 || indoors()) { st.yaw += a; return; }
+  const q = p.clone().addScaledVector(dir, d);
+  const hx = p.x - q.x, hz = p.z - q.z, c = Math.cos(a), s = Math.sin(a);
+  p.x = q.x + hx * c + hz * s; p.z = q.z - hx * s + hz * c;
+  st.yaw += a;
+}
 function move(dt) {
   const sp = st.speed * (act.has('run') ? 2.5 : 1) * dt;
   let fx = 0, fz = 0, uy = 0;
@@ -3507,8 +3521,8 @@ function move(dt) {
   if (act.has('up')) uy += 1;
   if (act.has('dn')) uy -= 1;
   const look = 1.35 * dt * (camera.fov / 60);          /* camera.fov = actual vertical fov */
-  if (act.has('lookl')) st.yaw += look;
-  if (act.has('lookr')) st.yaw -= look;
+  const turn = (act.has('lookl') ? look : 0) - (act.has('lookr') ? look : 0);
+  if (turn) lookTurn(turn);
   if (act.has('lookup')) st.pitch = Math.min(1.5, st.pitch + look);
   if (act.has('lookdn')) st.pitch = Math.max(-1.5, st.pitch - look);
   if (act.has('wide')) setFov(st.fov + 40 * dt);
@@ -3666,7 +3680,7 @@ function bindUI() {
     const dx = e.clientX - px, dy = e.clientY - py; px = e.clientX; py = e.clientY;
     const k = (camera.fov / 60) * 0.0042;           /* by the actual vertical fov */
     if (st.orbit) { st.az -= dx * 0.005; st.el = Math.max(0.05, Math.min(1.45, st.el + dy * 0.004)); return; }
-    st.yaw += dx * k; st.pitch = Math.max(-1.5, Math.min(1.5, st.pitch + dy * k));
+    lookTurn(dx * k); st.pitch = Math.max(-1.5, Math.min(1.5, st.pitch + dy * k));
   });
   document.addEventListener('pointerlockchange', () => { st.locked = document.pointerLockElement === canvas; syncUI(); });
   document.addEventListener('mousemove', (e) => {
