@@ -1,5 +1,5 @@
 {
- "version": 6,
+ "version": 7,
  "title": "Ideal — 75 tsubo",
  "ja": "理想プラン（75坪）",
  "source": "Ideal — 75 tsubo: the Ideal — compact plan (Toby's own Floor Plan Creator design) enlarged to about 75 tsubo: bigger master suites, dens, living + dining + kitchen, bath and gym; the guest bedroom, WCs, ski room, boiler room and stair as in the compact plan. L-shaped, 2 storeys: a main block + a wing to the east along the south (view) side; carport over two cars in the L's inner corner by the front door. 1F: gym, bath (2 shower stalls, 2 hinoki tubs), sauna, changing + rest room with a lounger, laundry, WC, ski / gear room, entrance, hall + stair, boiler room under the stair, den 1 (office + bunk), guest bedroom. 2F: two master bedrooms, each with a walk-in closet + ensuite; WC; den 2 (office + bunk); dining + kitchen with an island, open to the living in the wing (glass on three sides). One roof plane falling west. Windows = standard YKK APW 430 / 431 columns in Toby's openings.",
@@ -1868,7 +1868,7 @@
       3.634
      ],
      "floor": "oak",
-     "ceil": "beams"
+     "ceil": "beams2"
     },
     {
      "id": "r24",
@@ -1879,7 +1879,7 @@
       1.434
      ],
      "floor": "void",
-     "ceil": "beams"
+     "ceil": "beams2"
     }
    ],
    "items": [
@@ -2043,17 +2043,38 @@
     },
     {
      "id": "f49",
+     "kind": "tall",
+     "x": -2.297,
+     "y": 0.654,
+     "w": 0.6,
+     "d": 0.64,
+     "a": 0.0,
+     "h": 2.3
+    },
+    {
+     "id": "f50",
+     "kind": "tall",
+     "x": 0.533,
+     "y": 0.654,
+     "w": 0.6,
+     "d": 0.64,
+     "a": 0.0,
+     "h": 2.3,
+     "fin": "fridge"
+    },
+    {
+     "id": "f51",
      "kind": "kitchen.cabinet",
      "x": -0.882,
      "y": 0.654,
-     "w": 3.43,
+     "w": 2.23,
      "d": 0.64,
      "a": 0.0,
      "h": 0.9,
      "fin": "black"
     },
     {
-     "id": "f50",
+     "id": "f52",
      "kind": "hob",
      "x": -0.88,
      "y": 0.654,
@@ -2063,36 +2084,29 @@
      "h": 0.9
     },
     {
-     "id": "f51",
-     "kind": "fridge",
-     "x": 1.133,
-     "y": 1.044,
-     "w": 0.6,
-     "d": 0.6,
-     "a": 0.0
-    },
-    {
-     "id": "f52",
+     "id": "f53",
      "kind": "kitchen.cabinet",
      "x": -0.877,
      "y": 2.1905,
      "w": 2.664,
      "d": 0.433,
      "a": 3.141593,
-     "h": 0.9
+     "h": 0.9,
+     "fin": "black"
     },
     {
-     "id": "f53",
+     "id": "f54",
      "kind": "kitchen.cabinet",
      "x": -0.877,
      "y": 2.6155,
      "w": 2.664,
      "d": 0.417,
      "a": 0.0,
-     "h": 0.9
+     "h": 0.9,
+     "fin": "black"
     },
     {
-     "id": "f54",
+     "id": "f55",
      "kind": "sinkDouble",
      "x": -0.88,
      "y": 2.1905,
@@ -2102,7 +2116,7 @@
      "h": 0.905
     },
     {
-     "id": "f55",
+     "id": "f56",
      "kind": "table",
      "x": -0.859,
      "y": 4.299,
@@ -2111,18 +2125,9 @@
      "a": 0.0
     },
     {
-     "id": "f56",
-     "kind": "chair",
-     "x": -1.493,
-     "y": 4.849,
-     "w": 0.44,
-     "d": 0.4,
-     "a": 0.0
-    },
-    {
      "id": "f57",
      "kind": "chair",
-     "x": -0.864,
+     "x": -1.493,
      "y": 4.849,
      "w": 0.44,
      "d": 0.4,
@@ -2131,7 +2136,7 @@
     {
      "id": "f58",
      "kind": "chair",
-     "x": -0.28,
+     "x": -0.864,
      "y": 4.849,
      "w": 0.44,
      "d": 0.4,
@@ -2140,16 +2145,16 @@
     {
      "id": "f59",
      "kind": "chair",
-     "x": -1.493,
-     "y": 3.749,
+     "x": -0.28,
+     "y": 4.849,
      "w": 0.44,
      "d": 0.4,
-     "a": 3.141593
+     "a": 0.0
     },
     {
      "id": "f60",
      "kind": "chair",
-     "x": -0.864,
+     "x": -1.493,
      "y": 3.749,
      "w": 0.44,
      "d": 0.4,
@@ -2158,7 +2163,7 @@
     {
      "id": "f61",
      "kind": "chair",
-     "x": -0.28,
+     "x": -0.864,
      "y": 3.749,
      "w": 0.44,
      "d": 0.4,
@@ -2166,6 +2171,15 @@
     },
     {
      "id": "f62",
+     "kind": "chair",
+     "x": -0.28,
+     "y": 3.749,
+     "w": 0.44,
+     "d": 0.4,
+     "a": 3.141593
+    },
+    {
+     "id": "f63",
      "kind": "sofa",
      "x": 2.42,
      "y": 2.657,
@@ -2179,7 +2193,7 @@
      ]
     },
     {
-     "id": "f63",
+     "id": "f64",
      "kind": "armchair",
      "x": 4.55,
      "y": 5.22,
@@ -2188,7 +2202,7 @@
      "a": 4.363323
     },
     {
-     "id": "f64",
+     "id": "f65",
      "kind": "armchair",
      "x": 5.664,
      "y": 2.826,
@@ -2197,7 +2211,7 @@
      "a": 5.846853
     },
     {
-     "id": "f65",
+     "id": "f66",
      "kind": "tv",
      "x": 6.789,
      "y": 3.518,
@@ -2206,18 +2220,18 @@
      "a": 1.570796
     },
     {
-     "id": "f66",
+     "id": "f67",
      "kind": "bookcase",
-     "x": 1.996,
-     "y": 1.468,
-     "w": 1.45,
+     "x": 1.206,
+     "y": 0.936,
+     "w": 0.6,
      "d": 0.406,
-     "a": 1.570796,
+     "a": 0.0,
      "h": 2.13,
      "fin": "black"
     },
     {
-     "id": "f67",
+     "id": "f68",
      "kind": "railing",
      "x": 4.0035,
      "y": 2.194,
@@ -2227,7 +2241,7 @@
      "h": 1.1
     },
     {
-     "id": "f68",
+     "id": "f69",
      "kind": "railing",
      "x": 2.224,
      "y": 1.4635,
@@ -2652,7 +2666,7 @@
   "rect": [
    1.013,
    -6.226,
-   7.5,
+   12.899,
    0.553
   ],
   "levels": [
@@ -2665,45 +2679,67 @@
    "w": 0
   },
   "y0": -6.226,
-  "h0": 2.5,
-  "k": 0.04,
+  "h0": 2.183,
+  "k": 0.15,
   "th": 0.2,
   "low": "n",
   "posts": [
    [
-    7.375,
+    3.899,
     -6.076
    ],
    [
-    7.375,
-    -3.016
+    6.899,
+    -6.076
+   ],
+   [
+    9.899,
+    -6.076
+   ],
+   [
+    12.774,
+    -6.076
+   ],
+   [
+    12.774,
+    0.403
+   ],
+   [
+    8.699,
+    0.403
    ]
   ],
   "beams": [
    [
-    7.375,
+    1.013,
+    -6.076,
+    12.899,
+    -6.076
+   ],
+   [
+    12.774,
     -6.226,
-    7.375,
+    12.774,
     0.553
    ],
    [
-    1.013,
-    -6.076,
-    7.5,
-    -6.076
+    7.199,
+    0.403,
+    12.899,
+    0.403
    ]
   ],
   "pad": [
    1.013,
    -6.226,
-   7.5,
+   12.899,
    0.553
   ],
   "drive": [
-   7.5,
-   -6.226,
-   16.5,
-   0.553
+   1.013,
+   -12.226,
+   18.899,
+   -6.226
   ],
   "porch": [
    1.013,
@@ -2718,6 +2754,18 @@
   "clad": [
    "stone",
    "tiles"
+  ],
+  "lids": [
+   {
+    "level": 0,
+    "rect": [
+     4.3,
+     0.667,
+     5.843,
+     2.194
+    ],
+    "y": 2.08
+   }
   ],
   "zones": [
    {
@@ -2786,7 +2834,55 @@
      -5.9,
      -2.416
     ],
-    "mat": "darktile"
+    "mat": "splitface"
+   },
+   {
+    "level": 0,
+    "a": [
+     -7.199,
+     -5.841
+    ],
+    "b": [
+     -7.199,
+     -1.579
+    ],
+    "at": [
+     -5.9,
+     -4.566
+    ],
+    "mat": "stack"
+   },
+   {
+    "level": 0,
+    "a": [
+     -2.357,
+     -5.841
+    ],
+    "b": [
+     -0.23,
+     -5.841
+    ],
+    "at": [
+     -1.3,
+     -4.566
+    ],
+    "mat": "splitface"
+   },
+   {
+    "level": 0,
+    "a": [
+     0.899,
+     0.667
+    ],
+    "b": [
+     4.3,
+     0.667
+    ],
+    "at": [
+     2.4,
+     1.434
+    ],
+    "mat": "stack"
    },
    {
     "level": 0,
@@ -2850,7 +2946,7 @@
      -5.4,
      -4.866
     ],
-    "mat": "dark"
+    "mat": "slat"
    },
    {
     "level": 1,
@@ -2882,7 +2978,23 @@
      -6.51,
      -0.066
     ],
-    "mat": "darktile"
+    "mat": "splitface"
+   },
+   {
+    "level": 1,
+    "a": [
+     -7.199,
+     -1.411
+    ],
+    "b": [
+     -5.763,
+     -1.411
+    ],
+    "at": [
+     -6.51,
+     -0.066
+    ],
+    "mat": "stack"
    },
    {
     "level": 1,
@@ -2898,7 +3010,39 @@
      -0.9,
      -1.016
     ],
-    "mat": "darktile"
+    "mat": "splitface"
+   },
+   {
+    "level": 1,
+    "a": [
+     -2.537,
+     -1.52
+    ],
+    "b": [
+     0.899,
+     -1.52
+    ],
+    "at": [
+     -0.9,
+     -1.016
+    ],
+    "mat": "stack"
+   },
+   {
+    "level": 1,
+    "a": [
+     0.899,
+     0.667
+    ],
+    "b": [
+     1.513,
+     0.667
+    ],
+    "at": [
+     1.2,
+     1.934
+    ],
+    "mat": "rubble"
    },
    {
     "level": 1,

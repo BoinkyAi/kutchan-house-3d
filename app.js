@@ -72,9 +72,9 @@ const REFS = {
   5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
-  12: { url: 'ref-model-j.json?v=9', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=6', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
+  13: { url: 'ref-model-k.json?v=7', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -588,6 +588,11 @@ function styleMaterials(IN) {
   MAT.oakDark = pbr('wood_floor', 1.69, { env: IN, rough: 0.75, color: [0.95, 0.85, 0.74],
     macro: { cells: [9, 0], tint: 0.06, albedo: 0.10, rough: 0.12, scale: 6 } });
   MAT.skirtDark = std({ color: 0x2a2b2d, roughness: 0.5, metalness: 0.05, envMapIntensity: 0.4 });
+  /* v38 (Toby 2026-10-24, his photos): dark glazed stack tiles (behind the floating stair, showers), rough split-face
+     stone (basin + tub walls), grey rubble stone (the dining | living pier) */
+  MAT.stackDark = pbr('long_white_tiles', 1.27, { env: IN, rough: 0.45, color: [0.1, 0.105, 0.12], nScale: 1.0 });
+  MAT.splitFace = pbr('white_sandstone_blocks_02', 2.0, { env: IN, rough: 1.0, color: [1.0, 0.98, 0.95], nScale: 1.8 });
+  MAT.rubbleIn = pbr('castle_wall_slates', 2.5, { env: IN, rough: 1.0, color: [0.85, 0.88, 0.94], nScale: 1.6 });
 }
 
 /* ------------------------------------------------------------ environment */
@@ -2437,6 +2442,7 @@ function makeProp3(s, lvl) {
       const nd = Math.max(2, Math.round(w / 0.6));
       for (let i = 1; i < nd; i++) mk(g, B(0.004, top - 0.04, 0.004), MAT.black, -w / 2 + w * i / nd, top / 2, d / 2 + 0.002);
       mk(g, B(w, 0.004, 0.004), MAT.black, 0, 0.9, d / 2 + 0.002);
+      if (s.fin === 'fridge') for (const [y0, y1] of [[0.25, 1.15], [1.3, 2.1]]) mk(g, B(0.025, y1 - y0, 0.03), MAT.steel, w / 2 - 0.07, (y0 + y1) / 2, d / 2 + 0.02);   /* v38: integrated fridge */
       break;
     }
     case 'wallCabinet': {                              /* v22 (plan d): wall cabinets hung over a kitchen run between the item's z heights (default 1.45-2.15 m), oak like the base units, doors at local +y */
@@ -2571,7 +2577,7 @@ function buildStairs3(list) {
       if (k < s.solid) {
         g.add(slab(t.poly, [], y0 + t.top - 0.03, t.top - 0.03 + 0.05, MAT.white, MAT.white));
       }
-      const top = STY ? slab(t.poly, [], y0 + t.top, 0.045, MAT.oakS, MAT.oakS) : slab(t.poly, [], y0 + t.top, 0.03, MAT.pine, MAT.timber);   /* tread board */
+      const top = STY ? slab(t.poly, [], y0 + t.top, 0.06, MAT.oakS, MAT.oakS) : slab(t.poly, [], y0 + t.top, 0.03, MAT.pine, MAT.timber);   /* tread board (v38: 6 cm floating) */
       g.add(top);
     });
     /* the open flight: rectangles in a row after the solid ones */
@@ -2599,7 +2605,31 @@ function buildStairs3(list) {
       const M = new THREE.Matrix4().set(u[0], 0, nrm[0], c0[0], 0, 1, 0, y0, u[1], 0, nrm[1], c0[1], 0, 0, 0, 1);
       geo.applyMatrix4(M);
       geo.computeVertexNormals();
-      const m = new THREE.Mesh(geo, STY ? MAT.accBlack : MAT.plaster); m.castShadow = true; m.receiveShadow = true; g.add(m);   /* v32: black (warm finish) */
+      if (!STY) { const m = new THREE.Mesh(geo, MAT.plaster); m.castShadow = true; m.receiveShadow = true; g.add(m); }
+      else {
+        /* v38 (Toby 2026-10-24): a floating stair - the treads cantilever off the wall, nothing under them; a frameless
+           glass balustrade with an oak rail on the open side */
+        const W = (L.walls || []).filter(w => w.t > 0.02 && !w.h);
+        const walled = (q) => W.some(w => {
+          const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az); if (len < 0.05) return false;
+          const d = (sx) => { const px = c0[0] + sx * u[0] + q * nrm[0], pz = c0[1] + sx * u[1] + q * nrm[1];
+            const t = ((px - ax) * (bx - ax) + (pz - az) * (bz - az)) / (len * len);
+            return t > -0.02 && t < 1.02 && Math.abs((px - ax) * (bz - az) - (pz - az) * (bx - ax)) / len < w.t / 2 + 0.2; };
+          return d(s0 + 0.2) && d(s1 - 0.2);
+        });
+        const qo = walled(q0) ? q1 : walled(q1) ? q0 : null;
+        if (qo !== null) {
+          const qq = qo + (qo === q1 ? -0.03 : 0.03), yA = y0 + open[0].top, yB = y0 + open[n - 1].top, H = 0.95;
+          const at = (sx, y) => [c0[0] + sx * u[0] + qq * nrm[0], y, c0[1] + sx * u[1] + qq * nrm[1]];
+          const vs = [at(s0, yA), at(s1, yB), at(s1, yB + H), at(s0, yA + H)].flat();
+          const gg = new THREE.BufferGeometry();
+          gg.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3)); gg.setIndex([0, 1, 2, 0, 2, 3]); gg.computeVertexNormals();
+          const gl = new THREE.Mesh(gg, MAT.glassIn); gl.renderOrder = 2; g.add(gl);
+          const lr = Math.hypot(s1 - s0, yB - yA), mid = at((s0 + s1) / 2, (yA + yB) / 2 + H + 0.02);
+          const rail = mk(g, B(lr, 0.04, 0.05, MAT.oakFurn, 'x'), MAT.oakFurn, mid[0], mid[1], mid[2]);
+          rail.rotation.set(0, Math.atan2(-u[1], u[0]), Math.atan2(yB - yA, s1 - s0), 'YXZ');
+        }
+      }
     }
     G.furn[s.level].add(g);
   }
@@ -2863,7 +2893,7 @@ function accents3() {
       if (len < 0.05 || !(w.t > 0.02)) continue;
       const ux = (bx - ax) / len, uz = (bz - az) / len, dl = (p) => Math.abs((p[0] - ax) * -uz + (p[1] - az) * ux);
       const sOf = (p) => (p[0] - ax) * ux + (p[1] - az) * uz;
-      if (dl(A.a) < 0.03 && dl(A.b) < 0.03 && Math.max(sOf(A.a), sOf(A.b)) > 0.05 && Math.min(sOf(A.a), sOf(A.b)) < len - 0.05) { W = { w, ax, az, ux, uz, len, sOf }; break; }
+      if (dl(A.a) < 0.1 && dl(A.b) < 0.1 && Math.max(sOf(A.a), sOf(A.b)) > 0.05 && Math.min(sOf(A.a), sOf(A.b)) < len - 0.05) { W = { w, ax, az, ux, uz, len, sOf }; break; }
     }
     if (!W) continue;
     const { w, ax, az, ux, uz, len, sOf } = W;
@@ -2872,10 +2902,14 @@ function accents3() {
     const side = sides.reduce((b, sd) => toward(sd) > toward(b) ? sd : b);
     const s0 = Math.max(0, Math.min(sOf(A.a), sOf(A.b))), s1 = Math.min(len, Math.max(sOf(A.a), sOf(A.b)));
     const f = faceAt3(A.level, A.at[0], A.at[1]);
-    const RF = roofOver3(A.level, A.at[0], A.at[1]);
-    const yb = L.base + ((f && f.dz) || 0), yt = (RF ? L.base + 6 : ceilAt3(A.at[0], A.at[1], A.level)) - 0.004;
-    const M = { dark: MAT.plasterDark, light: MAT.plasterLight, black: MAT.accBlack, darktile: MAT.darkTile, slat: MAT.plasterDark }[A.mat] || MAT.plasterDark;
-    const OFF = 0.016, T = A.mat === 'darktile' ? 0.012 : 0.006;
+    /* v38: only the top floor's accents run up to the roof; lower down they stop at the ceiling - or, beside an opening
+       in the floor above (the stair), at that floor's level (they used to run on up through the void) */
+    const top = A.level === LV.length - 1, RF = top ? roofOver3(A.level, A.at[0], A.at[1]) : null;
+    const under = !top && LV[A.level + 1] && !onRects(FLOOR_RECTS[A.level + 1], A.at[0], A.at[1], 0);
+    const yb = L.base + ((f && f.dz) || 0), yt = (RF ? L.base + 6 : under ? LV[A.level + 1].base : top ? ceilAt3(A.at[0], A.at[1], A.level) : L.base + L.h) - 0.004;
+    const M = { dark: MAT.plasterDark, light: MAT.plasterLight, black: MAT.accBlack, darktile: MAT.darkTile, slat: MAT.plasterDark,
+      stack: MAT.stackDark, splitface: MAT.splitFace, rubble: MAT.rubbleIn }[A.mat] || MAT.plasterDark;
+    const OFF = 0.016, T = /^(darktile|stack|splitface|rubble)$/.test(A.mat) ? 0.012 : 0.006;
     const spans = [];                                /* the solid stretches between the openings, full height */
     const board = (a, b, y0, y1, full) => {
       liner(G.walls[A.level], w, side, a, b, y0, y1, M, T, OFF, RF);
@@ -2905,14 +2939,15 @@ function ceilings3() {
   const JW = 0.105, JH = 0.15, JS = 0.91;
   LV.forEach((L, i) => {
     for (const f of L.faces) {
-      if (!f.anchored || !f.ceil || f.floor === 'void') continue;
+      if (!f.anchored || !f.ceil || (f.floor === 'void' && f.ceil !== 'beams2')) continue;
       const rs = rectsOf(f.poly, f.holes);
       if (!rs.length) continue;
       const flat = (x, z) => LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0);
       const [cx, cz] = f.label;
       if (f.ceil === 'wood') { hangPanel(i, f); continue; }
-      if (f.ceil !== 'beams') continue;
-      coveGlow(i, f);
+      const sparse = f.ceil === 'beams2';                /* v38: the living's fewer, wider-spaced beams */
+      if (f.ceil !== 'beams' && !sparse) continue;
+      if (f.floor !== 'void') coveGlow(i, f);
       const bb = bbox(f.poly);
       if (flat(cx, cz)) {
         const alongX = bb[2] - bb[0] <= bb[3] - bb[1], y = L.base + L.h - JH / 2;
@@ -2931,13 +2966,13 @@ function ceilings3() {
           }
         }
       } else {
-        const R = ROOFS3.find(rr => !rr.outside && cx > rr.rect[0] && cx < rr.rect[2] && cz > rr.rect[1] && cz < rr.rect[3]);
-        if (!R) continue;
-        const n = Math.max(1, Math.round((bb[3] - bb[1]) / JS)), sp = (bb[3] - bb[1]) / n;
-        for (let k = 0; k < n; k++) {
-          const z = bb[1] + sp * (k + 0.5);
-          for (const r of rs) {
-            if (z < r[1] + 0.1 || z > r[3] - 0.1) continue;
+        /* v38: on a grid shared by the whole level, so a rafter runs on unbroken from room to room (the living's
+           ran out at the stair opening's edge) */
+        const S = sparse ? 1.82 : JS;
+        for (const r of rs) {
+          const R = roofOver3(i, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2);
+          if (!R) continue;
+          for (let z = Math.ceil((r[1] + 0.1 - S / 2) / S) * S + S / 2; z < r[3] - 0.1; z += S) {
             const yA = R.y(r[0], z), yB = R.y(r[2], z), l = r[2] - r[0];
             const bm = mk(G.roof, B(Math.hypot(l, yB - yA), JH, JW, MAT.timber, 'x'), MAT.timber, (r[0] + r[2]) / 2, (yA + yB) / 2 - JH / 2, z);
             bm.rotation.z = Math.atan2(yB - yA, l);
@@ -3031,6 +3066,13 @@ function coveGlow(i, f) {
 }
 /* v31: the model's structural beams (the builder's "about 3 m" beams in the big sloped space): girts along the
    outside walls, ties across, braces in the corners; their own group, the Beams button shows / hides them */
+/* v38: plain ceilings the model asks for (finish.lids: the boiler room under the open stair) */
+function lids3() {
+  for (const d of (PLAN.model && PLAN.model.finish && PLAN.model.finish.lids) || []) {
+    const L = LV[d.level]; if (!L) continue;
+    slabRects(G.walls[d.level], [d.rect], L.base + d.y + 0.04, 0.04, MAT.plaster, MAT.ceiling, MAT.plaster);
+  }
+}
 function beams3() {
   G.sbeam = new THREE.Group(); root.add(G.sbeam);
   for (const b of (PLAN.model && PLAN.model.beams) || []) {
@@ -3074,7 +3116,7 @@ function buildHouse3(plan) {
   LV.forEach((L, i) => buildLabels(i));
   buildStairs3(plan.stairs3 || []);
   buildRoofs3(); buildChimney3(); buildSite3(); lights3(); decorate3();
-  if (STY) ceilings3();
+  if (STY) { ceilings3(); lids3(); }
   if (PLAN.model && PLAN.model.beams && PLAN.model.beams.length) beams3();
   if (IJH) buildIchijo7(plan);
   parkSliders();
