@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 8,
  "title": "Ideal — compact",
  "ja": "理想プラン（コンパクト）",
  "source": "Ideal — compact: Toby's own 65-tsubo floor plan (Floor Plan Creator, 2026-10-20/22). L-shaped, 2 storeys: a main block + a wing to the east along the south (view) side; carport over two cars in the L's inner corner by the front door. 1F: gym, bath (2 shower stalls, 2 hinoki tubs), sauna, changing + rest room with a lounger, laundry, WC, ski / gear room, entrance, hall + stair, boiler room under the stair, den 1 (office + bunk), guest bedroom. 2F: two master bedrooms, each with a walk-in closet + ensuite; WC; den 2 (office + bunk); dining + kitchen with an island, open to the living in the wing (glass on three sides). One roof plane falling west. Windows = standard YKK APW 430 / 431 columns in Toby's openings.",
@@ -1005,7 +1005,7 @@
    "id": "L2",
    "name": "2F",
    "base": 3.4,
-   "h": 5.0,
+   "h": 6.5,
    "ct": 0.3,
    "walls": [
     {
@@ -1049,7 +1049,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.222,
+         "h": 0.97,
          "band": 0.15,
          "style": "fix"
         }
@@ -1065,7 +1065,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.6588,
+         "h": 0.97,
          "band": 0.15,
          "style": "fix"
         }
@@ -1099,11 +1099,6 @@
          "h": 0.97,
          "band": 0.15,
          "style": "fix"
-        },
-        {
-         "h": 0.5617,
-         "band": 0.15,
-         "style": "fix"
         }
        ]
       },
@@ -1118,11 +1113,6 @@
        "stack": [
         {
          "h": 0.97,
-         "band": 0.15,
-         "style": "fix"
-        },
-        {
-         "h": 0.5617,
          "band": 0.15,
          "style": "fix"
         }
@@ -1140,12 +1130,6 @@
        "stack": [
         {
          "h": 0.97,
-         "band": 0.15,
-         "style": "fix",
-         "frost": 1
-        },
-        {
-         "h": 0.6617,
          "band": 0.15,
          "style": "fix",
          "frost": 1
@@ -1177,13 +1161,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 0.8994,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1198,13 +1177,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 1.3362,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1219,13 +1193,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 1.773,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1255,18 +1224,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 0.97,
-         "band": 0.15,
-         "style": "fix"
-        },
-        {
-         "h": 0.7037,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1281,18 +1240,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 0.97,
-         "band": 0.15,
-         "style": "fix"
-        },
-        {
-         "h": 0.7037,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1307,18 +1256,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 0.97,
-         "band": 0.15,
-         "style": "fix"
-        },
-        {
-         "h": 0.7037,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1348,13 +1287,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 0.8993,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1369,13 +1303,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 1.3361,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1390,13 +1319,8 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 1.37,
          "band": 0.4,
-         "style": "fix"
-        },
-        {
-         "h": 1.7729,
-         "band": 0.15,
          "style": "fix"
         }
        ]
@@ -1411,7 +1335,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.0033,
+         "h": 0.57,
          "band": 0.15,
          "style": "fix"
         }
@@ -1427,7 +1351,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.4401,
+         "h": 0.57,
          "band": 0.15,
          "style": "fix"
         }
@@ -1443,7 +1367,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.6585,
+         "h": 0.57,
          "band": 0.15,
          "style": "fix"
         }
