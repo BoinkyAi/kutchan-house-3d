@@ -15,7 +15,7 @@
             at + w at different heights are a stack too), child? (parent-child: the narrow
             leaf, default 0.3 w), hinge? 'a'|'b' (the parent leaf's end), side? }
           see /workspace/house3d/ref/PRIMITIVES.md
-     rooms[] { id, name, ja, at:[x,y], floor: oak|tile|stone|concrete|carpet|bathstone|void, dz?, ceil?: wood|beams, wall?: stone }
+     rooms[] { id, name, ja, at:[x,y], floor: oak|oakdark|tile|stone|darkstone|concrete|carpet|bathstone|void, dz?, ceil?: wood|beams, wall?: stone|light }
         a room is the region the walls close round its `at` point
      items[] { id, kind, x, y, w, d, a, ... } }
    stairs[] { id, from (level index), treads[] (polygons, bottom step first), hole?: 'void' }
@@ -571,7 +571,7 @@ export function itemToProp(it) {
     sofa: 0.8, rugRound: 0.01, stove: 0.75, table: 0.72, bench: 0.44, island: 0.9, tall: 2.3, fridge: 1.8, post: 2.6, beam: 2.665, shower: 2.1, wardrobe: 1.9,
     gymRack: 2.3, treadmill: 1.45, gymBench: 0.45, mat: 0.01, saunaBench: 0.45, saunaHeater: 0.75, tube: 0.6, railing: 1.1 };
   p.top = it.h || H[it.kind] || 0.8;
-  for (const k of ['chaise', 'hearth', 'depth', 'leaves']) if (it[k] !== undefined) p[k] = it[k];
+  for (const k of ['chaise', 'hearth', 'depth', 'leaves', 'fin']) if (it[k] !== undefined) p[k] = it[k];   /* v9: fin (app.js warm finish: 'black' units / shelving) */
   if (it.top !== undefined) p.topMode = it.top;
   return p;
 }
