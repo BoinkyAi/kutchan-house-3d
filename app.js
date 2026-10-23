@@ -1070,7 +1070,7 @@ function opening(G, o, w, lvl, L, c) {
     for (let i = 1; i <= nMull; i++) { const mx = s + W * i / (nMull + 1); bar(mx - 0.025, mx + 0.025, bot, tp(mx)); }
     if (o.kind !== 'WINDOW') bar(s, e, bot + 1.02, bot + 1.06);          /* door rail */
     const Hm = tp(sm) - bot, pg = new THREE.PlaneGeometry(W - 0.04, Hm - 0.04);
-    const gl = put(g ? shear(pg, false) : pg, o.frost ? MAT.glassFrost : MAT.glass, sm, q, (bot + tp(sm)) / 2, false);
+    const gl = put(g ? shear(pg, false) : pg, o.frost ? MAT.glassFrost : (STY && !ext ? MAT.glassIn : MAT.glass), sm, q, (bot + tp(sm)) / 2, false);   /* v36: inside glass (the bath) doesn't mirror the sky */
     gl.renderOrder = 2;
     if (o.kind === 'WINDOW' && bot > L.base + 0.05) {
       /* oak sill board inside (none on a transom: c.upper), metal flashing outside */
