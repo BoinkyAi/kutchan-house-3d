@@ -72,9 +72,9 @@ const REFS = {
   5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
   6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
-  12: { url: 'ref-model-j.json?v=6', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  12: { url: 'ref-model-j.json?v=7', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=3', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
+  13: { url: 'ref-model-k.json?v=4', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -3264,7 +3264,7 @@ const VIEWS4 = [
   ['Outside — north-west', 12.5, 13.5, 0.68, 0.04, null, 2.0],
   ['Outside — south-east (view side, roof high)', -11.0, -13.5, -2.41, 0.08, null, 2.2],
   ['Outside — west (carport, front door)', 15.5, 3.2, 1.45, 0.04, null, 1.1],
-  ['Doll-house from above', 1.4, 10.4, 0.0, -1.0, null, 15.4],
+  ['Doll-house from above', 0.9, 0.0, 0.0, -1.5703, null, 15.4],
   ['1F — Entrance', 5.91, 2.34, 1.57, -0.02, 0],             /* v21: inside the compact genkan, looking into the changing + rest room */
   ['1F — Gym', 0.5, 2.94, 0.64, -0.02, 0],
   ['1F — Changing + rest room', 3.66, 1.64, 1.43, -0.1, 0],
@@ -3283,14 +3283,14 @@ const VIEWS4 = [
 /* house 5 presets (Plan B compact; model coordinates: x east, z south, the box centred) */
 const VIEWS5 = [
   ['Outside — north-east (entrance, carport)', 9.5, -13.0, 2.5, 0.12, null, 1.8],
-  ['Doll-house from above', 0.0, 2.9, 0.0, -1.38, null, 18.4],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 18.4],
 ];
 /* house 6 presets (Plan C, L-shaped: model x, z with the L's bounding square centred; v17: its texts call
    the x = +6.37 facade SOUTH (the view), so model -z = east, +x = south, +z = west, -x = north) */
 const VIEWS6 = [
   ['Outside — south-east (view side)', 15.0, -17.0, 2.43, 0.1, null, 1.8],
   ['Outside — carport + entrance (inner corner)', -6.6, -12.9, -2.593, 0.02, null, 1.5],
-  ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 21.0],
   ['1F — Entrance (genkan)', -0.55, 1.75, -0.33, -0.06, 0],
   ['2F — Living wing', 1.55, -2.1, -0.62, 0.0, 1],
 ];
@@ -3299,7 +3299,7 @@ const VIEWS12 = [
   ['Outside — south-east (view side)', 13.5, 17.0, 0.67, 0.08, null, 2.2],
   ['Outside — carport + entrance (north-east)', 14.5, -12.5, 2.25, 0.02, null, 1.8],
   ['Outside — west (snow side)', -18.0, 3.0, -1.4, 0.06, null, 2.6],
-  ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 21.0],
   ['1F — Entrance (genkan)', 0.625, -1.341, 2.4, -0.06, 0],
   ['1F — Gym', -0.95, 4.85, 0.8, -0.02, 0],
   ['1F — Bath (hinoki tubs)', -5.575, -4.341, 3.142, -0.2, 0],
@@ -3314,7 +3314,7 @@ const VIEWS13 = [
   ['Outside — south-east (view side)', 13.5, 17.0, 0.67, 0.08, null, 2.2],
   ['Outside — carport + entrance (north-east)', 14.5, -12.5, 2.25, 0.02, null, 1.8],
   ['Outside — west (snow side)', -18.0, 3.0, -1.4, 0.06, null, 2.6],
-  ['Doll-house from above', 0.0, 3.2, 0.0, -1.38, null, 21.0],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 21.0],
   ['1F — Entrance (genkan)', 0.7, -1.416, 2.4, -0.06, 0],
   ['1F — Gym', -0.875, 5.275, 0.8, -0.02, 0],
   ['1F — Bath (hinoki tubs)', -5.5, -4.766, 3.142, -0.2, 0],
@@ -3497,20 +3497,11 @@ function blocked(x, y, z) {
   }
   return false;
 }
-/* v33 (Toby 2026-10-23: in the doll-house view the arrow keys spun the house round a point off to the side): flying
-   outside, turning left / right goes ROUND the point at the centre of the view (the house stays centred, a turntable)
-   - the point on the view's centre line nearest the house's middle; inside, or looking away from the house, the
-   camera turns on the spot as before */
-function lookTurn(a) {
-  const p = camera.position, cp = Math.cos(st.pitch);
-  const dir = new V(-Math.sin(st.yaw) * cp, Math.sin(st.pitch), -Math.cos(st.yaw) * cp);
-  const d = ORBIT_T.clone().sub(p).dot(dir);
-  if (!st.fly || st.orbit || d < 3 || indoors()) { st.yaw += a; return; }
-  const q = p.clone().addScaledVector(dir, d);
-  const hx = p.x - q.x, hz = p.z - q.z, c = Math.cos(a), s = Math.sin(a);
-  p.x = q.x + hx * c + hz * s; p.z = q.z - hx * s + hz * c;
-  st.yaw += a;
-}
+/* v34 (Toby 2026-10-23): looking round turns the camera on the spot in every mode, flying exactly as walking (v33's
+   turning round the middle of the house is gone); the doll-house views look straight down from over the house's middle
+   instead, so turning there spins the picture round the centre of the screen */
+const PITCH_MAX = Math.PI / 2 - 0.0005;
+function lookTurn(a) { st.yaw += a; }
 function move(dt) {
   const sp = st.speed * (act.has('run') ? 2.5 : 1) * dt;
   let fx = 0, fz = 0, uy = 0;
@@ -3523,8 +3514,8 @@ function move(dt) {
   const look = 1.35 * dt * (camera.fov / 60);          /* camera.fov = actual vertical fov */
   const turn = (act.has('lookl') ? look : 0) - (act.has('lookr') ? look : 0);
   if (turn) lookTurn(turn);
-  if (act.has('lookup')) st.pitch = Math.min(1.5, st.pitch + look);
-  if (act.has('lookdn')) st.pitch = Math.max(-1.5, st.pitch - look);
+  if (act.has('lookup')) st.pitch = Math.min(PITCH_MAX, st.pitch + look);
+  if (act.has('lookdn')) st.pitch = Math.max(-PITCH_MAX, st.pitch - look);
   if (act.has('wide')) setFov(st.fov + 40 * dt);
   if (act.has('narrow')) setFov(st.fov - 40 * dt);
 
@@ -3680,13 +3671,13 @@ function bindUI() {
     const dx = e.clientX - px, dy = e.clientY - py; px = e.clientX; py = e.clientY;
     const k = (camera.fov / 60) * 0.0042;           /* by the actual vertical fov */
     if (st.orbit) { st.az -= dx * 0.005; st.el = Math.max(0.05, Math.min(1.45, st.el + dy * 0.004)); return; }
-    lookTurn(dx * k); st.pitch = Math.max(-1.5, Math.min(1.5, st.pitch + dy * k));
+    lookTurn(dx * k); st.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, st.pitch + dy * k));
   });
   document.addEventListener('pointerlockchange', () => { st.locked = document.pointerLockElement === canvas; syncUI(); });
   document.addEventListener('mousemove', (e) => {
     if (!st.locked) return;
     st.yaw -= e.movementX * 0.0022;
-    st.pitch = Math.max(-1.5, Math.min(1.5, st.pitch - e.movementY * 0.0022));
+    st.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, st.pitch - e.movementY * 0.0022));
   });
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); setFov(st.fov + e.deltaY * 0.05); }, { passive: false });
   let pinch = 0;
