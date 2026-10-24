@@ -1,5 +1,5 @@
 {
- "version": 7,
+ "version": 8,
  "title": "Ideal — 75 tsubo",
  "ja": "理想プラン（75坪）",
  "source": "Ideal — 75 tsubo: the Ideal — compact plan (Toby's own Floor Plan Creator design) enlarged to about 75 tsubo: bigger master suites, dens, living + dining + kitchen, bath and gym; the guest bedroom, WCs, ski room, boiler room and stair as in the compact plan. L-shaped, 2 storeys: a main block + a wing to the east along the south (view) side; carport over two cars in the L's inner corner by the front door. 1F: gym, bath (2 shower stalls, 2 hinoki tubs), sauna, changing + rest room with a lounger, laundry, WC, ski / gear room, entrance, hall + stair, boiler room under the stair, den 1 (office + bunk), guest bedroom. 2F: two master bedrooms, each with a walk-in closet + ensuite; WC; den 2 (office + bunk); dining + kitchen with an island, open to the living in the wing (glass on three sides). One roof plane falling west. Windows = standard YKK APW 430 / 431 columns in Toby's openings.",
@@ -37,7 +37,7 @@
        "at": 5.06,
        "w": 1.715,
        "sill": 1.0,
-       "head": 3.0,
+       "head": 2.3,
        "frosted": true,
        "style": "fix"
       }
@@ -2665,8 +2665,8 @@
   "ja": "カーポート",
   "rect": [
    1.013,
-   -6.226,
-   12.899,
+   -5.955,
+   7.313,
    0.553
   ],
   "levels": [
@@ -2678,68 +2678,90 @@
    "e": 0,
    "w": 0
   },
-  "y0": -6.226,
-  "h0": 2.183,
-  "k": 0.15,
+  "y0": -8.955,
+  "h0": 2.1,
+  "k": 0.0947,
   "th": 0.2,
   "low": "n",
   "posts": [
    [
-    3.899,
-    -6.076
-   ],
-   [
-    6.899,
-    -6.076
-   ],
-   [
-    9.899,
-    -6.076
-   ],
-   [
-    12.774,
-    -6.076
-   ],
-   [
-    12.774,
-    0.403
-   ],
-   [
-    8.699,
-    0.403
+    7.193,
+    -5.955
    ]
   ],
   "beams": [
    [
-    1.013,
-    -6.076,
-    12.899,
-    -6.076
-   ],
-   [
-    12.774,
-    -6.226,
-    12.774,
+    7.193,
+    -5.955,
+    7.193,
     0.553
-   ],
-   [
-    7.199,
-    0.403,
-    12.899,
-    0.403
    ]
+  ],
+  "parts": [
+   {
+    "rect": [
+     -7.313,
+     -8.955,
+     7.313,
+     -5.955
+    ],
+    "posts": [
+     [
+      7.193,
+      -8.835
+     ],
+     [
+      3.6,
+      -8.835
+     ],
+     [
+      0.0,
+      -8.835
+     ],
+     [
+      -3.6,
+      -8.835
+     ],
+     [
+      -7.193,
+      -8.835
+     ]
+    ],
+    "beams": [
+     [
+      -7.313,
+      -8.835,
+      7.313,
+      -8.835
+     ],
+     [
+      7.193,
+      -8.955,
+      7.193,
+      -5.955
+     ]
+    ]
+   }
   ],
   "pad": [
    1.013,
-   -6.226,
-   12.899,
+   -5.955,
+   7.313,
    0.553
   ],
+  "pads": [
+   [
+    -7.313,
+    -8.955,
+    7.313,
+    -5.955
+   ]
+  ],
   "drive": [
-   1.013,
-   -12.226,
-   18.899,
-   -6.226
+   7.313,
+   -8.955,
+   8.813,
+   0.553
   ],
   "porch": [
    1.013,
@@ -2752,8 +2774,8 @@
  "finish": {
   "style": "warm",
   "clad": [
-   "stone",
-   "tiles"
+   "spanel",
+   "wtile"
   ],
   "lids": [
    {
@@ -2770,21 +2792,43 @@
   "zones": [
    {
     "rect": [
-     0.889,
-     0.367,
-     7.499,
-     6.141
+     1.013,
+     0.253,
+     7.613,
+     6.255
     ],
-    "mat": "slate"
+    "mat": "slate6",
+    "levels": [
+     1
+    ]
    },
    {
     "rect": [
-     0.699,
-     -1.787,
-     1.099,
-     0.667
+     -99,
+     -99,
+     99,
+     99
     ],
-    "mat": "slate"
+    "mat": "bmetal",
+    "y": [
+     3.0,
+     3.44
+    ],
+    "proud": 0.08
+   },
+   {
+    "rect": [
+     0.83,
+     5.655,
+     1.64,
+     6.255
+    ],
+    "mat": "bmetal",
+    "y": [
+     3.44,
+     99
+    ],
+    "proud": 0.15
    }
   ],
   "walls": [
@@ -3107,6 +3151,23 @@
      4.884
     ],
     "mat": "dark"
+   }
+  ],
+  "trim": "bronze",
+  "frame": "bronze",
+  "piers": [
+   {
+    "rect": [
+     1.013,
+     -2.92,
+     1.313,
+     -1.86
+    ],
+    "y": [
+     -0.585,
+     8.25
+    ],
+    "mat": "sstone"
    }
   ]
  },

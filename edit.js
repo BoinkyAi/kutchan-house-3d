@@ -29,7 +29,7 @@ const PLANS = {
   c: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
   j: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', view: 'index.html?house=12', edit: 'edit.html?plan=j' },
-  k: { url: 'ref-model-k.json?v=7', key: 'h3dRefModelK', view: 'index.html?house=13', edit: 'edit.html?plan=k' },
+  k: { url: 'ref-model-k.json?v=8', key: 'h3dRefModelK', view: 'index.html?house=13', edit: 'edit.html?plan=k' },
   f: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
   g: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
 };

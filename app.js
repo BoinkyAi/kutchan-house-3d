@@ -74,7 +74,7 @@ const REFS = {
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
   12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=7', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
+  13: { url: 'ref-model-k.json?v=8', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -762,7 +762,55 @@ function cladUV(geo, i0, i1, s0, y0, base, dir, mat) {
 }
 /* v36: the cladding of each stretch of an outside wall: finish.zones [{ rect [x0, z0, x1, z1], mat }] (and the older
    finish.black rects) -> [[s0, s1, material]] along the wall */
-const CLADS = () => ({ stone: MAT.cladStone, tiles: MAT.cladTiles, slate: MAT.cladSlate, black: MAT.cladBlack });
+/* v39 (75 tsubo exterior, Toby 2026-10-24): stone panels, light render, mid-grey slate, stacked stone at the entrance,
+   bronze panel / black ribbed metal accent strips, dark-bronze trim, a light soffit - made on first use (the compact
+   plan never asks for them) */
+const MAT6 = {};
+function mat6(k) {
+  if (MAT6[k]) return MAT6[k];
+  const fac = (m) => { m.userData.facade = true; return m; };
+  const mk6 = {
+    spanel: () => fac(pbr('stone_panel', 3.6, { env: 0.8, rough: 1.0, nScale: 1.2, macro: { albedo: 0.05, rough: 0.06, scale: 7 } })),
+    render: () => fac(pbr('white_stucco', 2.0, { env: 0.8, rough: 1.0, color: [0.653, 0.65, 0.613], nScale: 0.8, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
+    slate6: () => fac(pbr('granite_tile', 1.5, { env: 0.85, rough: 0.85, color: [1.42, 1.45, 1.47], nScale: 1.0, macro: { albedo: 0.06, rough: 0.06, scale: 6 } })),
+    sstone: () => fac(pbr('stacked_grey', 2.2, { env: 0.8, rough: 1.0, nScale: 1.4 })),
+    wtile: () => fac(pbr('white_tile_h', 1.27, { env: 0.9, rough: 0.7, color: [0.991, 1.064, 1.214], nScale: 1.0, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
+    bronze: () => fac(pbr('bronze_panel', 2.0, { env: 1.0, rough: 1.0, metal: 0.55, nScale: 1.0 })),
+    bmetal: () => fac(pbr('metal_ribs', 1.2, { env: 0.9, rough: 1.0, metal: 0.5, nScale: 1.0 })),
+    trim: () => std({ color: 0x4e3d2c, roughness: 0.45, metalness: 0.6, envMapIntensity: 0.8 }),
+    soffit: () => std({ color: 0xc9c4bb, roughness: 0.85, metalness: 0.0, envMapIntensity: 0.6 }),
+  };
+  return (MAT6[k] = mk6[k] ? mk6[k]() : MAT.cladBlack);
+}
+const F6 = () => (STY && PLAN.model && PLAN.model.finish) || {};
+const TRIM6 = () => F6().trim === 'bronze' ? mat6('trim') : null;
+const CLADS = () => ({ stone: MAT.cladStone, tiles: MAT.cladTiles, slate: MAT.cladSlate, black: MAT.cladBlack,
+  get spanel() { return mat6('spanel'); }, get render() { return mat6('render'); }, get slate6() { return mat6('slate6'); },
+  get sstone() { return mat6('sstone'); }, get bronze() { return mat6('bronze'); }, get bmetal() { return mat6('bmetal'); },
+  get wtile() { return mat6('wtile'); } });
+/* v39: zones limited to levels / heights (finish.zones [{ rect, mat, levels?, y?: [y0, y1] }]): when a model has any, every
+   zone of an outside wall as { s0, s1, y0, y1, m } (later zones win); a zone reaching a wall's end runs on round the corner */
+/* v39: finish.piers [{ rect [x0, z0, x1, z1], y [y0, y1], mat }] - a column standing out of an outside wall (Toby: accents that
+   physically stick out, like a stone column) */
+function piers3() {
+  const C = CLADS();
+  for (const pr of F6().piers || []) {
+    const [x0, z0, x1, z1] = pr.rect, [y0, y1] = pr.y, M = C[pr.mat] || MAT.cladBlack;
+    mk(G.ext, B(x1 - x0, y1 - y0, z1 - z0, M), M, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    addCollBox((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, y0, y1);
+  }
+}
+function zones6(ax, az, ux, uz, len, lvl) {
+  const zs = F6().zones || [];
+  if (!zs.some(z => z.y || z.levels)) return null;
+  const C = CLADS(), out = [];
+  for (const z of zs) {
+    if (z.levels && !z.levels.includes(lvl)) continue;
+    for (const [a, b] of blackSpans(ax, az, ux, uz, len, [z.rect]))
+      out.push({ s0: a < 0.001 ? -1e9 : a, s1: b > len - 0.001 ? 1e9 : b, y0: z.y ? z.y[0] : -1e9, y1: z.y ? z.y[1] : 1e9, m: C[z.mat] || MAT.cladBlack, pr: z.proud || 0 });
+  }
+  return out;
+}
 function zoneSpans(ax, az, ux, uz, len) {
   const F = (PLAN.model && PLAN.model.finish) || {}, C = CLADS();
   const zs = (F.zones || []).map(z => [z.rect, C[z.mat] || MAT.cladBlack]).concat((F.black || []).map(r => [r, MAT.cladBlack]));
@@ -814,6 +862,7 @@ function wallRun(G, w, lvl, L) {
   const FC = STY && PLAN.model.finish.clad, CL = STY ? CLADS() : null;
   const SK = STY ? ((FC && CL[FC[Math.min(lvl, FC.length - 1)]]) || (lvl === 0 ? MAT.cladStone : MAT.cladTiles)) : MAT.clad;
   const BLK = STY && ext ? zoneSpans(ax, az, ux, uz, len) : [];
+  const Z6 = STY && ext ? zones6(ax, az, ux, uz, len, lvl) : null;
   /* piece: s in [s0,s1], y in [y0,y1] (absolute), across n in [q0,q1] */
   const piece = (s0, s1, y0, y1, q0, q1, mat, coll, bf) => {
     if (s1 - s0 < 0.004 || y1 - y0 < 0.004 || q1 - q0 < 0.002) return;
@@ -859,6 +908,36 @@ function wallRun(G, w, lvl, L) {
         c = b;
       }
       if (c < s1) piece(c, s1, y0, y1, n0, n1, MAT.plaster, true, bf);
+    } else if (ext && Z6) {
+      /* v39: an s x y grid at the zones' edges; each row merged into runs of one material. Past the wall's ends (the
+         corner it fills) the cladding runs the full depth, so the corner's end face is cladding, not the plaster core */
+      const k0 = w.capA ? w.t : 0, k1 = w.cap ? len - w.t : len;      /* a capped end's last t = the outside corner */
+      const c0 = Math.max(s0, k0), c1 = Math.min(s1, k1);
+      if (c1 - c0 > 0.004) piece(c0, c1, y0, y1, n0, n1 - SKIN, MAT.plaster, true, bf);
+      const ss = [s0, s1], ys = [y0, y1];
+      for (const s of [k0, k1]) if (s > s0 + 0.004 && s < s1 - 0.004) ss.push(s);
+      for (const z of Z6) {
+        for (const s of [z.s0, z.s1]) if (s > s0 + 0.004 && s < s1 - 0.004) ss.push(s);
+        for (const y of [z.y0, z.y1]) if (y > y0 + 0.004 && y < y1 - 0.004) ys.push(y);
+      }
+      ss.sort((a, b) => a - b); ys.sort((a, b) => a - b);
+      for (let j = 0; j + 1 < ys.length; j++) {
+        const ya = ys[j], yb = ys[j + 1], ym = (ya + yb) / 2;
+        let ra = ss[0], rm = null, ro = false, rp = 0;
+        /* a proud zone (the band, the spine) stands out pr from the wall; at an outside corner it runs on by pr */
+        const emit = (rb) => {
+          const a2 = rp && w.capA && ra <= 0.001 ? ra - rp : ra, b2 = rp && w.cap && rb >= len - 0.001 ? rb + rp : rb;
+          piece(a2, b2, ya, yb, ro ? n0 : n1 - SKIN, n1 + rp, rm, ro, j === 0 ? bf : null);
+        };
+        for (let i = 0; i + 1 < ss.length; i++) {
+          const sm = (ss[i] + ss[i + 1]) / 2, out = sm < k0 || sm > k1;
+          let m = SK, pr = 0;
+          for (const z of Z6) if (sm > z.s0 && sm < z.s1 && ym > z.y0 && ym < z.y1) { m = z.m; pr = z.pr; }
+          if (rm === null) { rm = m; ro = out; rp = pr; }
+          else if (m !== rm || out !== ro || pr !== rp) { emit(ss[i]); ra = ss[i]; rm = m; ro = out; rp = pr; }
+        }
+        emit(ss[ss.length - 1]);
+      }
     } else if (ext) {
       piece(s0, s1, y0, y1, n0, n1 - SKIN, MAT.plaster, true, bf);
       let c = s0;
@@ -954,13 +1033,26 @@ function wallRun(G, w, lvl, L) {
       const sp = sc + (sc > 0 ? 0.05 : -0.05), qx = ax + ux * sp + nx * (n0 + n1) / 2, qz = az + uz * sp + nz * (n0 + n1) / 2;
       const inRoom = (L.faces || []).some(f => inside(f.poly, qx, qz) && !(f.holes || []).some(h => inside(h, qx, qz)));
       const zm = BLK.find(([k0, k1]) => sc > k0 - 0.06 && sc < k1 + 0.06);
-      const cm = inRoom ? MAT.plaster : (zm ? zm[2] : SK);
-      const cg = B(0.01, yT - yB, n1 - n0, cm);
-      const cx = ax + ux * sc + nx * (n0 + n1) / 2, cy = (yB + yT) / 2, cz = az + uz * sc + nz * (n0 + n1) / 2;
-      if (roof) roofTop(cg, cx, cy, cz, th, roof, true);
-      if (!inRoom && (cm === MAT.clad || cm.userData.facade)) cladUV(cg, 0, 8, 0, yB, 0, 1, cm);
-      const m = new THREE.Mesh(cg, cm);
-      m.position.set(cx, cy, cz); m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
+      /* v39: with height-limited zones the cap is cut into the same rows as the wall (band, entrance stone ...) */
+      const rows = [[yB, yT, inRoom ? MAT.plaster : (zm ? zm[2] : SK)]];
+      if (Z6 && !inRoom) {
+        const ys = [yB, yT];
+        for (const z of Z6) for (const y of [z.y0, z.y1]) if (y > yB + 0.004 && y < yT - 0.004) ys.push(y);
+        ys.sort((a, b) => a - b); rows.length = 0;
+        for (let j = 0; j + 1 < ys.length; j++) {
+          let m = SK; const ym = (ys[j] + ys[j + 1]) / 2;
+          for (const z of Z6) if (sc > z.s0 - 0.06 && sc < z.s1 + 0.06 && ym > z.y0 && ym < z.y1) m = z.m;
+          rows.push([ys[j], ys[j + 1], m]);
+        }
+      }
+      for (const [ya, yb, cm] of rows) {
+        const cg = B(0.01, yb - ya, n1 - n0, cm);
+        const cx = ax + ux * sc + nx * (n0 + n1) / 2, cy = (ya + yb) / 2, cz = az + uz * sc + nz * (n0 + n1) / 2;
+        if (roof && yb >= yT - 1e-6) roofTop(cg, cx, cy, cz, th, roof, true);
+        if (!inRoom && (cm === MAT.clad || cm.userData.facade)) cladUV(cg, 0, 8, 0, ya, 0, 1, cm);
+        const m = new THREE.Mesh(cg, cm);
+        m.position.set(cx, cy, cz); m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
+      }
     }
   }
   if (!H3 && ext && e1 > 0 && w.cap !== 0) {                /* clad the exposed corner end (house 2: not where it butts into the next wall) */
@@ -2674,25 +2766,27 @@ function buildRoofs3() {
     const all = gridRects(xs, zs, () => true);
     const th = r.th || 0.3;
     if (STY) {                                       /* (gridRects merges the whole roof into one rect: the underside per material) */
-      slopedSlab(G.roof, all, 0, th, MAT.roofMetal, MAT.blackSteel, null, r);
-      const pick = (x, z) => isIn(x, z) ? ceilOf(x, z) : MAT.cedar;
-      for (const M of [MAT.ceiling, MAT.woodCeil, MAT.cedar]) slopedUnder(G.roof, gridRects(xs, zs, (x, z) => pick(x, z) === M), M, r);
+      slopedSlab(G.roof, all, 0, th, MAT.roofMetal, TRIM6() || MAT.blackSteel, null, r);
+      const SOF = F6().soffit === 'render' ? mat6('soffit') : MAT.cedar;            /* v39: 75 tsubo - no wood outside */
+      const pick = (x, z) => isIn(x, z) ? ceilOf(x, z) : SOF;
+      for (const M of [MAT.ceiling, MAT.woodCeil, SOF]) slopedUnder(G.roof, gridRects(xs, zs, (x, z) => pick(x, z) === M), M, r);
     } else slopedSlab(G.roof, all, 0, th, MAT.roofMetal, MAT.blackSteel, (q) => isIn((q[0] + q[2]) / 2, (q[1] + q[3]) / 2) ? MAT.ceiling : MAT.cedar, r);
     /* snow load, held back from the edges */
     slopedSlab(G.roof, [[X0 + 0.08, Z0 + 0.08, X1 - 0.08, Z1 - 0.15]], th, 0.22, MAT.roofSnow, MAT.roofSnow, null, r);
     /* carport posts + a beam under the eaves */
     if (r.posts && r.posts.length) {
+      const PM = TRIM6() || MAT.timber;                 /* v39: 75 tsubo - dark-bronze steel */
       for (const [px, pz] of r.posts) {
         const H = r.y(px, pz) - PLAN.ground;
-        mk(G.ext, B(0.12, H, 0.12, MAT.timber, 'y'), MAT.timber, px, PLAN.ground + H / 2, pz);
+        mk(G.ext, B(0.12, H, 0.12, PM, 'y'), PM, px, PLAN.ground + H / 2, pz);
         addCollBox(px, pz, 0.12, 0.12, 0, PLAN.ground, PLAN.ground + H);
       }
       if (r.beams) {
         /* house 6: a beam along each line of posts ([x0, z0, x1, z1], along x or z), its top on the underside */
         for (const [x0, z0, x1, z1] of r.beams) {
           const yA = r.y(x0, z0), yB = r.y(x1, z1), alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0), Lb = alongX ? Math.abs(x1 - x0) : Math.abs(z1 - z0);
-          const geo = alongX ? B(Math.hypot(Lb, yB - yA), 0.24, 0.12, MAT.timber, 'x') : B(0.12, 0.24, Math.hypot(Lb, yB - yA), MAT.timber, 'z');
-          const bm = mk(G.ext, geo, MAT.timber, (x0 + x1) / 2, (yA + yB) / 2 - 0.12, (z0 + z1) / 2);
+          const geo = alongX ? B(Math.hypot(Lb, yB - yA), 0.24, 0.12, PM, 'x') : B(0.12, 0.24, Math.hypot(Lb, yB - yA), PM, 'z');
+          const bm = mk(G.ext, geo, PM, (x0 + x1) / 2, (yA + yB) / 2 - 0.12, (z0 + z1) / 2);
           if (alongX) bm.rotation.z = Math.atan2(yB - yA, x1 - x0); else bm.rotation.x = Math.atan2(yA - yB, z1 - z0);
         }
       } else {
@@ -2748,6 +2842,7 @@ function buildSite3() {
     /* house 6: pad, drive and porch step as the model gives them ([x0, z0, x1, z1], porch + its top) */
     const [px0, pz0, px1, pz1] = car.pad;
     flatOn(mk(E, B(px1 - px0, 0.05, pz1 - pz0, MAT.pad), MAT.pad, (px0 + px1) / 2, gy + 0.005, (pz0 + pz1) / 2));
+    for (const [qx0, qz0, qx1, qz1] of car.pads || []) flatOn(mk(E, B(qx1 - qx0, 0.05, qz1 - qz0, MAT.pad), MAT.pad, (qx0 + qx1) / 2, gy + 0.005, (qz0 + qz1) / 2));
     if (car.drive) { const [dx0, dz0, dx1, dz1] = car.drive; flatOn(mk(E, B(dx1 - dx0, 0.04, dz1 - dz0, MAT.packed), MAT.packed, (dx0 + dx1) / 2, gy, (dz0 + dz1) / 2)); }
     if (car.porch) {
       const [sx0, sz0, sx1, sz1, top] = car.porch;
@@ -3089,6 +3184,9 @@ function buildHouse3(plan) {
      it clips no wall, sets no ceiling (roofFor / ceilAt3 / lights3 skip it) */
   const cp = plan.model && plan.model.carport;
   if (cp && cp.rect) ROOFS3.push(mkRoof3(Object.assign({ levels: [0], over: { n: 0, s: 0, e: 0, w: 0 } }, cp, { outside: 1 })));
+  for (const pt of (cp && cp.parts) || [])              /* v39: more pieces of the same roof plane (the 75's L) */
+    ROOFS3.push(mkRoof3(Object.assign({ levels: [0], over: { n: 0, s: 0, e: 0, w: 0 } }, cp, { pad: null, pads: null, drive: null, porch: null, parts: null }, pt, { outside: 1 })));
+  MAT.frame.color.set(STY && plan.model.finish.frame === 'bronze' ? 0x4a3a2a : 0x1b1d20);
   root.add(G.ext); root.add(G.roof);
   const FM = FLOORMAT3();
   LV.forEach((L, i) => {
@@ -3112,6 +3210,7 @@ function buildHouse3(plan) {
   });
   lineRooms3();
   if (STY) accents3();
+  if (STY) piers3();
   setupLabels3();
   LV.forEach((L, i) => buildLabels(i));
   buildStairs3(plan.stairs3 || []);
