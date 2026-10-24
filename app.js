@@ -74,7 +74,7 @@ const REFS = {
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
   12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=8', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
+  13: { url: 'ref-model-k.json?v=9', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -2390,6 +2390,34 @@ function makeProp3(s, lvl) {
   const g = new THREE.Group(), w = s.w, d = s.d, top = s.top;
   const L = LV[lvl];
   switch (s.name) {
+    case 'rockGarden': {                               /* v40 (Toby 2026-10-24: the gym's east side): indoor dry garden - pale raked gravel in a low
+                                                          dark-steel curb, three stones, a small red maple */
+      const ch = 0.12, GRV = MAT.gravel6 || (MAT.gravel6 = std({ color: 0xd8d4cc, roughness: 1.0, envMapIntensity: 0.5 }));
+      const RK = MAT.rock6 || (MAT.rock6 = std({ color: 0x55585c, roughness: 0.9, envMapIntensity: 0.6, flatShading: true }));
+      const LF = MAT.maple6 || (MAT.maple6 = std({ color: 0x8a2f22, roughness: 0.85, envMapIntensity: 0.5, flatShading: true }));
+      for (const [cx, cz, cw, cd] of [[0, -d / 2 + 0.02, w, 0.04], [0, d / 2 - 0.02, w, 0.04], [-w / 2 + 0.02, 0, 0.04, d - 0.08], [w / 2 - 0.02, 0, 0.04, d - 0.08]])
+        mk(g, B(cw, ch, cd), MAT.accBlack || MAT.black, cx, ch / 2, cz);
+      mk(g, B(w - 0.08, ch - 0.03, d - 0.08), GRV, 0, (ch - 0.03) / 2, 0);
+      for (let z = -d / 2 + 0.12; z < d / 2 - 0.08; z += 0.07) mk(g, B(w - 0.12, 0.008, 0.02), GRV, 0, ch - 0.026, z);   /* raked ridges */
+      for (const [fx, fz, r, hs] of [[-0.15, -0.28, 0.24, 0.75], [0.18, 0.05, 0.17, 0.6], [-0.1, 0.32, 0.12, 0.55]]) {
+        const st = mk(g, new THREE.DodecahedronGeometry(r, 0), RK, fx * w, ch - 0.03 + r * hs * 0.8, fz * d);
+        st.scale.set(1.15, hs, 0.9); st.rotation.y = fx * 7 + fz * 3;
+      }
+      /* a small spreading maple near the back corner: a leaning trunk, three branches, a wide flat crown of leaf clumps */
+      const tx = 0.12 * w, tz = -0.3 * d, th = Math.min(top || 2.2, 2.2) * 0.5;
+      const LF2 = MAT.maple6b || (MAT.maple6b = std({ color: 0xa8402a, roughness: 0.85, envMapIntensity: 0.5, flatShading: true }));
+      const tr = mk(g, new THREE.CylinderGeometry(0.022, 0.04, th, 8), MAT.bark, tx, ch + th / 2, tz); tr.rotation.z = 0.08;
+      let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (const [bx, bz] of [[0.32, 0.1], [-0.28, 0.16], [0.05, -0.3]]) {
+        const L = Math.hypot(bx, bz, 0.25), br = mk(g, new THREE.CylinderGeometry(0.01, 0.018, L, 6), MAT.bark, tx + bx / 2, ch + th + 0.1, tz + bz / 2);
+        br.lookAt(new THREE.Vector3(tx + bx, ch + th + 0.22, tz + bz).add(g.position)); br.rotateX(Math.PI / 2);
+      }
+      for (let i = 0; i < 30; i++) {
+        const a = rnd() * Math.PI * 2, r = 0.08 + rnd() * 0.46, y = ch + th + 0.1 + rnd() * 0.26 - r * 0.22;
+        mk(g, new THREE.IcosahedronGeometry(0.07 + rnd() * 0.06, 1), i % 3 ? LF : LF2, tx + Math.cos(a) * r, y, tz + Math.sin(a) * r * 0.85);
+      }
+      break;
+    }
     case 'slats': {                                    /* v32 (Toby): slatted divider, oak 4 x 6 cm slats 10 cm apart, floor to top, black channels */
       const n = Math.max(2, Math.round(w / 0.1));
       for (let i = 0; i < n; i++) mk(g, B(0.04, top - 0.04, Math.min(d, 0.06), MAT.timber, 'y'), MAT.timber, -w / 2 + (i + 0.5) * w / n, (top - 0.04) / 2 + 0.02, 0);
