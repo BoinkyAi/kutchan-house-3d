@@ -775,7 +775,9 @@ function mat6(k) {
     /* v41 (Toby 2026-10-25, his photo): cleft slate, 300 x 150 stack bond, diagonal streaks (assets/tex/slate_tile_*, made by
        proposals/2026-10-25/slate_tex.py, 8 x 16 tiles in 2.4 m: every tile position shows a random one of them) */
     slate6: () => fac(pbr('slate_tile', 2.4, { env: 0.8, rough: 1.0, color: [0.62, 0.64, 0.68], nScale: 1.2, macro: { cells: [8, 16], tint: 0.03, albedo: 0.04, rough: 0.05, scale: 6 } })),
-    ltile: () => fac(pbr('white_tile_h', 1.27, { env: 0.85, rough: 0.8, color: [0.434, 0.481, 0.609], nScale: 1.0, macro: { albedo: 0.05, rough: 0.05, scale: 7 } })),
+    /* v43 (Toby 2026-10-25: the light tile looked bad, 'a more grayish long tile'): 227 x 60 grey tiles, running bond, grout close in
+       tone, per-tile shade (assets/tex/grey_longtile_*, made by proposals/2026-10-25/longtile_tex.py; 2.32 m = 10 tiles x 36 courses) */
+    ltile: () => fac(pbr('grey_longtile', 2.32, { env: 0.85, rough: 1.0, nScale: 1.0, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
     sstone: () => fac(pbr('stacked_grey', 2.2, { env: 0.8, rough: 1.0, nScale: 1.4 })),
     wtile: () => fac(pbr('white_tile_h', 1.27, { env: 0.9, rough: 0.7, color: [0.991, 1.064, 1.214], nScale: 1.0, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
     bronze: () => fac(pbr('bronze_panel', 2.0, { env: 1.0, rough: 1.0, metal: 0.55, nScale: 1.0 })),
