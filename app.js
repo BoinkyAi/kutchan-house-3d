@@ -74,7 +74,7 @@ const REFS = {
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
   12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=10', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
+  13: { url: 'ref-model-k.json?v=11', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -2393,6 +2393,46 @@ function makeProp3(s, lvl) {
   const g = new THREE.Group(), w = s.w, d = s.d, top = s.top;
   const L = LV[lvl];
   switch (s.name) {
+    case 'dumbbellRack': {                             /* v42 (Toby 2026-10-25): two-tier dumbbell rack, black steel, hex dumbbells (handles front to back) */
+      const fr = MAT.accBlack || MAT.black, RB = MAT.rubber6 || (MAT.rubber6 = std({ color: 0x1c1d1f, roughness: 0.85, envMapIntensity: 0.4 }));
+      const H2 = Math.min(top || 0.8, 0.8);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) mk(g, B(0.04, H2 + 0.04, 0.04), fr, sx * (w / 2 - 0.03), (H2 + 0.04) / 2, sz * (d / 2 - 0.03));
+      for (const [y, dz] of [[H2 * 0.55, 0.08], [H2, -0.06]]) {
+        mk(g, B(w, 0.03, d * 0.5), fr, 0, y, dz);
+        const n = Math.max(2, Math.floor((w - 0.08) / 0.15));
+        for (let i = 0; i < n; i++) {
+          const x = -w / 2 + 0.1 + i * (w - 0.2) / (n - 1), r = 0.04 + 0.025 * i / n;
+          const bar = mk(g, new THREE.CylinderGeometry(0.016, 0.016, 0.15, 8), MAT.steel, x, y + 0.015 + r, dz); bar.rotation.x = Math.PI / 2;
+          for (const e of [-1, 1]) { const hd = mk(g, new THREE.CylinderGeometry(r, r, 0.05, 6), RB, x, y + 0.015 + r, dz + e * 0.1); hd.rotation.x = Math.PI / 2; }
+        }
+      }
+      break;
+    }
+    case 'gymMirror': {                                /* v42: wall mirror 0.3 m up to the top, thin black frame (local +y = the room) */
+      const MR = MAT.mirror6 || (MAT.mirror6 = std({ color: 0xaab2b8, roughness: 0.06, metalness: 0.95, envMapIntensity: 0.45 }));
+      const h = top - 0.3;
+      mk(g, B(w, h, 0.012), MR, 0, 0.3 + h / 2, 0);
+      for (const [cx, cy, cw, chh] of [[0, 0.3, w + 0.03, 0.02], [0, top, w + 0.03, 0.02], [-w / 2, 0.3 + h / 2, 0.02, h], [w / 2, 0.3 + h / 2, 0.02, h]])
+        mk(g, B(cw, chh, 0.02), MAT.accBlack || MAT.black, cx, cy, 0.004);
+      break;
+    }
+    case 'plantWall': {                                /* v42 (Toby): living green wall - dark felt backing covered in leaves (instanced), facing local +y */
+      const LF = MAT.leaf6 || (MAT.leaf6 = std({ color: 0xffffff, roughness: 0.75, envMapIntensity: 0.5, side: THREE.DoubleSide }));
+      mk(g, B(w, top, 0.03), MAT.accBlack || MAT.black, 0, top / 2, -d / 2 + 0.015);
+      const geo = new THREE.CircleGeometry(0.05, 7); geo.scale(1, 1.7, 1);
+      const n = Math.round(w * top * 300), im = new THREE.InstancedMesh(geo, LF, n);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), eu = new THREE.Euler(), pv = new THREE.Vector3(), sv = new THREE.Vector3(), col = new THREE.Color();
+      const greens = [0x2c5a27, 0x3d7733, 0x4e8c3b, 0x234a20, 0x5b9844, 0x36662e, 0x6aa04c];
+      let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < n; i++) {
+        pv.set((rnd() - 0.5) * (w - 0.04), 0.03 + rnd() * (top - 0.06), -d / 2 + 0.04 + rnd() * (d - 0.05));
+        eu.set((rnd() - 0.5) * 1.3, (rnd() - 0.5) * 1.3, rnd() * Math.PI * 2); q.setFromEuler(eu);
+        const sc = 0.7 + rnd() * 1.0; sv.set(sc, sc, sc);
+        im.setMatrixAt(i, m4.compose(pv, q, sv)); im.setColorAt(i, col.setHex(greens[Math.floor(rnd() * greens.length)]));
+      }
+      im.castShadow = false; im.receiveShadow = true; im.userData.keep = true; g.add(im);
+      break;
+    }
     case 'rockGarden': {                               /* v40 (Toby 2026-10-24: the gym's east side): indoor dry garden - pale raked gravel in a low
                                                           dark-steel curb, three stones, a small red maple */
       const ch = 0.12, GRV = MAT.gravel6 || (MAT.gravel6 = std({ color: 0xd8d4cc, roughness: 1.0, envMapIntensity: 0.5 }));

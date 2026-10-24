@@ -29,7 +29,7 @@ const PLANS = {
   c: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', view: 'index.html?house=5', edit: 'edit.html?plan=c' },
   d: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', view: 'index.html?house=6', edit: 'edit.html?plan=d' },
   j: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', view: 'index.html?house=12', edit: 'edit.html?plan=j' },
-  k: { url: 'ref-model-k.json?v=10', key: 'h3dRefModelK', view: 'index.html?house=13', edit: 'edit.html?plan=k' },
+  k: { url: 'ref-model-k.json?v=11', key: 'h3dRefModelK', view: 'index.html?house=13', edit: 'edit.html?plan=k' },
   f: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', view: 'index.html?house=8', edit: 'edit.html?plan=f', ichijo: true },
   g: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', view: 'index.html?house=9', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -77,7 +77,7 @@ const TX = {
       treadmill: 'Treadmill', mat: 'Exercise mat', railing: 'Glass railing',
       showerSystem: 'Shower column', armchair: 'Armchair', bookcase: 'Bookcase', water_heater: 'Water heater', coatHanger: 'Hanging rail',
       tv: 'TV / media unit', 'kitchen.cabinet': 'Kitchen unit', fence: 'Fence', shade: 'Pergola', wallCabinet: 'Wall cabinets', sinkDouble: 'Double sink',
-      bunk: 'Bunk bed', rug: 'Rug', hob: 'Hob', lounger: 'Lounger', boiler: 'Boiler', slats: 'Slatted screen', rockGarden: 'Rock garden' },
+      bunk: 'Bunk bed', rug: 'Rug', hob: 'Hob', lounger: 'Lounger', boiler: 'Boiler', slats: 'Slatted screen', rockGarden: 'Rock garden', plantWall: 'Plant wall', dumbbellRack: 'Dumbbell rack', gymMirror: 'Wall mirror' },
     help: '<h3>Plan editor</h3>'
       + '<b>Move a wall</b>: drag it. The walls joined to it stretch with it, rooms reshape and their areas update. A straight run of walls moves together. With <b>Outside walls: all floors</b> on, moving an outside wall moves it on every floor (the roof follows).<br>'
       + '<b>Wall ends</b>: select a wall, then drag the round handle at an end to make it longer or shorter.<br>'
@@ -125,7 +125,7 @@ const TX = {
       treadmill: 'ランニングマシン', mat: 'トレーニングマット', railing: 'ガラス手すり',
       showerSystem: 'シャワー水栓', armchair: 'アームチェア', bookcase: '本棚', water_heater: '給湯器', coatHanger: 'ハンガーパイプ',
       tv: 'テレビ台', 'kitchen.cabinet': 'キッチンユニット', fence: 'フェンス', shade: 'パーゴラ', wallCabinet: '吊戸棚', sinkDouble: 'ダブルシンク',
-      bunk: '二段ベッド', rug: 'ラグ', hob: 'コンロ', lounger: 'ラウンジャー', boiler: 'ボイラー', slats: '格子スクリーン', rockGarden: '石庭' },
+      bunk: '二段ベッド', rug: 'ラグ', hob: 'コンロ', lounger: 'ラウンジャー', boiler: 'ボイラー', slats: '格子スクリーン', rockGarden: '石庭', plantWall: '壁面緑化', dumbbellRack: 'ダンベルラック', gymMirror: '壁面ミラー' },
     help: '<h3>間取り編集</h3>'
       + '<b>壁を動かす</b>：壁をドラッグします。つながっている壁が伸び縮みし、部屋の形と面積も更新されます。一直線に並んだ壁は一緒に動きます。<b>外壁は全フロア連動</b>がオンのとき、外壁を動かすと全フロアの外壁が動きます（屋根も追従）。<br>'
       + '<b>壁の長さ</b>：壁を選択し、端の丸いハンドルをドラッグして伸ばす・縮める。<br>'
@@ -606,7 +606,7 @@ function drawItem1(c, it) {
   const P = itemPoly(it).map(toS);
   c.beginPath(); P.forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.closePath();
   const fills = { island: '#4a4c50', tall: '#4a4c50', closet: '#d8c3a5', wardrobe: '#d8c3a5', stove: '#3d3d3d', rugRound: 'rgba(0,0,0,0)', post: '#c9a77c', beam: 'rgba(201,167,124,.55)',
-    tube: '#e6cf9f', saunaBench: '#ead7ae', lounger: '#ead7ae', saunaHeater: '#3d3d3d', gymRack: 'rgba(60,62,66,.25)', gymBench: '#5a5d61', treadmill: '#5a5d61', mat: '#8e9196', railing: 'rgba(120,180,215,.7)', slats: '#c9a77c', rockGarden: '#d8d4cc' };
+    tube: '#e6cf9f', saunaBench: '#ead7ae', lounger: '#ead7ae', saunaHeater: '#3d3d3d', gymRack: 'rgba(60,62,66,.25)', gymBench: '#5a5d61', treadmill: '#5a5d61', mat: '#8e9196', railing: 'rgba(120,180,215,.7)', slats: '#c9a77c', rockGarden: '#d8d4cc', plantWall: '#4e8c3b', dumbbellRack: '#3a3c40', gymMirror: '#aab2b8' };
   c.fillStyle = fills[it.kind] || '#ffffff'; if (it.kind !== 'rugRound') c.fill();
   c.strokeStyle = sel ? '#1d7fb8' : '#8b7c6c'; c.lineWidth = sel ? 2.5 : 1; c.stroke();
   const hw = it.w / 2, hd = it.d / 2;
@@ -1077,7 +1077,7 @@ const DEF = {
   dryer: [0.65, 0.6], stove: [0.56, 0.5], rugRound: [1.6, 1.6], shelves: [1.2, 0.35], rail: [1.6, 0.06], post: [0.12, 0.12], beam: [3.0, 0.12],
 };
 delete DEF.ub;                                     /* plans b-g have no unit baths in the palette (shower units; plans e-g: the Ichijo panel) */
-Object.assign(DEF, { tube: [1.2, 2.0], saunaBench: [1.8, 0.5], saunaHeater: [0.45, 0.45], gymRack: [1.2, 1.2], gymBench: [1.2, 0.3], treadmill: [0.8, 1.9], mat: [2.0, 2.0], railing: [2.0, 0.05], slats: [1.8, 0.06], rockGarden: [1.0, 2.0] });
+Object.assign(DEF, { tube: [1.2, 2.0], saunaBench: [1.8, 0.5], saunaHeater: [0.45, 0.45], gymRack: [1.2, 1.2], gymBench: [1.2, 0.3], treadmill: [0.8, 1.9], mat: [2.0, 2.0], railing: [2.0, 0.05], slats: [1.8, 0.06], rockGarden: [1.0, 2.0], plantWall: [2.4, 0.12], dumbbellRack: [1.4, 0.55], gymMirror: [2.0, 0.03] });
 function placeItem(p) {
   const k = S.armed, [w, d] = DEF[k] || [1, 1];
   begin();
