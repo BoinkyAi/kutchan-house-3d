@@ -1,5 +1,5 @@
 {
- "version": 9,
+ "version": 10,
  "title": "Ideal — 75 tsubo",
  "ja": "理想プラン（75坪）",
  "source": "Ideal — 75 tsubo: the Ideal — compact plan (Toby's own Floor Plan Creator design) enlarged to about 75 tsubo: bigger master suites, dens, living + dining + kitchen, bath and gym; the guest bedroom, WCs, ski room, boiler room and stair as in the compact plan. L-shaped, 2 storeys: a main block + a wing to the east along the south (view) side; carport over two cars in the L's inner corner by the front door. 1F: gym, bath (2 shower stalls, 2 hinoki tubs), sauna, changing + rest room with a lounger, laundry, WC, ski / gear room, entrance, hall + stair, boiler room under the stair, den 1 (office + bunk), guest bedroom. 2F: two master bedrooms, each with a walk-in closet + ensuite; WC; den 2 (office + bunk); dining + kitchen with an island, open to the living in the wing (glass on three sides). One roof plane falling west. Windows = standard YKK APW 430 / 431 columns in Toby's openings.",
@@ -2914,7 +2914,7 @@
   "style": "warm",
   "clad": [
    "spanel",
-   "wtile"
+   "ltile"
   ],
   "lids": [
    {

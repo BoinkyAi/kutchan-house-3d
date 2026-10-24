@@ -74,7 +74,7 @@ const REFS = {
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
   12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=9', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
+  13: { url: 'ref-model-k.json?v=10', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
 };
@@ -772,7 +772,10 @@ function mat6(k) {
   const mk6 = {
     spanel: () => fac(pbr('stone_panel', 3.6, { env: 0.8, rough: 1.0, nScale: 1.2, macro: { albedo: 0.05, rough: 0.06, scale: 7 } })),
     render: () => fac(pbr('white_stucco', 2.0, { env: 0.8, rough: 1.0, color: [0.653, 0.65, 0.613], nScale: 0.8, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
-    slate6: () => fac(pbr('granite_tile', 1.5, { env: 0.85, rough: 0.85, color: [1.42, 1.45, 1.47], nScale: 1.0, macro: { albedo: 0.06, rough: 0.06, scale: 6 } })),
+    /* v41 (Toby 2026-10-25, his photo): cleft slate, 300 x 150 stack bond, diagonal streaks (assets/tex/slate_tile_*, made by
+       proposals/2026-10-25/slate_tex.py, 8 x 16 tiles in 2.4 m: every tile position shows a random one of them) */
+    slate6: () => fac(pbr('slate_tile', 2.4, { env: 0.8, rough: 1.0, color: [0.62, 0.64, 0.68], nScale: 1.2, macro: { cells: [8, 16], tint: 0.03, albedo: 0.04, rough: 0.05, scale: 6 } })),
+    ltile: () => fac(pbr('white_tile_h', 1.27, { env: 0.85, rough: 0.8, color: [0.434, 0.481, 0.609], nScale: 1.0, macro: { albedo: 0.05, rough: 0.05, scale: 7 } })),
     sstone: () => fac(pbr('stacked_grey', 2.2, { env: 0.8, rough: 1.0, nScale: 1.4 })),
     wtile: () => fac(pbr('white_tile_h', 1.27, { env: 0.9, rough: 0.7, color: [0.991, 1.064, 1.214], nScale: 1.0, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
     bronze: () => fac(pbr('bronze_panel', 2.0, { env: 1.0, rough: 1.0, metal: 0.55, nScale: 1.0 })),
@@ -787,7 +790,7 @@ const TRIM6 = () => F6().trim === 'bronze' ? mat6('trim') : null;
 const CLADS = () => ({ stone: MAT.cladStone, tiles: MAT.cladTiles, slate: MAT.cladSlate, black: MAT.cladBlack,
   get spanel() { return mat6('spanel'); }, get render() { return mat6('render'); }, get slate6() { return mat6('slate6'); },
   get sstone() { return mat6('sstone'); }, get bronze() { return mat6('bronze'); }, get bmetal() { return mat6('bmetal'); },
-  get wtile() { return mat6('wtile'); } });
+  get wtile() { return mat6('wtile'); }, get ltile() { return mat6('ltile'); } });
 /* v39: zones limited to levels / heights (finish.zones [{ rect, mat, levels?, y?: [y0, y1] }]): when a model has any, every
    zone of an outside wall as { s0, s1, y0, y1, m } (later zones win); a zone reaching a wall's end runs on round the corner */
 /* v39: finish.piers [{ rect [x0, z0, x1, z1], y [y0, y1], mat }] - a column standing out of an outside wall (Toby: accents that
