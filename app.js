@@ -32,7 +32,8 @@ const EYE = 1.62;
 const FOV = { def: 100, min: 40, max: 130, wide: 120, narrow: 50 };   /* default 100 (Toby 2026-10-05: the widest then); v33 (Toby 2026-10-23): up to 130 */
 /* Two-point perspective: looking up/down by up to SHIFT is a vertical lens
    shift (camera stays level, verticals stay vertical, like an architectural
-   shift lens); only pitch beyond +-SHIFT tilts the camera. */
+   shift lens); beyond +-SHIFT the camera tilts and the shift fades out (v45:
+   none looking straight down, lensShift). */
 const SHIFT = 24 * Math.PI / 180;
 /* sun direction measured off the HDRI (brightest texel): az 36deg from +x
    towards +z, 28deg up. The directional light has to agree with the sky. */
@@ -3887,11 +3888,18 @@ function setFov(v) {
    off-axis frustum: row y / column z of the projection). updateProjectionMatrix
    rebuilds a centred frustum, so this runs every frame (frame()) as well as
    on fov / resize changes. Returns the part of st.pitch the shift took up. */
+/* v45: past +-SHIFT the shift fades out (0 looking straight up / down), so the straight-down doll-house view is a
+   true top view and turning it spins the picture round its centre (it was a 66 deg tilt + a 24 deg shift: a
+   keystoned picture that swung as it turned). The centre of the view still points at st.pitch. */
+function lensShift(p) {
+  const a = Math.abs(p);
+  return a <= SHIFT ? p : Math.sign(p) * SHIFT * Math.max(0, (Math.PI / 2 - a) / (Math.PI / 2 - SHIFT));
+}
 function applyLens() {
   const half = st.fov * Math.PI / 360;
   camera.fov = camera.aspect >= 1 ? 2 * Math.atan(Math.tan(half) / camera.aspect) * 180 / Math.PI : st.fov;
   camera.updateProjectionMatrix();
-  const shift = st.orbit ? 0 : Math.max(-SHIFT, Math.min(SHIFT, st.pitch));
+  const shift = st.orbit ? 0 : lensShift(st.pitch);
   if (shift) {
     camera.projectionMatrix.elements[9] += Math.tan(shift) / Math.tan(camera.fov * Math.PI / 360);
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();   /* GTAO reads it */
@@ -3977,10 +3985,13 @@ function bindUI() {
   if (HOUSE === 2) bindRoof();
   if (IJH) bindIchijo7();
 
-  /* drag = grab the view and pull it (drag right -> the scene follows right) */
-  let dragging = false, px = 0, py = 0;
+  /* drag = grab the view and pull it (drag right -> the scene follows right). v45 (Toby 2026-11-05: panning left /
+     right spun round a point off the centre of the view): a drag turns OR tilts, whichever way it starts (its first
+     8 px) - a sideways drag no longer drifts the tilt by the hand's wobble, which moved the turning point off the
+     middle (the doll-house view: no longer straight down) */
+  let dragging = false, px = 0, py = 0, dAxis = '', dSx = 0, dSy = 0;
   canvas.addEventListener('pointerdown', (e) => {
-    dragging = true; px = e.clientX; py = e.clientY; canvas.classList.add('look');
+    dragging = true; px = e.clientX; py = e.clientY; dAxis = ''; dSx = 0; dSy = 0; canvas.classList.add('look');
     canvas.setPointerCapture(e.pointerId);
   });
   const end = () => { dragging = false; canvas.classList.remove('look'); };
@@ -3988,7 +3999,13 @@ function bindUI() {
   canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('pointermove', (e) => {
     if (st.locked || !dragging) return;
-    const dx = e.clientX - px, dy = e.clientY - py; px = e.clientX; py = e.clientY;
+    let dx = e.clientX - px, dy = e.clientY - py; px = e.clientX; py = e.clientY;
+    if (!dAxis) {                                    /* which way: decided on the first 8 px */
+      dSx += dx; dSy += dy;
+      if (Math.hypot(dSx, dSy) < 8) return;
+      dAxis = Math.abs(dSx) >= Math.abs(dSy) ? 'x' : 'y'; dx = dSx; dy = dSy;
+    }
+    if (dAxis === 'x') dy = 0; else dx = 0;
     const k = (camera.fov / 60) * 0.0042;           /* by the actual vertical fov */
     if (st.orbit) { st.az -= dx * 0.005; st.el = Math.max(0.05, Math.min(1.45, st.el + dy * 0.004)); return; }
     lookTurn(dx * k); st.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, st.pitch + dy * k));
