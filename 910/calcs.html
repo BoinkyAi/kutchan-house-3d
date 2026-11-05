@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja" class="ja">
 <head>
+<link rel="icon" href="data:,">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>倶知安 住宅計画 — 計算書</title>
@@ -69,7 +70,7 @@
     <li><span class="en">A Japanese timber house resists earthquakes and wind with braced walls. The south-east corner of the living room is glass on both faces, so there is no braced wall there. We use frames instead: a post and the beam over the glass, made stiff at the corner with knee braces (short diagonal struts), and we brace the walls that are solid.</span><span class="ja" lang="ja">日本の木造住宅は耐力壁で地震や風に抵抗します。リビングの南東の角は両面ともガラスで耐力壁がないため、柱と窓上の梁を方杖（短い斜材）で固めた門型フレームとし、壁のある部分には筋交いを入れています。</span></li>
     <li><span class="en">Kutchan has heavy snow (design depth 230 cm). In heavy-snow areas 35% of the snow counts in the earthquake weight, so the earthquake load (33.4 kN on the living wing's upper floor) is bigger than the wind load (18.2 kN): the earthquake governs.</span><span class="ja" lang="ja">倶知安町は多雪区域（垂直積雪量230 cm）です。多雪区域では地震時の重量に積雪の35%を加えるため、リビング棟2階の地震力（33.4 kN）が風荷重（18.2 kN）を上回り、地震で決まります。</span></li>
     <li><span class="en">The wing's load goes to its wall lines: east–west half to the south line and half to the north line (16.7 kN each); north–south 56% to the east line (18.7 kN, from where the weight sits; the dining side has no 2F wall). On a line, the frames and the braced walls move together, so each takes load in proportion to its stiffness: a small frame model gives the frames' stiffness, and a braced wall reaches its allowed load at a sway of 1/120 (the Japanese wall-multiplier rule). Because a stiffer wall would take more, the east wall is also checked at 1/200.</span><span class="ja" lang="ja">リビング棟の水平力は各通りが負担します。東西方向は南通りと北通りが半分ずつ（各 16.7 kN）、南北方向は東通りが56%（18.7 kN、重量の位置から。ダイニング側は2階に壁なし）。同じ通りの門型フレームと耐力壁は一緒に変形するため、剛性の比で分担します。フレームの剛性は簡単なフレームモデルで求め、耐力壁は層間変形角1/120で許容耐力に達するもの（壁倍率の考え方）としています。壁が硬いほど負担が増えるため、東面の耐力壁は1/200でも確認しています。</span></li>
-    <li><span class="en">Target: every member at most 60% of its allowed strength (the allowed strengths already include the code's safety margins). Result: at most 57% (the east braced wall in the stiffer case; 49% by the standard rule).</span><span class="ja" lang="ja">目標：すべての部材で許容耐力の60%以下（許容耐力には安全率が含まれています）。結果：最大57%（東面の耐力壁を硬めに見た場合。標準の考え方では49%）。</span></li>
+    <li><span class="en">Target: every member at most 60% of its allowed strength (the allowed strengths already include the code's safety margins). Result: at most 60% (the east braced wall in the stiffer case; 49% by the standard rule).</span><span class="ja" lang="ja">目標：すべての部材で許容耐力の60%以下（許容耐力には安全率が含まれています）。結果：最大60%（東面の耐力壁を硬めに見た場合。標準の考え方では49%）。</span></li>
     <li><span class="en">Windows: the wind pressure on the glass needs grade S-3. By LIXIL's own size tables the widest window that reaches S-3 at full height is the 1,690-wide 2-panel sliding window (with 4 mm triple glass), and joining two windows is not rated that wide, so the big glass is single 1,690 sliding windows with a post between them; the posts are checked for snow, floor and wind.</span><span class="ja" lang="ja">窓：ガラスにかかる風圧から耐風圧S-3が必要です。LIXILのサイズ別性能表では、全高でS-3を満たす最も幅の広い窓は幅1,690の2枚建引違い窓（ガラス 4-A-1.3-A-4）で、連窓もその幅ではS-3を満たさないため、幅1,690の引違い窓を柱で区切って並べ、その柱を雪・床・風で検討しています。</span></li>
   </ol>
   <h3><span class="en">2. Loads</span><span class="ja" lang="ja">2. 荷重</span></h3>
@@ -80,7 +81,7 @@
 <tr><td><span class="en">Wind</span><span class="ja" lang="ja">風</span></td><td>V0 34 m/s, <span class="en">terrain III</span><span class="ja" lang="ja">地表面粗度区分III</span></td><td><span class="en">Kutchan basic wind speed 34 m/s</span><span class="ja" lang="ja">倶知安町 基準風速34 m/s</span></td></tr>
 <tr><td><span class="en">Glulam</span><span class="ja" lang="ja">集成材</span></td><td>E95-F270: Fb 27.0, Fc 21.6, E 9,500 N/mm²</td><td><span class="en">short term 2/3 F, long term 1.1/3 F; heavy-snow area: long term with 0.7 S × 1.3, short term with full snow × 0.8</span><span class="ja" lang="ja">短期 2/3 F、長期 1.1/3 F。多雪区域：積雪時の長期（0.7S）×1.3、積雪時の短期（S）×0.8</span></td></tr>
 <tr><td><span class="en">Steel</span><span class="ja" lang="ja">鋼材</span></td><td>STKR400: F 235 N/mm², E 205,000</td><td><span class="en">short-term allowable = F; □150×150×9: A 48.67 cm², I 1,580 cm⁴, Z 210 cm³, i 5.70 cm (JIS)</span><span class="ja" lang="ja">短期許容 = F。□150×150×9：A 48.67 cm²、I 1,580 cm⁴、Z 210 cm³、i 5.70 cm（JIS）</span></td></tr>
-<tr><td><span class="en">Braced walls</span><span class="ja" lang="ja">耐力壁</span></td><td>1.96 kN/m × <span class="en">wall multiplier</span><span class="ja" lang="ja">壁倍率</span></td><td><span class="en">braces both ways 4.0 + plywood (2.5) → 6.5 on the east wall; 5.0 elsewhere (the cap is 7.0 since April 2025)</span><span class="ja" lang="ja">筋かいたすき掛け4.0＋構造用合板2.5 → 東面6.5、その他5.0（2025年4月以降の上限は7.0）</span></td></tr>
+<tr><td><span class="en">Braced walls</span><span class="ja" lang="ja">耐力壁</span></td><td>1.96 kN/m × <span class="en">wall multiplier</span><span class="ja" lang="ja">壁倍率</span></td><td><span class="en">east wall: 90×90 braces both ways 5.0 + plywood 2.5 → 7.0 (the cap since April 2025); elsewhere 45×90 braces both ways 4.0 + plywood → 5.0</span><span class="ja" lang="ja">東面：筋かい90×90たすき掛け5.0＋構造用合板2.5 → 7.0（2025年4月以降の上限）、その他：筋かい45×90たすき掛け4.0＋構造用合板 → 5.0</span></td></tr>
 <tr><td><span class="en">Drift pins</span><span class="ja" lang="ja">ドリフトピン</span></td><td>Ø12: 10.5 kN, 14.2 kN/mm</td><td><span class="en">per pin, short term, through a slotted-in steel plate (conservative; yield theory gives about 14–17 kN); slip stiffness from EN 1995 K_ser × 2/3</span><span class="ja" lang="ja">1本あたり短期、鋼板挿入（安全側。降伏理論では約14〜17 kN）。すべり剛性はEN 1995のK_ser×2/3</span></td></tr></tbody></table></div>
   <h3><span class="en">3. Sideways load on the living wing's upper floor</span><span class="ja" lang="ja">3. リビング棟2階の水平力</span></h3>
   <pre class="calc"><span class="en">roof area incl. eaves      A = 40.84 m²
@@ -99,55 +100,55 @@ Ai（2階）                  Ai = 1 + (1/√α − α)·2T/(1+3T)、α = 0.682�
 東西方向                   南通り½、北通り½ = 各 16.7 kN
 南北方向                   東通り 0.559（x 0.91〜7.28 の間の重量の重心位置から）× Q = 18.7 kN、残りは主棟が負担</span></pre>
   <h3><span class="en">4. The wall lines: shared by stiffness</span><span class="ja" lang="ja">4. 各通りの負担（剛性比）</span></h3>
-  <pre class="calc"><span class="en">frame model (frame2d.py)   posts pinned at the 2F floor; the head beam glulam 150×300 continuous over the posts; knee braces glulam 120×120,
+  <pre class="calc"><span class="en">frame model                posts pinned at the 2F floor; the head beam glulam 150×300 continuous over the posts; knee braces glulam 120×120,
                            legs d = 0.75 m at 45°, steel plates + 10 drift pins Ø12 at each end (joint slip 10 × 14.2 kN/mm per pin group)
 corner post foot           the steel post runs on down through the 1F to the foundation (3.5 m, pinned there, held by the 2F floor):
                            its 1F part holds the 2F part's foot, 3EI/L = 2,776 kNm/rad
 braced wall stiffness      allowed load at 1/120 rad (the wall-multiplier rule): K = Pa / (2.67 m / 120); also checked at 1/200
 
-EAST line  (18.7 kN)    braced wall 1.365 m × 6.5 × 1.96 = 17.4 kN (plywood outside 2.5 + braces both ways 4.0) + the corner frame
-                           wall 7.5 kN → <b>43%</b>   (stiffer wall, 1/200: 9.9 kN → <b>57%</b>);  corner frame 11.2 kN;  sway 1/261
-SOUTH line (16.7 kN)    frames only: fin pier post 3.1 kN, mid pier post 3.5 kN, corner post 10.1 kN;  sway 1/286
-NORTH line (16.7 kN)    braced walls 2 × 1.82 m × 5.0 × 1.96 = 35.7 kN → <b>47%</b></span><span class="ja" lang="ja">フレームモデル（frame2d.py）  柱脚ピン（2階床）、窓上の梁 集成材150×300（柱の上で連続）、方杖 集成材120×120、
+EAST line  (18.7 kN)    braced wall 1.365 m × 7.0 × 1.96 = 18.7 kN (plywood outside 2.5 + 90×90 braces both ways 5.0, capped at 7.0) + the corner frame
+                           wall 9.1 kN → <b>49%</b>   (stiffer wall, 1/200: 11.2 kN → <b>60%</b>);  corner frame 9.5 kN;  sway 1/231
+SOUTH line (16.7 kN)    frames only: fin pier post 3.9 kN, mid pier post 4.4 kN, corner post 8.5 kN;  sway 1/232
+NORTH line (16.7 kN)    braced walls 2 × 1.82 m × 5.0 × 1.96 = 35.7 kN → <b>47%</b></span><span class="ja" lang="ja">フレームモデル             柱脚ピン（2階床）、窓上の梁 集成材150×300（柱の上で連続）、方杖 集成材120×120、
                            脚長 d = 0.75 m・45°、両端 鋼板＋ドリフトピンØ12×10本（すべり剛性 10 × 14.2 kN/mm／1群）
 隅柱の柱脚                 鋼管柱は1階を通って基礎まで連続（3.5 m、基礎でピン、2階床で水平拘束）：
                            1階部分が2階部分の柱脚を拘束 3EI/L = 2,776 kNm/rad
 耐力壁の剛性               層間変形角1/120で許容耐力（壁倍率の考え方）：K = Pa ／（2.67 m／120）。1/200でも確認
 
-東通り（18.7 kN）     耐力壁 1.365 m × 6.5 × 1.96 = 17.4 kN（外部 構造用合板2.5＋筋かいたすき掛け4.0）＋隅の門型フレーム
-                           耐力壁 7.5 kN → <b>43%</b>（壁を硬めに見た場合 1/200：9.9 kN → <b>57%</b>）、門型フレーム 11.2 kN、層間変形角 1/261
-南通り（16.7 kN）     フレームのみ：ダイニング側の壁柱 3.1 kN、中間の壁柱 3.5 kN、隅柱 10.1 kN、層間変形角 1/286
+東通り（18.7 kN）     耐力壁 1.365 m × 7.0 × 1.96 = 18.7 kN（外部 構造用合板2.5＋筋かい90×90たすき掛け5.0、上限7.0）＋隅の門型フレーム
+                           耐力壁 9.1 kN → <b>49%</b>（壁を硬めに見た場合 1/200：11.2 kN → <b>60%</b>）、門型フレーム 9.5 kN、層間変形角 1/231
+南通り（16.7 kN）     フレームのみ：ダイニング側の壁柱 3.9 kN、中間の壁柱 4.4 kN、隅柱 8.5 kN、層間変形角 1/232
 北通り（16.7 kN）     耐力壁 2 × 1.82 m × 5.0 × 1.96 = 35.7 kN → <b>47%</b></span></pre>
   <h3><span class="en">5. Members</span><span class="ja" lang="ja">5. 各部材の検定</span></h3>
   <pre class="calc"><span class="en">corner post   steel □150×150×9, one column from the foundation through the 1F corner to the underside of the 2F head beam (2.52 m);
               above the beam a timber roof strut 120×120 (roof framing, so the eave stays the beam: the 7 m rule)
-              M = 10.13 kNm (east frame), 9.10 kNm (south frame): 100 % + 30 % → 12.86 kNm
+              M = 11.40 kNm (east frame), 11.19 kNm (south frame): 100 % + 30 % → 14.75 kNm
               2F part: M / Z / 235 + N / (A·fc)   (N = 6 m² × (DL + 0.35 S) = 20.5 kN, λ = 44.2, fc = 209.6 N/mm²)
-              1F part: M at the 2F floor 12.26 kNm (100 % + 30 %), N = 31.5 kN, fc = 188.5 N/mm²  → <b>28%</b>
-              (the 1F part pushes 3.5 kN into the 2F floor and the foundation)
-pier posts    glulam 120×240: M = 6.23 kNm → M / Z / 18.0 + N / (A·η·14.4)  (N = 19.0 kN, η = 0.573) = <b>38%</b>
+              1F part: M at the 2F floor 7.41 kNm (100 % + 30 %), N = 31.5 kN, fc = 188.5 N/mm²  → <b>32%</b>
+              (the 1F part pushes 2.1 kN into the 2F floor and the foundation)
+pier posts    glulam 120×240: M = 7.74 kNm → M / Z / 18.0 + N / (A·η·14.4)  (N = 19.0 kN, η = 0.573) = <b>45%</b>
 knee brace    F = 33.4 kN (the largest), length 1,061 mm, λ = 30.6, η = 0.994:  F / (η × 14.4 × 120 × 120) = <b>16%</b>
 joints        F / (10 pins × 10.5 kN × 0.75 at 45° to the grain in the beam / timber post) = <b>42%</b>
-              holes drilled tight (plate and timber together, at most d + 0.5 mm); with half the joint stiffness the east wall would be 48% (62% if stiffer)
+              holes drilled tight (plate and timber together, at most d + 0.5 mm); with half the joint stiffness the east wall would be 54% (65% if stiffer)
 head beam     glulam 150×300 over the posts (spans ≤ 2.12 m); roof 1.82 m wide on the east beam, 2.9 m on the south, + the upper glass
-              long term G + 0.7 S: 6.54 kNm;  snow G + S: 8.78 kNm;  earthquake G + 0.35 S + the frames: 11.44 kNm  → <b>28%</b>
+              long term G + 0.7 S: 6.54 kNm;  snow G + S: 8.78 kNm;  earthquake G + 0.35 S + the frames: 11.90 kNm  → <b>29%</b>
               deflection, long term × 2 (creep): 1/2917
-hold-downs    east braced wall ends: T = V × 2.8 / 1.365 = 15.4 kN / 40 kN = <b>38%</b>  (stiffer wall 20.2 kN = 51%);
+hold-downs    east braced wall ends: T = V × 2.8 / 1.365 = 18.8 kN / 40 kN = <b>47%</b>  (stiffer wall 23.0 kN = 58%);
               north walls 12.8 kN / 30 kN = 43%;  window posts next to the corner frame: the frame's overturning
               14.7 kN − dead load 12.3 kN = uplift 2.4 kN / 30 kN = 8%</span><span class="ja" lang="ja">隅柱          角形鋼管 □150×150×9、基礎から1階の角を通って2階の窓上の梁の下端（2.52 m）まで1本の柱。
               梁の上は木製の束 120×120（小屋組。軒高は梁の天端：軒高7 m以下）
-              M = 10.13 kNm（東面フレーム）、9.10 kNm（南面フレーム）：100%＋30% → 12.86 kNm
+              M = 11.40 kNm（東面フレーム）、11.19 kNm（南面フレーム）：100%＋30% → 14.75 kNm
               2階部分：M / Z / 235 ＋ N / (A·fc)（N = 6 m² × (DL + 0.35 S) = 20.5 kN、λ = 44.2、fc = 209.6 N/mm²）
-              1階部分：2階床位置の M 12.26 kNm（100%＋30%）、N = 31.5 kN、fc = 188.5 N/mm² → <b>28%</b>
-              （1階部分から2階床と基礎に 3.5 kN）
-壁柱          集成材 120×240：M = 6.23 kNm → M / Z / 18.0 ＋ N / (A·η·14.4)（N = 19.0 kN、η = 0.573）= <b>38%</b>
+              1階部分：2階床位置の M 7.41 kNm（100%＋30%）、N = 31.5 kN、fc = 188.5 N/mm² → <b>32%</b>
+              （1階部分から2階床と基礎に 2.1 kN）
+壁柱          集成材 120×240：M = 7.74 kNm → M / Z / 18.0 ＋ N / (A·η·14.4)（N = 19.0 kN、η = 0.573）= <b>45%</b>
 方杖          F = 33.4 kN（最大）、長さ 1,061 mm、λ = 30.6、η = 0.994：F / (η × 14.4 × 120 × 120) = <b>16%</b>
 接合部        F /（10本 × 10.5 kN × 0.75：梁・木の柱側は繊維に45°）= <b>42%</b>
-              孔は鋼板と木材を共穴でクリアランスなし（最大 d + 0.5 mm）。接合部の剛性が半分の場合、東面の耐力壁は 48%（硬めに見た場合 62%）
+              孔は鋼板と木材を共穴でクリアランスなし（最大 d + 0.5 mm）。接合部の剛性が半分の場合、東面の耐力壁は 54%（硬めに見た場合 65%）
 窓上の梁      集成材 150×300、柱の上で連続（スパン最大 2.12 m）。屋根の負担幅 東 1.82 m、南 2.9 m ＋ 上段のガラス
-              長期 G + 0.7S：6.54 kNm、積雪 G + S：8.78 kNm、地震 G + 0.35S ＋ フレーム：11.44 kNm → <b>28%</b>
+              長期 G + 0.7S：6.54 kNm、積雪 G + S：8.78 kNm、地震 G + 0.35S ＋ フレーム：11.90 kNm → <b>29%</b>
               たわみ（長期×変形増大係数2）：1/2917
-ホールダウン  東面の耐力壁の両端：T = V × 2.8 / 1.365 = 15.4 kN / 40 kN = <b>38%</b>（壁を硬めに見た場合 20.2 kN = 51%）、
+ホールダウン  東面の耐力壁の両端：T = V × 2.8 / 1.365 = 18.8 kN / 40 kN = <b>47%</b>（壁を硬めに見た場合 23.0 kN = 58%）、
               北面の耐力壁 12.8 kN / 30 kN = 43%、隅のフレーム脇の窓の柱：フレームの転倒による軸力
               14.7 kN − 固定荷重 12.3 kN = 引抜 2.4 kN / 30 kN = 8%</span></pre>
   <h3><span class="en">6. Posts between the big windows, beams over the 1F glass</span><span class="ja" lang="ja">6. 大開口の間の柱、1階の窓上の梁</span></h3>
@@ -173,13 +174,13 @@ north–south  3.77 m + 2.89 m + 2.73 m + 2.73 m = 12.12 m × 5.0 × 1.96 = 118.
 南北方向     3.77 m + 2.89 m + 2.73 m + 2.73 m = 12.12 m × 5.0 × 1.96 = 118.8 kN → <b>38%</b>
              （東面の窓の両側、書斎1とゲスト寝室の間（扉を除く）、ボイラー室の壁、書斎1の西面）</span></pre>
   <h3><span class="en">8. Wind on the glass → window grade</span><span class="ja" lang="ja">8. ガラスの風圧 → 窓の耐風圧等級</span></h3>
-  <pre class="calc"><span class="en">告示1458 method: W = q̂ × Ĉf,  q̂ = 0.6 Er² V0²,  Er = 1.7 (H/ZG)^α  (H = average of the height 8.966 m and the eave 6.805 m = 7.89 m, terrain III: ZG 450, α 0.20)
+  <pre class="calc"><span class="en">MLIT Notice No. 1458 (wind on cladding): W = q̂ × Ĉf,  q̂ = 0.6 Er² V0²,  Er = 1.7 (H/ZG)^α  (H = average of the height 8.966 m and the eave 6.805 m = 7.89 m, terrain III: ZG 450, α 0.20)
 q̂ = 0.6 × 0.757² × 34² = 398 N/m²
 pushing in, 2F glass (its top, z = 8.03 m):  Ĉpe = Cpe × Gpe = 1.007 × 3.031, minus the inside −0.5 → W = <b>1,413 Pa</b>
 pushing in, 1F glass (z ≤ 5 m):  0.833 × 3.10 + 0.5 → W = <b>1,226 Pa</b>
 suction:  −1.8 (general) / −2.2 (corner zones) → 716 / 875 Pa
 → every window needs wind grade <b>S-3</b> (1,600 Pa); S-2 (1,200 Pa) is not enough on either floor.
-LIXIL's 15 mm joint between two TW fixed windows (連窓方立180°) reaches S-3 only up to about 2,486 mm wide at this height (chart, SN4100 p.265)
+LIXIL's 15 mm coupling mullion between two TW fixed windows (180°) reaches S-3 only up to about 2,486 mm wide at this height (chart, SN4100 p.265)
 → two 1,690 windows joined (3,395) do not reach S-3 → single windows with a post between them.</span><span class="ja" lang="ja">告示1458の方法：W = q̂ × Ĉf、q̂ = 0.6 Er² V0²、Er = 1.7 (H/ZG)^α（H = 最高高さ 8.966 m と軒高 6.805 m の平均 = 7.89 m、地表面粗度区分III：ZG 450、α 0.20）
 q̂ = 0.6 × 0.757² × 34² = 398 N/m²
 正圧、2階のガラス（上端 z = 8.03 m）：Ĉpe = Cpe × Gpe = 1.007 × 3.031、内圧 −0.5 を差し引き → W = <b>1,413 Pa</b>
@@ -200,7 +201,7 @@ LIXIL TW のFIX窓の連窓（連窓方立180°、15 mm）でS-3を満たすの�
 <tr><td><span class="en">Not used: fixed window, floor level 16524 (1,690 × 2,430)</span><span class="ja" lang="ja">不使用：FIX窓 テラス 16524（1,690×2,430）</span></td><td>p.231</td><td>S-1</td><td>✗</td><td>—</td></tr>
 <tr><td><span class="en">Not used: YKK AP APW 651 / 431 sliding, 3,000 wide, full height</span><span class="ja" lang="ja">不使用：YKK AP APW 651／431 引違い 幅3,000・全高</span></td><td>YKK APW 651 p.74 · APW 430 p.11</td><td>S-2 / S-1</td><td>✗</td><td>—</td></tr></tbody></table></div>
   <p class="note"><span class="en">So the widest unit that reaches S-3 at the full 2,430 height is the 2-panel sliding window 16524 with 4 mm triple glass; every big opening on both floors uses it. A 3.5 m unit reaches S-3 only at 2,230 high or lower (TW concept 34722). The 2F sliding windows open at floor level, so each gets a glass guard outside (top 1.1 m).</span><span class="ja" lang="ja">全高2,430でS-3を満たす最も幅の広い窓は、ガラス 4-A-1.3-A-4 の2枚建引違い窓 16524 です。1階・2階の大開口はすべてこの窓としています。幅3.5 mの窓がS-3を満たすのは高さ2,230以下（TWコンセプト 34722）のみです。2階の引違い窓は床から開くため、外側にガラス手すり（高さ1.1 m）を設けます。</span></p>
-  <p class="note"><span class="en">Legal note: the 告示1458 check is required by law only where a structural calculation is (for a timber house since April 2025: 3 or more storeys, or over 300 m²); this house (2 storeys, 253 m²) is below that, so we use it as our design basis for picking the window grade.</span><span class="ja" lang="ja">法的には、告示1458の検討は構造計算が必要な建築物（木造は2025年4月以降、3階建て以上または延べ面積300 m²超）が対象です。本計画（2階建て・253 m²）は対象外のため、窓の等級を決める設計の根拠として用いています。</span></p>
+  <p class="note"><span class="en">Legal note: the Notice 1458 check is required by law only where a structural calculation is (for a timber house since April 2025: 3 or more storeys, or over 300 m²); this house (2 storeys, 253 m²) is below that, so we use it as our design basis for picking the window grade.</span><span class="ja" lang="ja">法的には、告示1458の検討は構造計算が必要な建築物（木造は2025年4月以降、3階建て以上または延べ面積300 m²超）が対象です。本計画（2階建て・253 m²）は対象外のため、窓の等級を決める設計の根拠として用いています。</span></p>
   <h3><span class="en">9. Kutchan roof / snow / height checks</span><span class="ja" lang="ja">9. 倶知安町の屋根・落雪・高さの検討</span></h3>
   <pre class="calc"><span class="en">PASS Art.6 west snow (pitch 1.40/10, L 15.8, H 6.8, V 3.50 m/s, D 4.0) -&gt; needs 4.450 m &lt;= 4.650 (margin +0.200)
 PASS Art.7 east (road): H 9.0 -&gt; 1.3 + 0.4 = 1.700 &lt;= 1.931 (margin +0.231)

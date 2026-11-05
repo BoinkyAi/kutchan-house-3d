@@ -77,7 +77,7 @@ const REFS = {
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
   13: { url: '../ref-model-k.json?v=12', key: 'h3dRefModelK' },
   /* STAGING house 17 = Ideal — 75 tsubo on the 910 grid with LIXIL / YKK AP windows (2026-11-05, plan o) */
-  17: { url: 'ref-model-o.json?v=070e6b6a', key: 'h3dRefModelO' },
+  17: { url: 'ref-model-o.json?v=9a94e430', key: 'h3dRefModelO' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', ichijo: true },
 };
@@ -214,14 +214,14 @@ const JA_NAMES = {
   'Outside — south-east (living end: roof high)': '外観 — 南東（リビング側：屋根が高い）', 'Outside — north-west (bedroom end: roof low)': '外観 — 北西（寝室側：屋根が低い）',
   'Outside — south elevation': '外観 — 南側', 'Outside — north-east yard': '外観 — 北東の庭', 'Site from above (fences, carport)': '敷地全体（上空から：フェンス・カーポート）',
   'Outside — carport (north-east)': '外観 — カーポート（北東）', 'Outside — stair up to the 2F door': '外観 — 2F出入口への外部階段',
-  '1F — Gym': '1F — トレーニングルーム', '1F — Stair hall': '1F — 階段ホール', '2F — Living, looking west to the bedrooms': '2F — リビングから寝室側（西）を見る',
+  '1F — Gym': '1F — ジム', '1F — Stair hall': '1F — 階段ホール', '2F — Living, looking west to the bedrooms': '2F — リビングから寝室側（西）を見る',
   '2F — Dining, looking east (roof rises)': '2F — ダイニングから東を見る（屋根が高くなる側）', '2F — Kitchen + dining': '2F — キッチン・ダイニング',
   '2F — Top of the stairs': '2F — 階段の上', '2F — Door out to the stair landing': '2F — 外部階段への出入口', '2F — Bedroom 1 (lowest ceiling)': '2F — 寝室1（天井が最も低い）',
   '2F — Bedroom 2': '2F — 寝室2', '2F — Bedroom 3': '2F — 寝室3', '2F — Bedroom 4': '2F — 寝室4',
   'Entrance': '玄関', 'Bath · soaking tubs': '浴室・浴槽', 'Sauna': 'サウナ',
   'Wash room': '洗面室', 'Living': 'リビング', 'Dining': 'ダイニング', 'Kitchen': 'キッチン',
   'Bedroom 1': '寝室1', 'Bedroom 2': '寝室2', 'Bedroom 3': '寝室3', 'Bedroom 4': '寝室4',
-  'Bathroom': 'バスルーム', 'Bathroom 2': 'バスルーム2', 'Gym': 'トレーニングルーム', 'Stair hall · north door': '階段ホール・北側出入口',
+  'Bathroom': 'バスルーム', 'Bathroom 2': 'バスルーム2', 'Gym': 'ジム', 'Stair hall · north door': '階段ホール・北側出入口',
   'WC': 'トイレ', 'Laundry': '洗濯室', 'Plant room': '機械室', 'Boiler room': '機械室', 'Hall': '廊下', 'Carport': 'カーポート', 'Outside stair · 2F door': '外部階段・2F出入口',
   '1F — Bedroom 1': '1F — 寝室1',
   '2F — Kitchen + dining': '2F — キッチン・ダイニング',
@@ -232,7 +232,7 @@ const JA_NAMES = {
 };
 Object.assign(JA_NAMES, {                              /* house 7 presets */
   'Outside — north-east': '外観 — 北東', 'Outside — south (entrance, outside stair)': '外観 — 南（玄関・外部階段）', '1F — Entrance': '1F — 玄関',
-  '1F — Gym (sunken floor)': '1F — トレーニングルーム（床を下げた土間）', '1F — Bath (hinoki tubs)': '1F — 浴室（ひのき浴槽）', '1F — Stair hall + stair': '1F — 階段ホール・階段',
+  '1F — Gym (sunken floor)': '1F — ジム（床を下げた土間）', '1F — Bath (hinoki tubs)': '1F — 浴室（ひのき浴槽）', '1F — Stair hall + stair': '1F — 階段ホール・階段',
   '2F — Living (sloped ceiling)': '2F — リビング（勾配天井）', '2F — Kitchen': '2F — キッチン', '2F — Bedroom 1': '2F — 寝室1', '2F — Bedroom 2': '2F — 寝室2',
   '2F — Bedroom 3': '2F — 寝室3', '2F — Bedroom 4': '2F — 寝室4', '2F — Bathroom 4 (unit shower)': '2F — バスルーム4（シャワーユニット）', '2F — Top of the stairs': '2F — 階段の上',
   /* v21 (houses 7-9, house 5) */
@@ -4035,7 +4035,7 @@ function bindUI() {
      right spun round a point off the centre of the view): a drag turns OR tilts, whichever way it starts (its first
      8 px) - a sideways drag no longer drifts the tilt by the hand's wobble, which moved the turning point off the
      middle (the doll-house view: no longer straight down) */
-  let dragging = false, px = 0, py = 0, dAxis = '', dSx = 0, dSy = 0;
+  let dragging = false, px = 0, py = 0, dAxis = '', dSx = 0, dSy = 0, aX = 0, aY = 0;
   canvas.addEventListener('pointerdown', (e) => {
     dragging = true; px = e.clientX; py = e.clientY; dAxis = ''; dSx = 0; dSy = 0; canvas.classList.add('look');
     canvas.setPointerCapture(e.pointerId);
@@ -4049,7 +4049,12 @@ function bindUI() {
     if (!dAxis) {                                    /* which way: decided on the first 8 px */
       dSx += dx; dSy += dy;
       if (Math.hypot(dSx, dSy) < 8) return;
-      dAxis = Math.abs(dSx) >= Math.abs(dSy) ? 'x' : 'y'; dx = dSx; dy = dSy;
+      dAxis = Math.abs(dSx) >= Math.abs(dSy) ? 'x' : 'y'; dx = dSx; dy = dSy; aX = aY = 0;
+    } else {                                         /* v46: the other way clearly wins (3x over ~40 px): switch */
+      aX += Math.abs(dx); aY += Math.abs(dy);
+      if (dAxis === 'x' && aY > 40 && aY > 3 * aX) { dAxis = 'y'; aX = aY = 0; }
+      else if (dAxis === 'y' && aX > 40 && aX > 3 * aY) { dAxis = 'x'; aX = aY = 0; }
+      else if (aX + aY > 160) { aX /= 2; aY /= 2; }
     }
     if (dAxis === 'x') dy = 0; else dx = 0;
     const k = (camera.fov / 60) * 0.0042;           /* by the actual vertical fov */

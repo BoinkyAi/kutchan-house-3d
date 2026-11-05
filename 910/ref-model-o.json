@@ -2280,15 +2280,6 @@
      "a": 5.846853
     },
     {
-     "id": "f73",
-     "kind": "tv",
-     "x": 6.55,
-     "y": 1.22,
-     "w": 0.9,
-     "d": 0.25,
-     "a": 0.0
-    },
-    {
      "id": "f74",
      "kind": "tall",
      "x": 1.2716,
@@ -3534,32 +3525,32 @@
    "kind": "xbrace",
    "level": 1,
    "a": [
-    7.184,
+    7.164,
     1.026
    ],
    "b": [
-    7.184,
+    7.164,
     2.1725
    ],
    "z": 0.05,
    "z1": 2.47,
-   "w": 0.045,
+   "w": 0.09,
    "h": 0.09
   },
   {
    "kind": "xbrace",
    "level": 1,
    "a": [
-    7.184,
+    7.164,
     2.1725
    ],
    "b": [
-    7.184,
+    7.164,
     1.026
    ],
    "z": 0.05,
    "z1": 2.47,
-   "w": 0.045,
+   "w": 0.09,
    "h": 0.09
   },
   {
@@ -3653,20 +3644,20 @@
   "share_E": 0.56,
   "F_kneebrace_kN": 33.4,
   "lines": {
-   "E": 0.43,
-   "E_stiff_wall": 0.57,
-   "E_loose_joints": 0.48,
+   "E": 0.49,
+   "E_stiff_wall": 0.6,
+   "E_loose_joints": 0.54,
    "N": 0.47
   },
   "corner_post": {
    "size": "steel square tube 150x150x9 (STKR400)",
-   "ratio": 0.28,
-   "drift": "1/261"
+   "ratio": 0.32,
+   "drift": "1/231"
   },
   "pier_post": {
    "size": "glulam 120x240 (E95-F270)",
-   "ratio": 0.38,
-   "drift": "1/286"
+   "ratio": 0.45,
+   "drift": "1/232"
   },
   "knee_brace": {
    "size": "glulam 120x120, 45 deg, 0.75 m legs",
@@ -3676,15 +3667,15 @@
   },
   "head_beam": {
    "size": "glulam 150x300 (2.52-2.82 m)",
-   "ratio": 0.28,
+   "ratio": 0.29,
    "deflection": "1/2917"
   },
   "braced_wall": {
-   "size": "structural plywood outside + 45x90 braces both ways (multiplier 6.5), 1.37 m",
-   "capacity_kN": 17.4,
-   "ratio": 0.43,
-   "ratio_stiff": 0.57,
-   "uplift_kN": 15.4
+   "size": "structural plywood outside + 90x90 braces both ways (multiplier 7.0), 1.37 m",
+   "capacity_kN": 18.7,
+   "ratio": 0.49,
+   "ratio_stiff": 0.6,
+   "uplift_kN": 18.8
   },
   "north_wall": {
    "capacity_kN": 35.7,
@@ -3703,8 +3694,8 @@
   },
   "holddowns": {
    "size": "40 kN at the east braced wall ends; 30 kN at the frame posts, the window posts next to the corner frame and the north walls",
-   "ratio": 0.43,
-   "ratio_stiff": 0.51
+   "ratio": 0.47,
+   "ratio_stiff": 0.58
   },
   "window_posts": {
    "size": "glulam 120x180 (120 along the wall, 180 into it)",
@@ -3715,7 +3706,7 @@
    "size": "glulam 150x360",
    "ratio": 0.48
   },
-  "max_ratio": 0.57,
+  "max_ratio": 0.6,
   "max_ratio_std": 0.49
  }
 }
