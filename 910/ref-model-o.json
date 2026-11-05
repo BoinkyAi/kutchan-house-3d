@@ -3642,8 +3642,8 @@
     5.0
    ],
    "z": 2.05,
-   "en": "Knee-braced portal frame — to be sized by the structural engineer",
-   "ja": "方杖付き門型フレーム（構造設計者が断面を決定）"
+   "en": "Knee-braced corner frame: steel post 150×150×9 + glulam knee braces 120×120 (sized; engineer confirms for the permit)",
+   "ja": "方杖付き門型フレーム：鋼管柱 150×150×9＋集成材の方杖 120×120（概略検討済み、確認申請は構造設計者が確認）"
   }
  ],
  "structure": {
@@ -3674,7 +3674,7 @@
   },
   "knee_brace": {
    "size": "glulam 120x120, 45 deg, 0.75 m legs",
-   "ratio": 0.18,
+   "ratio": 0.21,
    "joint": "steel plates + 8 drift pins dia 12 each end",
    "joint_ratio": 0.52
   },
@@ -3706,6 +3706,15 @@
   "holddowns": {
    "size": "30 kN hold-downs at the frame posts and the braced wall ends",
    "ratio": 0.47
+  },
+  "window_posts": {
+   "size": "glulam 120x180 (120 along the wall, 180 into it)",
+   "ratio_2F": 0.32,
+   "ratio_1F": 0.45
+  },
+  "header_1F": {
+   "size": "glulam 150x360",
+   "ratio": 0.53
   }
  }
 }
