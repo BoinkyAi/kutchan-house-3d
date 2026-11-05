@@ -1,0 +1,4263 @@
+/* Kutchan house — interactive 3D walkthrough. ONE renderer, byte-identical in three apps that
+   never link to each other (Toby 2026-10-13): kutchan-house-3d (house 4 = Budget plan,
+   5 = Mid tier plan, 6 = Ideal plan, 12 = Ideal — compact, 13 = Ideal — 75 tsubo), kutchan-house-ichijo (8 = Compact, 9 = Full size) and
+   kutchan-house-plan-a (Plan B = house 2 in plan-b/; Plan A = house 1 is that app's older
+   renderer at its root). The page's <html data-houses="..."> lists its houses (the first = the
+   default; the switcher shows index.html's buttons in their own order) and data-assets the
+   path prefix to assets/. Houses 4-9 are built from the editable ref-model-*.json plans
+   through refplan.js, house 2 from plan2.json.
+   Textures + HDRI + furniture models: Poly Haven (CC0); worktop marble and the
+   bath-tile source marble: ambientCG (CC0). Derived here: the 60x60 bath tile
+   (Marble012 + 3 mm joints), charred cedar (from japanese_cedar_planks),
+   brushed-steel hairlines and the anti-tiling noise (procedural). */
+'use strict';
+
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { toPlan, loadModel, expandStack, childLeaf } from './refplan.js?v=12';
+
+const V = THREE.Vector3;
+const FLOOR_NAMES = ['1F', '2F', '3F'];
+const floorName = (i) => (H3 && i === 2) ? T('loft') : FLOOR_NAMES[i];
+const EYE = 1.62;
+/* Lens. st.fov is the field of view across the WIDER screen axis (horizontal
+   on landscape, vertical on portrait); 72deg ~ a 24 mm archviz lens. */
+const FOV = { def: 100, min: 40, max: 130, wide: 120, narrow: 50 };   /* default 100 (Toby 2026-10-05: the widest then); v33 (Toby 2026-10-23): up to 130 */
+/* Two-point perspective: looking up/down by up to SHIFT is a vertical lens
+   shift (camera stays level, verticals stay vertical, like an architectural
+   shift lens); beyond +-SHIFT the camera tilts and the shift fades out (v45:
+   none looking straight down, lensShift). */
+const SHIFT = 24 * Math.PI / 180;
+/* sun direction measured off the HDRI (brightest texel): az 36deg from +x
+   towards +z, 28deg up. The directional light has to agree with the sky. */
+const SUN_DIR = new V(0.713, 0.473, 0.517).normalize();
+/* Which house. <html data-houses="6 5 4"> = this app's houses, the first is the default (the
+   switcher order is index.html's button order); ?house=N opens house N if this app has it, anything else opens the default.
+   Houses that live in another app are sent there by index.html's head script before this
+   module runs; it sets window.H3D_LEAVING so nothing is built while the browser leaves. */
+const _qHouse = new URLSearchParams(location.search).get('house');
+const APP_HOUSES = (document.documentElement.dataset.houses || '6 5 4').trim().split(/\s+/).map(Number);
+const MOVED = !!window.H3D_LEAVING;
+const HOUSE = APP_HOUSES.includes(+_qHouse) ? +_qHouse : APP_HOUSES[0];
+const ASSETS = (document.documentElement.dataset.assets || '') + 'assets/';   /* plan-b/: '../assets/' */
+/* Houses 4-9 are built from a model (ref-model-<plan>.json) through refplan.js (v44, Toby
+   2026-11-05: the plan editor is gone; "the editor's ?plan=x" below = that model's plan letter). House 4 = the
+   revision of Tsuchiya Kensetsu's reference house (Toby 2026-10-10: gym + onsen 1F,
+   LDK + 1 bedroom 2F, 2 loft bedrooms; v12: an ensuite bedroom + a den on 2F and in
+   the loft; ref-model-b.json, the editor's ?plan=b). House 5 =
+   Plan B compact (Toby 2026-10-10: the compact, cheaper version of Plan B, an
+   v12: a 13.65 x 9.1 m box along the view, north = the roof's high side;
+   ref-model-c.json, the editor's ?plan=c), same path. House 6 = Plan C
+   (Toby 2026-10-10: the L-shaped version of Plan B compact, more frontage +
+   glass on the view; ref-model-d.json, the editor's ?plan=d), same path.
+   v20 (Toby 2026-10-11): Plan C's entrance moved to the L's inner corner under a
+   carport (the model's "carport" entry: a low-pitch roof on posts, built by the
+   ref-model roof code but outside the house, so it neither splits nor clips walls).
+   v21 (Toby 2026-10-12): houses 8 + 9 = the two Plan B — Ichijo variants (ref-model-f.json
+   "compact", ref-model-g.json "3 up, 1 down"; the editor's ?plan=f / ?plan=g) on house 7's
+   path: every Ichijo house (REFS[n].ichijo, IJH below) gets the Ichijo spec panel, the
+   ceilings / roof / outside stair of buildIchijo7 and the presets computed from its rooms. */
+const H3 = (HOUSE >= 4 && HOUSE <= 9) || HOUSE === 12 || HOUSE === 13 || HOUSE === 17;   /* houses 4-9 + 12, 13 (the name is from house 3, the first): built from an editable model (refplan.js); 7-9 = Plan B — Ichijo + variants (ichijo.js, see the house 7 section) */
+/* v31 (Toby 2026-10-22): a model whose finish.style is 'warm' (houses 12 + 13) gets the finishes of his reference
+   renders (styleMaterials), per-room ceilings and the toggled structural beams (model.beams) */
+let STY = false;
+const REFS = {
+  4: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB' },
+  5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC' },
+  6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD' },
+  /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
+  12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ' },
+  /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
+  13: { url: '../ref-model-k.json?v=12', key: 'h3dRefModelK' },
+  /* STAGING house 17 = Ideal — 75 tsubo on the 910 grid with LIXIL / YKK AP windows (2026-11-05, plan o) */
+  17: { url: 'ref-model-o.json?v=7', key: 'h3dRefModelO' },
+  8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', ichijo: true },
+  9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', ichijo: true },
+};
+const REF = REFS[HOUSE] || null;
+const IJH = !!(REFS[HOUSE] && REFS[HOUSE].ichijo);   /* an Ichijo house (8, 9) */
+/* UI language: Japanese by default on every page; the EN / 日本語 toggle (#bLang) sits at the right
+   end of the top bar. ?lang=en|ja forces a language; a toggle choice is remembered in localStorage
+   LANG_KEY, one key for every page of the apps (the older keys h3dLang / h3dEditLang / h3dPlansLang
+   are ignored, so an old remembered English does not override the Japanese default). */
+const LANG_KEY = 'h3dLang26';
+const _qLang = new URLSearchParams(location.search).get('lang');
+let LANG = 'ja';
+try { if (localStorage.getItem(LANG_KEY) === 'en') LANG = 'en'; } catch (e) { /* storage blocked */ }
+if (_qLang === 'en' || _qLang === 'ja') LANG = _qLang;
+const TXT = {
+  ja: {
+    title: '倶知安 住宅計画',
+    h2: 'プランB', h2t: 'L字型の2階建て、2階は片流れ屋根', doc2: '倶知安 住宅計画 — その他のプラン — プランB',
+    geo2: "プランB\n1階：玄関、階段ホール（北側出入口）、ジム、浴室（浴槽）、サウナ、洗面室、洗濯室、トイレ、機械室。\n2階：リビング、ダイニング、キッチン、寝室4室、バスルーム4室、廊下、外部階段への出入口。",
+    h4: '予算プラン', h4t: "10.9×7.3mの箱型2階建て＋ロフト",
+    h5: '中間プラン', h5t: "13.65×9.1mの箱型2階建て＋ロフト、長辺が眺望側",
+    origt5: '中間プランの最初の間取りを表示（編集はそのまま残ります）',
+    h6: '理想プラン', h6t: "L字型の2階建て。リビングの翼棟は3面に窓", origt6: '理想プランの最初の間取りを表示（編集はそのまま残ります）',
+    h12: '理想プラン（コンパクト）', h12t: "コンパクトなL字型の2階建て。L字の内側にカーポート、リビングの翼棟は3面にガラス", origt12: '「理想プラン（コンパクト）」の最初の間取りを表示（編集はそのまま残ります）',
+    doc12: '倶知安 住宅計画 理想プラン（コンパクト） — 3D',
+    geo12: "理想プラン（コンパクト）\n1階：玄関、スキー/ギア室、ホール、ジム42.7m²、浴室10.7m²（シャワー2つ・ひのき浴槽2つ）とサウナ3.2m²、脱衣・休憩室（ラウンジャー付き）、洗濯室、トイレ、階段下の機械室、書斎1（二段ベッド付き）、ゲスト寝室12.5m²。\n2階：3面にガラスのあるリビング、アイランドのあるダイニング・キッチン、主寝室1・2（各13.5m²、それぞれ5.0m²のウォークインクローゼットと5.7m²のバスルーム付き）、書斎2（二段ベッド付き）、トイレ。",
+    h13: '理想プラン（75坪）', h13t: "「理想プラン（コンパクト）」を約75坪に拡大：主寝室・クローゼット・バスルーム・書斎・リビング・キッチン・浴室・ジムを広く", origt13: '「理想プラン（75坪）」の最初の間取りを表示（編集はそのまま残ります）',
+    h17: '75坪・910グリッド案', h17t: '75坪プランを尺モジュール（910mm）の通り芯に合わせ、窓はすべてLIXIL TWの実寸。南面に大開口、南東の角はガラス', origt17: '',
+    doc17: '倶知安 住宅計画 75坪・910グリッド案 — 3D',
+    geo17: "75坪・910グリッド案\n通り芯 16×13グリッド（14.56m×11.83m）、主棟 9グリッド＋東ウイング 7×5.5グリッド、延床約252.6m²（約76坪）。\n屋根：西に下がる片流れ 1.4寸、西の軒 450mm。\n窓：すべて LIXIL TW（トリプルガラス）の規格寸法。南面は全面に大開口（1,690幅の単体窓を910の柱の間に並べる：耐風圧S-3のため連窓は使わない）、南東の角はガラス、グレートルームの北面は窓なし。主寝室・WIC・バスルーム・書斎はそれぞれ同じ大きさ。南東の角は黒い鋼管の隅柱と方杖（門型フレーム、構造設計者が断面を決定）、軒桁は地盤から6.81 m（軒高7 m以下）。窓の一覧は図面ページ。",
+    doc13: '倶知安 住宅計画 理想プラン（75坪） — 3D',
+    geo13: "理想プラン（75坪）\n「理想プラン（コンパクト）」を約75坪に拡大。\n1階：玄関、スキー/ギア室、ホール、ジム47.8m²、浴室12.4m²（シャワー2つ・ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー付き）、洗濯室、トイレ、階段下の機械室、書斎1 9.7m²（二段ベッド付き）、ゲスト寝室12.6m²。\n2階：3面にガラスのあるリビング27.2m²、アイランドのあるダイニング・キッチン26.9m²、主寝室1・2（各15.0m²、それぞれ5.3m²のウォークインクローゼットと6.2m²のバスルーム付き）、書斎2 9.6m²（二段ベッド付き）、トイレ。",
+    srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
+    jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
+    floors: '全フロア', upto: (f) => f + 'まで', floorst: '上の階から順に切断表示', roof: '屋根', rooft: '屋根を外す（C）',
+    labels: '部屋名', labelst: '部屋名の表示（T）', beams: '構造梁', beamst: '2階床から約3mの構造梁の表示／非表示', mouse: 'マウス視点', mouset: 'マウスを固定してFPSのように視点を操作',
+    qhi: '画質：高', qlo: '画質：軽量', qualt: '高＝陰影とアンチエイリアスあり／軽量＝動きが重い場合に',
+    roofp: '屋根・2階天井', livs: 'リビング側', beds: '寝室側',
+    livst: 'リビング側の端の壁での2階床からの天井高', bedst: '寝室側の端の壁での2階床からの天井高',
+    roofread: (a, b, c, p) => '1階 ' + a + 'm・2階 ' + b + '→' + c + 'm・勾配 ' + p + '°',
+    rooftip: (dir) => '片流れの屋根1枚。リビング側から寝室側へ下がります（' + dir + '）。高さは、各端の壁の外面位置での2階床からの天井高です。',
+    dirs: { ns: '北→南', sn: '南→北', ew: '東→西', we: '西→東' },
+    move: '移動', moveh: '▲▼ 前後・◀▶ 左右・↑↓ 上下', look: '視点', lvlt: '水平に戻す', wt: '広角に', ot: '建物の周りを周回', nt: '望遠に',
+    fov: '画角', fovt: '画面の長辺方向の角度', speed: '速度', wide: '広角', narrow: '望遠', widet: '広角（120°）', narrowt: '望遠（50°）',
+    hudOrbit: '周回', hudFly: '飛行', hudWalk: '歩行',
+    loading: '建物を作成中…', loadingTex: (n, t) => 'テクスチャ・モデルを読み込み中… ' + n + ' / ' + t, failed: '読み込みに失敗しました：',
+    doc4: '倶知安 住宅計画 予算プラン — 3D', doc5: '倶知安 住宅計画 中間プラン — 3D', doc6: '倶知安 住宅計画 理想プラン — 3D',
+    geo6: "理想プラン\n1階：玄関、スキー/ギア室、ホール、ジム65.8m²、浴室24.8m²（ひのき浴槽2つ）とL字型のサウナ8.3m²、脱衣・休憩室、洗濯室、トイレ、機械室。\n2階：3面に窓のあるリビング、アイランドのあるダイニング・キッチン、主寝室（専用シャワー室・クローゼット付き）、寝室2（専用シャワー室付き）、寝室3、書斎2室、トイレ。",
+    geo5: "中間プラン\n1階：玄関、スキー/ギア室、ホール、ジム62.1m²、浴室21.1m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。\n2階：リビング・ダイニング、アイランドのあるキッチン、主寝室と寝室2（それぞれ専用シャワー室・ウォークインクローゼット付き）、書斎2室、トイレ。\nロフト：寝室/書斎29.8m²（専用バスルーム・クローゼット付き）。",
+    geo4: "予算プラン\n1階：玄関、ジム43.0m²、浴室14.9m²（ひのき浴槽2つ）とサウナ5.0m²、脱衣・休憩室、洗濯室、トイレ、機械室。\n2階：LDK 44.0m²、主寝室（専用シャワー室付き）、書斎。\nロフト：寝室（専用シャワー室付き）、書斎。",
+    help: '<h3>操作方法</h3>'
+      + '<b>キー</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 前・左・後ろ・右へ移動 ・ <kbd>E</kbd>/<kbd>Q</kbd> 上の階・下の階へ（飛行モードでは上昇・下降） ・ <kbd>Shift</kbd> 走る<br>'
+      + '<b>視点の向き</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>（または <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>）で左右・上下を見る<br>'
+      + '<b>画角</b> — <kbd>Z</kbd> 広角 ・ <kbd>X</kbd> 望遠 ・ マウスホイール／ピンチでも変更できます。画面の長辺方向の角度です（初期値100°）。上下に24°以上見るまでは、壁の縦線はまっすぐのままです。<br>'
+      + '<b>マウス／タッチ</b> — ドラッグで視点を動かします（画像が手の動きについてきます）。<b>マウス視点</b>はFPSのような操作です（<kbd>Esc</kbd>で解除）。<br>'
+      + '<b>ショートカット</b> — <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 各階へ ・ <kbd>0</kbd> 外観 ・ <kbd>F</kbd> 歩行／飛行 ・ <kbd>O</kbd> 周回 ・ <kbd>C</kbd> 屋根 ・ <kbd>T</kbd> 部屋名 ・ <kbd>G</kbd> 画質<br><br>'
+      + '<b>歩行</b>モードでは今いる階の床の上を目の高さで移動し、壁で止まります。<b>飛行</b>モードではどこへでも自由に移動できます。<br>'
+      + 'プルダウンから各部屋へ移動できます。<b>屋根</b>オフ＋<b>フロア</b>（切断表示）＋<b>飛行</b>で、模型のように見ることができます。<br><br>',
+    close: '閉じる',
+  },
+  en: {
+    title: 'Kutchan house',
+    h2: 'Plan B', h2t: 'L-shaped two-storey house, the 2F under one sloped roof', doc2: "Kutchan house — other plans — Plan B",
+    geo2: "Plan B\n1F: entrance, stair hall with a north door, gym, bath with soaking tubs, sauna, wash room, laundry, WC, boiler room.\n2F: living, dining, kitchen, 4 bedrooms, 4 bathrooms, hall, door to the outside stair.",
+    h4: 'Budget plan', h4t: "10.9 × 7.3 m two-storey box with a loft",
+    h5: 'Mid tier plan', h5t: "13.65 × 9.1 m two-storey box with a loft, long side facing the view",
+    origt5: 'Show the Mid tier plan as first drawn (your edits stay saved)',
+    h6: 'Ideal plan', h6t: "L-shaped two-storey house; the living wing has windows on three sides", origt6: 'Show the Ideal plan as first drawn (your edits stay saved)',
+    h12: 'Ideal — compact', h12t: "Compact L-shaped two-storey house; carport in the L's inner corner, the living wing glazed on three sides", origt12: 'Show “Ideal — compact” as first drawn (your edits stay saved)',
+    doc12: 'Kutchan house — Ideal — compact — 3D',
+    geo12: "Ideal — compact\n1F: entrance, ski / gear room, hall, gym 42.7 m², bath 10.7 m² (two showers, two hinoki tubs) with a 3.2 m² sauna, changing + rest room with a lounger, laundry, WC, boiler room under the stairs, den 1 (office with a bunk bed), guest bedroom 12.5 m².\n2F: living with glass on three sides, dining + kitchen with an island, master bedrooms 1 and 2 (13.5 m² each), each with a 5.0 m² walk-in closet and a 5.7 m² bathroom, den 2 (office with a bunk bed), WC.",
+    h13: 'Ideal — 75 tsubo', h13t: "“Ideal — compact” enlarged to about 75 tsubo: bigger master bedrooms, closets, bathrooms, dens, living, kitchen, bath and gym", origt13: 'Show “Ideal — 75 tsubo” as first drawn (your edits stay saved)',
+    h17: '75 tsubo · 910 grid', h17t: '75 tsubo plan on the 910 mm (shaku) grid; every window a real LIXIL TW size; big south glass, glass south-east corner', origt17: '',
+    doc17: 'Kutchan house — 75 tsubo on the 910 grid — 3D',
+    geo17: "75 tsubo on the 910 grid\nGrid 16 x 13 modules (14.56 x 11.83 m): main block 9 modules + east wing 7 x 5.5; about 252.6 m² (76 tsubo).\nRoof: one plane falling west at 1.4/10, 450 mm west eave.\nWindows: all LIXIL TW (triple glazing), catalogue sizes. Big glass along the whole south side (1,690 single units between the 910 posts — no joined units, the house needs wind grade S-3), the glass south-east corner, no windows in the great room's north wall. Master bedrooms, walk-in closets, ensuites and studies matched in pairs. The south-east corner: black steel corner post + timber knee braces (portal frame, to be sized by the structural engineer); eave beam 6.81 m above ground (7 m eave rule). Window list on the floor plans page.",
+    doc13: 'Kutchan house — Ideal — 75 tsubo — 3D',
+    geo13: "Ideal — 75 tsubo\n“Ideal — compact” enlarged to about 75 tsubo.\n1F: entrance, ski / gear room, hall, gym 47.8 m², bath 12.4 m² (two showers, two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger, laundry, WC, boiler room under the stairs, den 1 9.7 m² (office with a bunk bed), guest bedroom 12.6 m².\n2F: living 27.2 m² with glass on three sides, dining + kitchen 26.9 m² with an island, master bedrooms 1 and 2 (15.0 m² each), each with a 5.3 m² walk-in closet and a 6.2 m² bathroom, den 2 9.6 m² (office with a bunk bed), WC.",
+    srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
+    jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
+    floors: 'All floors', upto: (f) => 'Up to ' + f, floorst: 'Cut the house away floor by floor', roof: 'Roof', rooft: 'Take the roof off (C)',
+    labels: 'Labels', labelst: 'Room labels (T)', beams: 'Beams', beamst: 'Structural beams about 3 m above the 2F floor: show / hide', mouse: 'Mouse look', mouset: 'Lock the mouse for FPS-style looking',
+    qhi: 'Quality: high', qlo: 'Quality: fast', qualt: 'High = ambient occlusion + antialiasing. Fast = drop them if it stutters',
+    roofp: 'ROOF · 2F CEILING', livs: 'Living side', beds: 'Bedroom side',
+    livst: 'Ceiling height above the 2F floor at the living-room end wall', bedst: 'Ceiling height above the 2F floor at the bedroom end wall',
+    roofread: (a, b, c, p) => '1F ' + a + ' m · 2F ' + b + ' → ' + c + ' m · pitch ' + p + '°',
+    rooftip: (dir) => 'One sloped (mono-pitch) roof, falling ' + dir + ' from the living room to the bedrooms. Heights: ceiling above the 2F floor at the outside face of each end wall.',
+    dirs: { ns: 'north to south', sn: 'south to north', ew: 'east to west', we: 'west to east' },
+    move: 'MOVE', moveh: '▲▼ fwd/back · ◀▶ strafe · ↑↓ height', look: 'LOOK', lvlt: 'Level the view', wt: 'Wider angle', ot: 'Orbit the building', nt: 'Narrower / zoom in',
+    fov: 'FIELD OF VIEW', fovt: "Measured across the screen's long side", speed: 'SPEED', wide: 'Wide', narrow: 'Narrow', widet: 'Wide angle (120°)', narrowt: 'Narrow / zoom (50°)',
+    hudOrbit: 'orbit', hudFly: 'fly', hudWalk: 'walk',
+    loading: 'building the house…', loadingTex: (n, t) => 'loading textures + models… ' + n + ' / ' + t, failed: 'failed to load: ',
+    doc4: 'Kutchan house — Budget plan — 3D', doc5: 'Kutchan house — Mid tier plan — 3D', doc6: 'Kutchan house — Ideal plan — 3D',
+    geo6: "Ideal plan\n1F: entrance, ski / gear room, hall, gym 65.8 m², bath 24.8 m² (two hinoki tubs) with an 8.3 m² L-shaped sauna, changing + rest room, laundry, WC, boiler room.\n2F: living with windows on three sides, dining + kitchen with an island, master bedroom with an ensuite and a closet, bedroom 2 with an ensuite, bedroom 3, two dens, WC.",
+    geo5: "Mid tier plan\n1F: entrance, ski / gear room, hall, gym 62.1 m², bath 21.1 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.\n2F: living + dining, kitchen with an island, master bedroom and bedroom 2, each with an ensuite and a walk-in closet, two dens, WC.\nLoft: bedroom / den 29.8 m² with its own bathroom and a closet.",
+    geo4: "Budget plan\n1F: entrance, gym 43.0 m², bath 14.9 m² (two hinoki tubs) with a 5.0 m² sauna, changing + rest room, laundry, WC, boiler room.\n2F: living · dining · kitchen 44.0 m², master bedroom with an ensuite, den.\nLoft: bedroom with an ensuite, den.",
+    help: '<h3>How to move</h3>'
+      + '<b>Keys</b> — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk forward / left / back / right · <kbd>E</kbd>/<kbd>Q</kbd> up / down a floor (in Fly: rise / sink) · <kbd>Shift</kbd> run<br>'
+      + '<b>Pan the view</b> — <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> (or <kbd>J</kbd><kbd>L</kbd><kbd>I</kbd><kbd>K</kbd>) look left / right / up / down<br>'
+      + "<b>Lens</b> — <kbd>Z</kbd> wider · <kbd>X</kbd> narrower · mouse wheel / pinch too. The angle is across the screen's long side (default 100°); walls stay upright until you look more than 24° up or down.<br>"
+      + '<b>Mouse / touch</b> — drag to pan the view (the picture follows your hand). <b>Mouse look</b> = FPS-style aiming (<kbd>Esc</kbd> to release).<br>'
+      + '<b>Shortcuts</b> — <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> jump to a floor · <kbd>0</kbd> outside · <kbd>F</kbd> walk / fly · <kbd>O</kbd> orbit · <kbd>C</kbd> roof · <kbd>T</kbd> labels · <kbd>G</kbd> quality<br><br>'
+      + '<b>Walk</b> keeps you at eye height on the floor you are on and stops you at walls. <b>Fly</b> goes anywhere, through everything.<br>'
+      + 'The dropdown jumps to any room. <b>Roof</b> off + <b>Floors</b> (cut-away) + <b>Fly</b> = doll-house view.<br><br>',
+    close: 'Close',
+  },
+};
+/* the Ichijo houses (8, 9) */
+Object.assign(TXT.ja, {
+  ich: '一条仕様', icht: '一条工務店の仕様とカタログの設備を選ぶパネル',
+  h8: 'コンパクト', h8t: "小さめのL字型の2階建て、リビング棟は片流れ屋根。寝室は2階に3室、1階に1室",
+  origt8: '「コンパクト」の最初の間取りを表示（編集・選択はそのまま残ります）', doc8: '倶知安 住宅計画 コンパクト — 3D',
+  h9: 'フルサイズ', h9t: "L字型の2階建て、リビング棟は片流れ屋根",
+  origt9: '「フルサイズ」の最初の間取りを表示（編集・選択はそのまま残ります）', doc9: '倶知安 住宅計画 フルサイズ — 3D',
+  plans: '図面一覧', planst: 'すべての間取り図を1ページで',
+  geo8: "コンパクト\n1階：玄関、ホール、ジム52.0m²、浴室23.2m²（ひのき浴槽2つ）とサウナ4.0m²、脱衣室、洗濯室、トイレ、機械室、寝室3（14.2m²、専用バスルーム付き）。\n2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（11.2・11.5・13.0m²、それぞれ専用バスルーム付き、寝室2・4はウォークインクローゼット付き）。",
+  geo9: "フルサイズ\n1階：玄関、ホール、ジム52.1m²、浴室32.1m²（ひのき浴槽2つ）とサウナ5.5m²、脱衣・休憩室、洗濯室、トイレ、機械室、寝室3（18.4m²、ホールの向かいに専用シャワールーム）。\n2階：勾配天井（最高4.75m）のリビング、ダイニング、キッチン、寝室1・2・4（18.2・19.9・14.1m²、それぞれウォークインクローゼットと専用バスルーム付き）。",
+});
+Object.assign(TXT.en, {
+  ich: 'Ichijo spec', icht: "Ichijo Komuten's rules and catalogue fittings",
+  h8: 'Compact', h8t: "Smaller L-shaped two-storey house with a sloped roof over the living wing; 3 bedrooms upstairs, 1 downstairs",
+  origt8: 'Show “Compact” as first drawn (your edits and choices stay saved)', doc8: 'Kutchan house — Compact — 3D',
+  h9: 'Full size', h9t: "L-shaped two-storey house with a sloped roof over the living wing",
+  origt9: 'Show “Full size” as first drawn (your edits and choices stay saved)', doc9: 'Kutchan house — Full size — 3D',
+  plans: 'Plans', planst: 'All floor plans on one page',
+  geo8: "Compact\n1F: entrance, hall, gym 52.0 m², bath 23.2 m² (two hinoki tubs) with a 4.0 m² sauna, changing room, laundry, WC, boiler room, bedroom 3 (14.2 m²) with its own bathroom.\n2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (11.2, 11.5 and 13.0 m²), each with its own bathroom; walk-in closets for bedrooms 2 and 4.",
+  geo9: "Full size\n1F: entrance, hall, gym 52.1 m², bath 32.1 m² (two hinoki tubs) with a 5.5 m² sauna, changing + rest room, laundry, WC, boiler room, bedroom 3 (18.4 m²) with its own shower room across the hall.\n2F: living with a sloped ceiling up to 4.75 m, dining, kitchen, bedrooms 1, 2 and 4 (18.2, 19.9 and 14.1 m²), each with a walk-in closet and its own bathroom.",
+});
+const T = (k) => (TXT[LANG][k] !== undefined ? TXT[LANG][k] : TXT.en[k]);
+/* preset + room-label names: English is the key (goView tests 'Doll'), Japanese looked up */
+const JA_NAMES = {
+  'Doll-house from above': '模型表示（上から）', '1F — Entrance': '1F — 玄関',
+  '1F — Bath + tubs': '1F — 浴室・浴槽', '1F — Sauna': '1F — サウナ', '1F — Wash room': '1F — 洗面室',
+  '2F — Kitchen': '2F — キッチン',
+  'Outside — south-east (living end: roof high)': '外観 — 南東（リビング側：屋根が高い）', 'Outside — north-west (bedroom end: roof low)': '外観 — 北西（寝室側：屋根が低い）',
+  'Outside — south elevation': '外観 — 南側', 'Outside — north-east yard': '外観 — 北東の庭', 'Site from above (fences, carport)': '敷地全体（上空から：フェンス・カーポート）',
+  'Outside — carport (north-east)': '外観 — カーポート（北東）', 'Outside — stair up to the 2F door': '外観 — 2F出入口への外部階段',
+  '1F — Gym': '1F — トレーニングルーム', '1F — Stair hall': '1F — 階段ホール', '2F — Living, looking west to the bedrooms': '2F — リビングから寝室側（西）を見る',
+  '2F — Dining, looking east (roof rises)': '2F — ダイニングから東を見る（屋根が高くなる側）', '2F — Kitchen + dining': '2F — キッチン・ダイニング',
+  '2F — Top of the stairs': '2F — 階段の上', '2F — Door out to the stair landing': '2F — 外部階段への出入口', '2F — Bedroom 1 (lowest ceiling)': '2F — 寝室1（天井が最も低い）',
+  '2F — Bedroom 2': '2F — 寝室2', '2F — Bedroom 3': '2F — 寝室3', '2F — Bedroom 4': '2F — 寝室4',
+  'Entrance': '玄関', 'Bath · soaking tubs': '浴室・浴槽', 'Sauna': 'サウナ',
+  'Wash room': '洗面室', 'Living': 'リビング', 'Dining': 'ダイニング', 'Kitchen': 'キッチン',
+  'Bedroom 1': '寝室1', 'Bedroom 2': '寝室2', 'Bedroom 3': '寝室3', 'Bedroom 4': '寝室4',
+  'Bathroom': 'バスルーム', 'Bathroom 2': 'バスルーム2', 'Gym': 'トレーニングルーム', 'Stair hall · north door': '階段ホール・北側出入口',
+  'WC': 'トイレ', 'Laundry': '洗濯室', 'Plant room': '機械室', 'Boiler room': '機械室', 'Hall': '廊下', 'Carport': 'カーポート', 'Outside stair · 2F door': '外部階段・2F出入口',
+  '1F — Bedroom 1': '1F — 寝室1',
+  '2F — Kitchen + dining': '2F — キッチン・ダイニング',
+  '2F — Top of the stairs': '2F — 階段の上', 'Loft': 'ロフト',
+  'Outside — east (carport, front door)': '外観 — 東（カーポート・玄関）', 'Outside — north-east': '外観 — 北東', '1F — Lounge (open to the hall)': '1F — ラウンジ（ホールとつながる）', '1F — Changing + rest room': '1F — 脱衣・休憩室', 'Outside — south-east (view side)': '外観 — 南東（眺望側）', 'Outside — carport + entrance (inner corner)': '外観 — カーポート・玄関（L字の内側の角）', '1F — Entrance (genkan)': '1F — 玄関', '2F — Living wing': '2F — リビング（翼棟）', '1F — Bath (hot tubs)': '1F — 浴室（ひのき浴槽）',
+  '2F — Living (north glass, stove)': '2F — リビング（北側の大開口・薪ストーブ）', '2F — Dining + loft stair': '2F — ダイニング・ロフトへの階段', '2F — Master bedroom': '2F — 主寝室', '2F — Den / office 2': '2F — 書斎2',
+  '2F — Ensuite': '2F — 専用シャワー室', 'Loft — Hall, top of the stairs': 'ロフト — ホール（階段の上）', 'Loft — Bedroom A + ensuite': 'ロフト — 寝室A・専用シャワー室', 'Loft — Den / office 1': 'ロフト — 書斎1',
+};
+Object.assign(JA_NAMES, {                              /* house 7 presets */
+  'Outside — north-east': '外観 — 北東', 'Outside — south (entrance, outside stair)': '外観 — 南（玄関・外部階段）', '1F — Entrance': '1F — 玄関',
+  '1F — Gym (sunken floor)': '1F — トレーニングルーム（床を下げた土間）', '1F — Bath (hinoki tubs)': '1F — 浴室（ひのき浴槽）', '1F — Stair hall + stair': '1F — 階段ホール・階段',
+  '2F — Living (sloped ceiling)': '2F — リビング（勾配天井）', '2F — Kitchen': '2F — キッチン', '2F — Bedroom 1': '2F — 寝室1', '2F — Bedroom 2': '2F — 寝室2',
+  '2F — Bedroom 3': '2F — 寝室3', '2F — Bedroom 4': '2F — 寝室4', '2F — Bathroom 4 (unit shower)': '2F — バスルーム4（シャワーユニット）', '2F — Top of the stairs': '2F — 階段の上',
+  /* v21 (houses 7-9, house 5) */
+  'Outside — south (view side, outside stair)': '外観 — 南（眺望側・外部階段）', '1F — Hall + stair': '1F — ホール・階段', '1F — Bedroom 3': '1F — 寝室3',
+  '1F — Den / guest bedroom': '1F — 書斎・客間',                     /* v22 (house 7) */
+  'Outside — north-east (entrance, carport)': '外観 — 北東（玄関・カーポート）',
+  'Outside — carport + entrance (north-east)': '外観 — カーポート・玄関（北東）', 'Outside — west (snow side)': '外観 — 西（落雪側）',
+  '1F — Guest bedroom': '1F — ゲスト寝室', '2F — Living (glass on three sides)': '2F — リビング（3面ガラス）',
+  '2F — Dining + kitchen': '2F — ダイニング・キッチン', '2F — Master bedroom 1': '2F — 主寝室1', '2F — Master bedroom 2': '2F — 主寝室2',
+  /* house 4: the editor's compass (north at the bottom of plan b) */
+  'Outside — north-west': '外観 — 北西', 'Outside — south-east (view side, roof high)': '外観 — 南東（眺望側・屋根が高い側）',
+  'Outside — west (carport, front door)': '外観 — 西（カーポート・玄関）', '2F — Living (view glass, stove)': '2F — リビング（眺望側の大開口・薪ストーブ）',
+});
+const NM = (en) => (LANG === 'ja' && JA_NAMES[en]) ? JA_NAMES[en] : en;
+
+/* house 2: the 2F ceiling plane, see roofSetup(); null for houses 4-9 */
+let ROOF = null;
+const ROOF_HEAD = 0.15;      /* least wall left over a window cut down by the roof */
+
+/* ------------------------------------------------------------ renderer etc */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.92;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.08, 1400);   /* fov/aspect: applyLens() */
+const root = new THREE.Group(); scene.add(root);
+let sun = null, composer = null, gtaoPass = null, smaaPass = null;
+
+const LM = new THREE.LoadingManager();
+const TL = new THREE.TextureLoader(LM);
+const loadMsg = (t) => { const e = document.getElementById('loadmsg'); if (e) e.textContent = t; };
+LM.onProgress = (url, n, total) => loadMsg(T('loadingTex')(n, total));
+
+/* ---------------------------------------------------------------- materials */
+/* Every textured material carries userData.tile = metres covered by one
+   repeat of its texture. Geometry UVs are written in metres / tile, so the
+   textures themselves stay at repeat 1 and can be shared. */
+const TEX = {};
+function tload(file, srgb) {
+  const k = file + (srgb ? '|s' : '');
+  if (TEX[k]) return TEX[k];
+  const t = TL.load(ASSETS + 'tex/' + file);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = Math.min(8, MAX_ANISO);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return (TEX[k] = t);
+}
+/* o: color, rough (x the arm roughness), env, ao, nScale, noDiff, noNor,
+   maps {diff, nor, arm} (other texture names), phys {MeshPhysicalMaterial
+   params, e.g. clearcoat}, grain (veneer: UVs follow each piece's long axis,
+   see grainUV), macro (anti-tiling, see macro()) */
+function pbr(name, tile, o) {
+  o = o || {};
+  const M = o.phys ? THREE.MeshPhysicalMaterial : THREE.MeshStandardMaterial;
+  const m = new M(Object.assign({
+    color: typeof o.color === 'number' ? o.color : 0xffffff,
+    roughness: o.rough === undefined ? 1 : o.rough,
+    metalness: o.metal || 0,
+    envMapIntensity: o.env === undefined ? 1 : o.env,
+  }, o.phys || {}));
+  if (Array.isArray(o.color)) m.color.setRGB(o.color[0], o.color[1], o.color[2]);   /* linear multiplier on the albedo map */
+  const mp = Object.assign({ diff: name, nor: name, arm: name }, o.maps || {});
+  if (!o.noDiff) m.map = tload(mp.diff + '_diff.jpg', true);
+  if (!o.noNor) m.normalMap = tload(mp.nor + '_nor.jpg', false);
+  const arm = tload(mp.arm + '_arm.jpg', false);
+  m.roughnessMap = arm;
+  m.aoMap = arm; m.aoMapIntensity = o.ao === undefined ? 1 : o.ao;
+  const ns = o.nScale === undefined ? 1 : o.nScale;
+  /* OpenGL-convention maps (Poly Haven nor_gl, ambientCG NormalGL, ours) with
+     three's default flipY: +v is image-up, so +green = +B. (v2 had -ns here,
+     which lit every bevel from the wrong side; checked on a lit test plane.) */
+  m.normalScale.set(ns, ns);
+  m.userData.tile = tile;
+  if (o.grain) m.userData.grain = true;
+  if (o.macro) macro(m, o.macro);
+  return m;
+}
+
+/* Anti-tiling. Large surfaces get a world-space, low-frequency variation from
+   a small tileable noise (assets/tex/macro_noise.png, triplanar, sampled at
+   two incommensurate scales): albedo +-~4-8 %, roughness +-~10 %. Options:
+   blend = isotropic textures (snow, plaster, concrete) also mix in a second,
+   rotated + rescaled sample of every map in noise-driven patches;
+   cells = [n, 0]: plank textures with n boards across u (gaps at k/n): each
+   board column samples a random column at a random offset along the board, so
+   board ends never line up into a repeat; cells = [n, m]: a tile grid, every
+   tile position shows a random one of the n x m tiles. The shuffled samples
+   use textureGrad with the true UV derivatives (no mip seams at the joints). */
+let MACRO_TEX = null;
+const MACRO_HEAD = `
+#if __VERSION__ < 300
+#define textureGrad( s, p, dx, dy ) texture2D( s, p )
+#endif
+varying vec3 vMacroP;
+varying vec3 vMacroN;
+varying vec2 vMacroUv;
+uniform sampler2D uMacroTex;
+uniform vec4 uMacroA;
+uniform vec4 uMacroB;
+uniform vec4 uMacroC;
+vec2 gUvA, gUvB, gDx, gDy, gDxB, gDyB;
+float gBlend, gMacroAlbedo, gMacroRough;
+float mHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+vec4 mNoise( vec3 p, vec3 w ) {
+  return texture2D( uMacroTex, p.zy ) * w.x + texture2D( uMacroTex, p.xz ) * w.y + texture2D( uMacroTex, p.xy ) * w.z;
+}
+vec4 macroTex( sampler2D s ) {
+  vec4 a = textureGrad( s, gUvA, gDx, gDy );
+#ifdef MACRO_BLEND
+  a = mix( a, textureGrad( s, gUvB, gDxB, gDyB ), gBlend );
+#endif
+  return a;
+}
+vec3 macroNor( sampler2D s ) {
+  vec3 a = textureGrad( s, gUvA, gDx, gDy ).xyz * 2.0 - 1.0;
+#ifdef MACRO_BLEND
+  vec3 b = textureGrad( s, gUvB, gDxB, gDyB ).xyz * 2.0 - 1.0;
+  b.xy = vec2( uMacroB.x * b.x + uMacroB.y * b.y, - uMacroB.y * b.x + uMacroB.x * b.y );
+  a = mix( a, b, gBlend );
+#endif
+  return a;
+}
+`;
+const MACRO_MAIN = `
+  gDx = dFdx( vMacroUv ); gDy = dFdy( vMacroUv );
+  gUvA = vMacroUv;
+  float mCell = 0.0;
+#ifdef MACRO_PLANKS
+  { float ci = floor( vMacroUv.x * uMacroC.x );
+    gUvA += vec2( floor( mHash( vec2( ci, 3.1 ) ) * uMacroC.x ) / uMacroC.x, mHash( vec2( ci, 7.7 ) ) * 17.0 );
+    mCell = mHash( vec2( ci, 1.3 ) ) - 0.5; }
+#endif
+#ifdef MACRO_GRID
+  { vec2 ci = floor( vMacroUv * uMacroC.xy );
+    gUvA += floor( vec2( mHash( ci + 0.37 ), mHash( ci + 5.51 ) ) * uMacroC.xy ) / uMacroC.xy;
+    mCell = mHash( ci + 9.13 ) - 0.5; }
+#endif
+  vec3 mw = pow( abs( vMacroN ), vec3( 4.0 ) ); mw /= ( mw.x + mw.y + mw.z + 1e-5 );
+  vec4 mn = mNoise( vMacroP * uMacroA.x, mw ) * 0.62 + mNoise( vMacroP * uMacroA.x * 0.27 + 0.31, mw ) * 0.38;
+  gMacroAlbedo = 1.0 + uMacroA.y * ( mn.r - 0.5 ) * 3.0 + uMacroC.z * mCell * 2.0;
+  gMacroRough = 1.0 + uMacroA.z * ( mn.g - 0.5 ) * 3.0;
+#ifdef MACRO_BLEND
+  gBlend = smoothstep( 0.4, 0.6, mn.b ) * uMacroA.w;
+  mat2 mR = mat2( uMacroB.x, uMacroB.y, - uMacroB.y, uMacroB.x );
+  gUvB = mR * gUvA * uMacroB.z + vec2( 0.37, 0.61 );
+  gDxB = mR * gDx * uMacroB.z; gDyB = mR * gDy * uMacroB.z;
+#endif
+`;
+function macro(m, c) {
+  if (!MACRO_TEX) { MACRO_TEX = TL.load(ASSETS + 'tex/macro_noise.png'); MACRO_TEX.wrapS = MACRO_TEX.wrapT = THREE.RepeatWrapping; }
+  c = Object.assign({ scale: 7, albedo: 0, rough: 0, blend: 0, rot: 0.9, s2: 0.73, cells: null, tint: 0 }, c);
+  const U = {
+    uMacroTex: { value: MACRO_TEX },
+    uMacroA: { value: new THREE.Vector4(1 / c.scale, c.albedo, c.rough, c.blend) },
+    uMacroB: { value: new THREE.Vector4(Math.cos(c.rot), Math.sin(c.rot), c.s2, 0) },
+    uMacroC: { value: new THREE.Vector4(c.cells ? c.cells[0] : 0, c.cells ? c.cells[1] : 0, c.tint, 0) },
+  };
+  const defs = (c.blend ? '#define MACRO_BLEND\n' : '') + (c.cells ? (c.cells[1] ? '#define MACRO_GRID\n' : '#define MACRO_PLANKS\n') : '');
+  const key = 'macro|' + defs.replace(/\s+/g, ' ');
+  const sub = (chunk, from, to) => THREE.ShaderChunk[chunk].split(from).join(to);
+  m.macroCfg = c;                       /* not userData: Material.copy JSON-clones that */
+  m.customProgramCacheKey = () => key;  /* same defines -> same code -> one program */
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'varying vec3 vMacroP;\nvarying vec3 vMacroN;\nvarying vec2 vMacroUv;\n' + sh.vertexShader.replace('#include <worldpos_vertex>',
+      '#include <worldpos_vertex>\n  vMacroP = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;\n  vMacroN = normalize( mat3( modelMatrix ) * objectNormal );\n  vMacroUv = uv;');
+    sh.fragmentShader = (defs + MACRO_HEAD + sh.fragmentShader)
+      .replace('void main() {', 'void main() {\n' + MACRO_MAIN)
+      .replace('#include <map_fragment>', sub('map_fragment', 'texture2D( map, vMapUv )', 'macroTex( map )') + '\n  diffuseColor.rgb *= gMacroAlbedo;')
+      .replace('#include <normal_fragment_maps>', sub('normal_fragment_maps', 'texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0', 'macroNor( normalMap )'))
+      .replace('#include <roughnessmap_fragment>', sub('roughnessmap_fragment', 'texture2D( roughnessMap, vRoughnessMapUv )', 'macroTex( roughnessMap )') + '\n  roughnessFactor = clamp( roughnessFactor * gMacroRough, 0.03, 1.0 );')
+      .replace('#include <aomap_fragment>', sub('aomap_fragment', 'texture2D( aoMap, vAoMapUv )', 'macroTex( aoMap )'));
+  };
+  return m;
+}
+/* clone() drops onBeforeCompile (and macroCfg): re-apply it */
+function cloneMat(src) {
+  const m = src.clone();
+  if (src.macroCfg) macro(m, src.macroCfg);
+  else if (src.onBeforeCompile) m.onBeforeCompile = src.onBeforeCompile;
+  return m;
+}
+
+const std = (o) => new THREE.MeshStandardMaterial(o);
+const MAT = {};
+function buildMaterials() {
+  const IN = 0.42;                      /* env light indoors: the sky can't see in */
+  /* 2F/3F: brushed engineered oak, 9 boards of 18.8 cm per 1.69 m, satin lacquer */
+  MAT.oak = pbr('wood_floor', 1.69, { env: IN, rough: 0.72, color: [1.75, 2.05, 2.4],
+    phys: { clearcoat: 0.25, clearcoatRoughness: 0.34 },
+    macro: { cells: [9, 0], tint: 0.05, albedo: 0.10, rough: 0.12, scale: 6 } });
+  /* joinery: continuous oak veneer (no plank seams), grain along each piece's long axis */
+  MAT.oakFurn = pbr('silver_oak_veneer_02', 1.0, { env: IN, rough: 0.78, color: [0.77, 0.86, 0.74], grain: true,
+    macro: { albedo: 0.06, rough: 0.1, scale: 3 } });
+  /* 1F: sealed, lightly polished concrete */
+  MAT.concrete = pbr('concrete_floor_worn_001', 3.0, { env: IN, color: [2.7, 2.8, 3.0], rough: 0.62, nScale: 0.6,
+    phys: { clearcoat: 0.35, clearcoatRoughness: 0.22 },
+    macro: { blend: 1, albedo: 0.14, rough: 0.2, scale: 7 } });
+  /* onsen: dark stone tile, wet-look; entrance: the same stone, honed */
+  MAT.granite = pbr('granite_tile', 2.29, { env: IN, rough: 0.52, color: [0.55, 0.56, 0.58], macro: { albedo: 0.08, rough: 0.12, scale: 5 } });
+  MAT.entranceStone = pbr('granite_tile', 2.29, { env: IN, rough: 0.75, color: [0.6, 0.6, 0.62], macro: { albedo: 0.08, rough: 0.1, scale: 5 } });
+  /* bathrooms / powder / wash room: 60 x 60 light porcelain (marble look), 3 mm joints */
+  MAT.bathTile = pbr('bath_tile', 2.4, { env: IN, rough: 1.0, ao: 0.8, color: [1.45, 1.43, 1.28],
+    macro: { cells: [4, 4], tint: 0.02, albedo: 0.04, rough: 0.1, scale: 5 } });
+  /* sauna + soaking tubs: hinoki - pale cream, straight fine grain, knot-free:
+     12 cm boards with 1.5 mm joints, derived from the oak veneer (10 per 1.2 m) */
+  MAT.hinoki = pbr('hinoki_boards', 1.2, { env: IN, rough: 1.0 });
+  MAT.cedar = pbr('japanese_cedar_planks', 1.13, { env: 0.8, color: 0x9c7d66 });
+  /* painted plaster / drywall: near-white, stipple normal kept faint */
+  MAT.plaster = pbr('white_stucco', 1.99, { env: IN, color: [1.26, 1.27, 1.24], nScale: 0.22, ao: 0.3,
+    macro: { blend: 1, albedo: 0.07, rough: 0.14, scale: 5 } });
+  MAT.ceiling = pbr('white_stucco', 1.99, { env: IN, color: [1.33, 1.37, 1.36], nScale: 0.18, ao: 0.3,
+    macro: { blend: 1, albedo: 0.05, rough: 0.1, scale: 5 } });
+  /* charred (yakisugi) cedar boards, 14 cm, brushed so the grain shows */
+  MAT.clad = pbr('charred_cedar', 1.13, { env: 0.85, rough: 1.0, color: [0.38, 0.38, 0.38], maps: { nor: 'japanese_cedar_planks' }, nScale: 1.9,
+    macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
+  /* snow: the scan's normal map carried a 12.8 deg net tilt (removed in the
+     file); v2 lit the field as a plane tilted toward the sun, so the albedo is
+     raised to keep v2's brightness on level ground. Anti-tiling: a second,
+     rotated and slightly finer sample + only +-1-3 % luminance breakup */
+  MAT.snow = pbr('snow_02', 3.0, { env: 1.0, color: [1.2, 1.23, 1.29], rough: 0.9, nScale: 0.8,
+    macro: { blend: 1, albedo: 0.03, rough: 0.03, scale: 9, s2: 1.31, rot: 1.1 } });
+  MAT.roofSnow = pbr('snow_02', 2.2, { env: 1.0, color: [1.245, 1.268, 1.314], rough: 0.9, nScale: 0.6,
+    macro: { blend: 1, albedo: 0.03, rough: 0.03, scale: 6, s2: 1.27, rot: 1.1 } });
+  /* terrace: weathered, silvering timber */
+  MAT.deck = pbr('old_planks_02', 2.0, { env: 0.9, color: [1.0, 1.02, 1.06], macro: { albedo: 0.12, rough: 0.1, scale: 5 } });
+  MAT.packed = pbr('snow_02', 1.6, { env: 1.0, color: [0.879, 0.926, 0.986], rough: 0.8, nScale: 0.5,
+    macro: { blend: 1, albedo: 0.03, rough: 0.03, scale: 7, s2: 1.29, rot: 1.1 } });
+  MAT.pad = pbr('concrete_floor_worn_001', 3.0, { env: 0.8, color: [2.2, 2.2, 2.3], rough: 0.95, nScale: 0.7,
+    macro: { blend: 1, albedo: 0.14, rough: 0.1, scale: 6 } });
+  /* textiles: wool herringbone upholstery, linen bedding, wool throw */
+  /* cloth: sheen (the soft grazing-angle fuzz of fibres) + deeper weave relief */
+  const CLOTH = (c) => ({ sheen: 1, sheenRoughness: 0.6, sheenColor: new THREE.Color(c) });
+  MAT.sofa = pbr('poly_wool_herringbone', 0.3, { env: 0.5, color: [2.2, 2.1, 1.85], nScale: 1.8, rough: 1, phys: CLOTH(0x9c958a) });
+  MAT.linen = pbr('rough_linen', 0.36, { env: 0.5, color: 0xe2dacd, nScale: 1.5, rough: 1.3, phys: CLOTH(0xb8b2a8) });
+  MAT.linenDark = pbr('poly_wool_herringbone', 0.3, { env: 0.5, color: [0.8, 0.78, 0.74], nScale: 1.8, rough: 1, phys: CLOTH(0x5c5852) });
+  MAT.linenWhite = pbr('rough_linen', 0.36, { env: 0.5, color: [1.22, 1.21, 1.19], nScale: 1.2, rough: 1.3, phys: CLOTH(0xc8c6c2) });
+
+  /* glass: reflections are ADDED at full strength (Fresnel does the work),
+     what's behind is let through at (1 - opacity). Stock transparency would
+     scale the reflection by opacity too, which is why windows read as holes. */
+  MAT.glass = new THREE.MeshStandardMaterial({
+    color: 0x9fb3ba, metalness: 0, roughness: 0.03, transparent: true, opacity: 0.1,
+    envMapIntensity: 1.6, side: THREE.DoubleSide, depthWrite: false,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+    blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+  });
+  MAT.glass.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>',
+      'gl_FragColor = vec4( totalSpecular + totalDiffuse * diffuseColor.a, diffuseColor.a );');
+  };
+  /* interior door leaves: frosted, see-through (opening() shows them closed) */
+  MAT.doorGhost = new THREE.MeshStandardMaterial({
+    color: 0xeae3d6, roughness: 0.6, metalness: 0, transparent: true, opacity: 0.3,
+    envMapIntensity: 0.4, side: THREE.DoubleSide, depthWrite: false,
+  });
+  MAT.glassIn = new THREE.MeshStandardMaterial({
+    color: 0xdfe9ea, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.1,
+    envMapIntensity: 0.25, side: THREE.DoubleSide, depthWrite: false,
+  });
+  /* v21: obscured (frosted) glass for the windows a model marks frost / frosted (wet rooms):
+     milky, lets light through, hides what is behind */
+  MAT.glassFrost = new THREE.MeshStandardMaterial({
+    color: 0xf3f5f4, metalness: 0, roughness: 0.9, transparent: true, opacity: 0.78,
+    envMapIntensity: 0.35, side: THREE.DoubleSide, depthWrite: false,
+  });
+  MAT.frame = std({ color: 0x1b1d20, roughness: 0.38, metalness: 0.6, envMapIntensity: 0.9 });
+  /* brushed stainless: streaked normal + roughness (procedural, streaks along u) */
+  MAT.steel = pbr('brushed_steel', 0.5, { noDiff: true, metal: 1, rough: 1, color: 0xbfc4c9, env: 1.2, nScale: 0.8 });
+  MAT.blackSteel = std({ color: 0x1d1f22, roughness: 0.45, metalness: 0.5, envMapIntensity: 0.8 });
+  MAT.white = std({ color: 0xf1f1ef, roughness: 0.35, metalness: 0, envMapIntensity: IN });
+  MAT.porcelain = std({ color: 0xfbfbfa, roughness: 0.08, metalness: 0, envMapIntensity: 1.0 });
+  /* worktops + vanity tops: one dark marble slab (ambientCG Marble016), honed-polished */
+  MAT.stoneTop = pbr('marble016', 1.0, { noNor: true, rough: 1.6, env: 0.9, color: 0xd6d6d6 });
+  MAT.water = new THREE.MeshPhysicalMaterial({
+    color: 0x6fa9b8, roughness: 0.02, metalness: 0, transparent: true, opacity: 0.55,
+    envMapIntensity: 1.4, depthWrite: false,
+  });
+  MAT.black = std({ color: 0x141517, roughness: 0.3, metalness: 0.2, envMapIntensity: 0.8 });
+  MAT.screen = std({ color: 0x07090b, roughness: 0.08, metalness: 0.3, envMapIntensity: 1.0 });
+  MAT.slabEdge = std({ color: 0xd6d3cd, roughness: 0.9, envMapIntensity: IN });
+  MAT.bark = std({ color: 0x4a4038, roughness: 0.95, envMapIntensity: 0.6 });
+  MAT.rug = pbr('hessian_380', 0.8, { env: 0.4, color: [0.92, 1.0, 1.1], nScale: 1.6 });      /* entrance: chunky jute weave (hessian at 3x) */
+  MAT.rugWool = pbr('curly_teddy_natural', 0.33, { env: 0.4, color: [0.62, 0.66, 0.72], nScale: 1.0, rough: 1.25 });  /* living: wool boucle */
+  MAT.lampGlow = new THREE.MeshBasicMaterial({ color: 0xfff1d8 });
+  MAT.heater = std({ color: 0x2b2b2b, roughness: 0.7, metalness: 0.3 });
+  MAT.stones = std({ color: 0x55524e, roughness: 0.95, envMapIntensity: 0.5 });
+  if (H3) {
+    /* houses 4-9 (ref models): the Tsuchiya brochure's finishes, loosely --
+       pale knotty red pine floors, walnut-stained pine joinery, warm exposed
+       timber, a black kitchen, grey stone-look porcelain in the wet rooms */
+    MAT.pine = pbr('wood_floor', 1.69, { env: IN, rough: 0.8, color: [2.3, 2.12, 1.8],
+      macro: { cells: [9, 0], tint: 0.07, albedo: 0.12, rough: 0.12, scale: 6 } });
+    MAT.walnut = pbr('silver_oak_veneer_02', 1.0, { env: IN, rough: 0.72, color: [0.36, 0.27, 0.21], grain: true,
+      macro: { albedo: 0.06, rough: 0.1, scale: 3 } });
+    MAT.timber = pbr('silver_oak_veneer_02', 1.6, { env: IN, rough: 0.85, color: [1.0, 0.84, 0.66], grain: true,
+      macro: { albedo: 0.08, rough: 0.1, scale: 3 } });
+    MAT.doorWood = pbr('silver_oak_veneer_02', 1.0, { env: IN, rough: 0.7, color: [1.15, 0.95, 0.72], grain: true });
+    MAT.kitchenBlack = std({ color: 0x242527, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.5 });
+    MAT.greyTile = pbr('granite_tile', 1.2, { env: IN, rough: 0.62, color: [1.45, 1.45, 1.5], macro: { albedo: 0.06, rough: 0.1, scale: 5 } });
+    MAT.roofMetal = std({ color: 0x3b3f44, roughness: 0.42, metalness: 0.65, envMapIntensity: 0.9 });
+    MAT.found = pbr('concrete_floor_worn_001', 3.0, { env: 0.8, color: [1.7, 1.7, 1.75], rough: 0.95, nScale: 0.6 });
+    MAT.siding = pbr('charred_cedar', 1.13, { env: 0.85, rough: 1.0, color: [0.5, 0.5, 0.5], maps: { nor: 'japanese_cedar_planks' }, nScale: 1.6,
+      macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
+    MAT.clad = MAT.siding;                         /* lighter, horizontal siding (the elevations) */
+    if (IJH) {
+      MAT.ghostNo = new THREE.MeshStandardMaterial({ color: 0xff3b3b, transparent: true, opacity: 0.28, depthWrite: false, roughness: 0.6 });
+      MAT.ghostNeeds = new THREE.MeshStandardMaterial({ color: 0xffb020, transparent: true, opacity: 0.28, depthWrite: false, roughness: 0.6 });
+    }
+    if (HOUSE >= 4) {
+      /* house 4 + 5 gym: dark rubber sports flooring (the worn concrete scan, dark, matt: reads as EPDM granules) */
+      MAT.rubber = pbr('concrete_floor_worn_001', 1.4, { env: IN, color: [1.0, 1.02, 1.08], rough: 1.0, nScale: 0.35 });
+    }
+    if (STY) styleMaterials(IN);
+  }
+}
+/* v31 'warm' finish (Toby's reference renders, 2026-10-22): warm grey walls, honey cedar board ceilings, light
+   oak, loop-pile carpet, brown-grey stone tile in the wet rooms, grey stone in the entrance + hall; outside dark
+   grey brick on the 1F, light grey stone on the 2F, matt black round the front door, the cedar soffit as before.
+   New scans (Poly Haven, CC0): castle_wall_slates, long_white_tiles, concrete_tile_facade (assets/tex) */
+function styleMaterials(IN) {
+  MAT.plaster.color.setRGB(0.56, 0.56, 0.55);
+  MAT.woodCeil = pbr('hinoki_boards', 1.2, { env: IN, rough: 1.0, color: [0.8, 0.6, 0.4],
+    macro: { albedo: 0.1, rough: 0.08, scale: 3 } });
+  MAT.oakS = pbr('wood_floor', 1.69, { env: IN, rough: 0.75, color: [1.95, 1.95, 1.88],
+    macro: { cells: [9, 0], tint: 0.06, albedo: 0.10, rough: 0.12, scale: 6 } });
+  MAT.carpet = pbr('curly_teddy_natural', 0.45, { env: 0.3, color: [0.64, 0.61, 0.57], nScale: 0.9, rough: 1.25,
+    macro: { albedo: 0.05, rough: 0.05, scale: 4 } });
+  MAT.bathStone = pbr('bath_tile', 2.4, { env: IN, rough: 1.0, ao: 0.8, color: [0.8, 0.72, 0.62],
+    macro: { cells: [4, 4], tint: 0.03, albedo: 0.05, rough: 0.1, scale: 5 } });
+  MAT.greyStone = pbr('granite_tile', 2.29, { env: IN, rough: 0.75, color: [1.05, 1.05, 1.08], macro: { albedo: 0.08, rough: 0.1, scale: 5 } });
+  /* v36 (Toby 2026-10-24, his photo: muted greys, more texture, nothing too white, no cheap brick): stacked stone
+     (castle-wall slates), muted grey long tiles, dark slate tiles; a dark slate floor tile (1F) */
+  MAT.cladStone = pbr('castle_wall_slates', 2.5, { env: 0.8, rough: 1.0, color: [0.6, 0.65, 0.74], nScale: 1.5,
+    macro: { albedo: 0.06, rough: 0.06, scale: 7 } });
+  MAT.cladTiles = pbr('long_white_tiles', 1.27, { env: 0.85, rough: 0.9, color: [0.34, 0.345, 0.355], nScale: 1.0,
+    macro: { albedo: 0.08, rough: 0.06, scale: 6 } });
+  MAT.cladSlate = pbr('concrete_tile_facade', 2.09, { env: 0.9, rough: 0.8, color: [1.9, 1.9, 1.92], nScale: 1.0,
+    macro: { albedo: 0.08, rough: 0.08, scale: 6 } });
+  MAT.slateFloor = pbr('concrete_tile_facade', 4.18, { env: IN, rough: 0.65, color: [1.7, 1.73, 1.8], nScale: 0.6,
+    macro: { albedo: 0.06, rough: 0.08, scale: 6 } });
+  for (const m of [MAT.cladStone, MAT.cladTiles, MAT.cladSlate]) m.userData.facade = true;
+  MAT.cladLight = MAT.cladTiles; MAT.cladDark = MAT.cladStone;
+  MAT.cladBlack = std({ color: 0x18191b, roughness: 0.62, metalness: 0.1, envMapIntensity: 0.55 });
+  /* v32 (Toby 2026-10-23: variation, Sumitomo-style black accents): lighter + darker paint, matt black, charcoal stone
+     tile (walls + floors), light stone floor tile, smoked oak, dark skirting */
+  MAT.plasterLight = cloneMat(MAT.plaster); MAT.plasterLight.color.setRGB(1.0, 0.99, 0.955);
+  MAT.plasterDark = cloneMat(MAT.plaster); MAT.plasterDark.color.setRGB(0.24, 0.235, 0.228);
+  MAT.accBlack = std({ color: 0x161719, roughness: 0.55, metalness: 0.15, envMapIntensity: 0.5 });
+  MAT.darkTile = pbr('granite_tile', 1.8, { env: IN, rough: 0.6, color: [0.42, 0.42, 0.44], macro: { albedo: 0.08, rough: 0.1, scale: 5 } });
+  MAT.lightStone = pbr('bath_tile', 2.4, { env: IN, rough: 0.9, ao: 0.8, color: [1.12, 1.11, 1.08],
+    macro: { cells: [4, 4], tint: 0.02, albedo: 0.04, rough: 0.1, scale: 5 } });
+  MAT.oakDark = pbr('wood_floor', 1.69, { env: IN, rough: 0.75, color: [0.95, 0.85, 0.74],
+    macro: { cells: [9, 0], tint: 0.06, albedo: 0.10, rough: 0.12, scale: 6 } });
+  MAT.skirtDark = std({ color: 0x2a2b2d, roughness: 0.5, metalness: 0.05, envMapIntensity: 0.4 });
+  /* v38 (Toby 2026-10-24, his photos): dark glazed stack tiles (behind the floating stair, showers), rough split-face
+     stone (basin + tub walls), grey rubble stone (the dining | living pier) */
+  MAT.stackDark = pbr('long_white_tiles', 1.27, { env: IN, rough: 0.45, color: [0.1, 0.105, 0.12], nScale: 1.0 });
+  MAT.splitFace = pbr('white_sandstone_blocks_02', 2.0, { env: IN, rough: 1.0, color: [1.0, 0.98, 0.95], nScale: 1.8 });
+  MAT.rubbleIn = pbr('castle_wall_slates', 2.5, { env: IN, rough: 1.0, color: [0.85, 0.88, 0.94], nScale: 1.6 });
+}
+
+/* ------------------------------------------------------------ environment */
+function setupEnv() {
+  return new Promise((res) => {
+    new RGBELoader(LM).load(ASSETS + 'sky_2k.hdr', (hdr) => {
+      hdr.mapping = THREE.EquirectangularReflectionMapping;
+      scene.background = hdr;
+      const pm = new THREE.PMREMGenerator(renderer);
+      scene.environment = pm.fromEquirectangular(hdr).texture;
+      pm.dispose();
+      res();
+    });
+  });
+}
+function setupLights() {
+  scene.add(new THREE.HemisphereLight(0xcfe0f2, 0xf2f2f4, 0.25));
+  sun = new THREE.DirectionalLight(0xfff1dd, 3.2);
+  sun.target.position.set(0, 3, 0);
+  sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 60);
+  sun.castShadow = true;
+  const big = Math.min(screen.width, screen.height) >= 700 && (navigator.hardwareConcurrency || 4) > 4;
+  sun.shadow.mapSize.set(big ? 4096 : 2048, big ? 4096 : 2048);
+  const s = 17, cm = sun.shadow.camera;
+  cm.left = -s; cm.right = s; cm.top = s; cm.bottom = -s; cm.near = 20; cm.far = 110;
+  sun.shadow.bias = -0.0003;
+  sun.shadow.normalBias = 0.02;
+  sun.shadow.radius = 3;
+  scene.add(sun, sun.target);
+  /* fog = the HDRI's own horizon radiance (linear), so the far snow melts into it */
+  scene.fog = new THREE.FogExp2(new THREE.Color().setRGB(0.66, 0.73, 0.83, THREE.LinearSRGBColorSpace), 0.0042);
+}
+
+/* ------------------------------------------------------------ geometry kit */
+const tileOf = (m) => (m && m.userData && m.userData.tile) || 1;
+function scaleUV(geo, s) {
+  const uv = geo.attributes.uv; if (!uv) return geo;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * s, uv.getY(i) * s);
+  uv.needsUpdate = true; return geo;
+}
+/* BoxGeometry with UVs in metres / tile. axis: grain axis for veneer ('x'|'y'|'z') */
+function B(w, h, d, mat, axis) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  const t = tileOf(mat), uv = g.attributes.uv;
+  if (mat && mat.userData.grain) return grainUV(g, t, axis);
+  const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let s = 0; s < 6; s++) for (let v = 0; v < 4; v++) {
+    const i = s * 4 + v;
+    uv.setXY(i, uv.getX(i) * dims[s][0] / t, uv.getY(i) * dims[s][1] / t);
+  }
+  return g;
+}
+/* Veneer UVs. The veneer texture's grain runs along u. Every triangle is
+   box-projected onto its dominant plane with u along the grain axis (the
+   piece's longest dimension unless given) wherever that axis lies in the
+   face, so the grain follows each piece: up door leaves and cupboard fronts,
+   along tables, treads and rails. A seeded offset per piece keeps identical
+   pieces from showing identical figure. */
+let _grainSeed = 424242;
+function grainUV(geo, tile, axis) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  g.computeBoundingBox();
+  const bb = g.boundingBox, size = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+  const ax = axis ? 'xyz'.indexOf(axis) : size.indexOf(Math.max(...size));
+  const rnd = () => ((_grainSeed = (_grainSeed * 16807) % 2147483647) / 2147483647);
+  const ou = rnd() * 7, ov = rnd() * 7;
+  const P = g.attributes.position.array, n = g.attributes.position.count, uv = new Float32Array(n * 2);
+  for (let i = 0; i + 2 < n; i += 3) {
+    const a = i * 3, b = a + 3, c = a + 6;
+    const e1x = P[b] - P[a], e1y = P[b + 1] - P[a + 1], e1z = P[b + 2] - P[a + 2];
+    const e2x = P[c] - P[a], e2y = P[c + 1] - P[a + 1], e2z = P[c + 2] - P[a + 2];
+    const nx = Math.abs(e1y * e2z - e1z * e2y), ny = Math.abs(e1z * e2x - e1x * e2z), nz = Math.abs(e1x * e2y - e1y * e2x);
+    const dn = nx >= ny && nx >= nz ? 0 : (ny >= nz ? 1 : 2);
+    const ip = [0, 1, 2].filter(k => k !== dn);
+    const ua = ip.includes(ax) ? ax : (size[ip[0]] >= size[ip[1]] ? ip[0] : ip[1]);
+    const va = ip[0] === ua ? ip[1] : ip[0];
+    for (let k = 0; k < 3; k++) {
+      const j = i + k;
+      uv[j * 2] = P[j * 3 + ua] / tile + ou; uv[j * 2 + 1] = P[j * 3 + va] / tile + ov;
+    }
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.userData.grained = true;
+  return g;
+}
+function mk(parent, geo, mat, x, y, z, ry) {
+  if (mat && mat.userData && mat.userData.grain && !geo.userData.grained) geo = grainUV(geo, tileOf(mat));
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x || 0, y || 0, z || 0);
+  if (ry) m.rotation.y = ry;
+  m.castShadow = true; m.receiveShadow = true;
+  parent.add(m); return m;
+}
+/* rounded box (soft furnishings). soft = bevel radius in m for cushions and
+   bedding: a deep 6-step rounding with smooth normals and the same outer size
+   as the plain version (whose flat-shaded 3-step bevel read as a hard slab) */
+function RB(w, h, d, r, mat, soft) {
+  r = Math.max(0.004, Math.min(r, w / 2 - .002, h / 2 - .002));
+  let bev = Math.min(r * .7, d * .22), segs = 3, cseg = 6;
+  if (soft) {
+    const X = w + 2 * bev, Y = h + 2 * bev, b = Math.min(soft, d * 0.45, X * 0.45, Y * 0.45);
+    w = X - 2 * b; h = Y - 2 * b; r = Math.max(0.004, Math.min(r + bev - b, w / 2 - .002, h / 2 - .002));
+    bev = b; segs = 6; cseg = 10;
+  }
+  const sh = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r);
+  sh.lineTo(x + w, y + h - r); sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r);
+  sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y);
+  const g = new THREE.ExtrudeGeometry(sh, {
+    depth: Math.max(.002, d - bev * 2), bevelEnabled: true,
+    bevelSize: bev, bevelThickness: bev, bevelSegments: segs, curveSegments: cseg
+  });
+  g.translate(0, 0, -d / 2 + bev);
+  if (soft) {                                        /* weld + smooth: no facets on the roll */
+    g.deleteAttribute('uv'); g.deleteAttribute('normal');
+    const m = mergeVertices(g, 1e-5); m.computeVertexNormals();
+    return grainUV(m, tileOf(mat));
+  }
+  g.computeVertexNormals();
+  /* box-projected UVs (see grainUV): the extrude generator's bevel UVs smear
+     a woven texture into stripes round every rounded edge */
+  return grainUV(g, tileOf(mat));
+}
+/* flat rounded slab: w along x, d along z, h tall */
+function RS(w, h, d, r, mat, soft) { const g = RB(w, d, h, r, mat, soft); g.rotateX(-Math.PI / 2); return g; }
+const CY = (r, h, s) => new THREE.CylinderGeometry(r, r, h, s || 20);
+
+function inside(poly, x, z) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i], [xj, zj] = poly[j];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c;
+  }
+  return c;
+}
+function rectCorners(s) {
+  const ca = Math.cos(s.a || 0), sa = Math.sin(s.a || 0), hw = s.w / 2, hd = s.d / 2;
+  return [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]
+    .map(([px, pz]) => [s.x + px * ca - pz * sa, s.y + px * sa + pz * ca]);
+}
+
+const COLL = [];   /* world AABBs for walk collision */
+function addCollBox(cx, cz, w, d, ang, y0, y1) {
+  const c = rectCorners({ x: cx, y: cz, w, d, a: ang });
+  COLL.push({
+    x0: Math.min(...c.map(p => p[0])), x1: Math.max(...c.map(p => p[0])),
+    z0: Math.min(...c.map(p => p[1])), z1: Math.max(...c.map(p => p[1])), y0, y1
+  });
+}
+
+/* ------------------------------------------------------------------- walls */
+/* charred cladding UVs: the cedar scan's boards are 8.1 cm; the facade lays
+   them at 13 cm (14 boards per 1.82 m) with the grain 1.15x longer, and every
+   piece continues the boards of its neighbours: u is the world coordinate
+   along the facade (base + dir * s), v the height, so boards run unbroken past
+   windows and from floor to floor */
+const CLAD_U = 1.82, CLAD_V = 1.3;
+function cladUV(geo, i0, i1, s0, y0, base, dir, mat) {
+  const m = mat || MAT.clad, uv = geo.attributes.uv, t = tileOf(m);
+  for (let i = i0; i < i1; i++) {
+    const a = (base + dir * (uv.getX(i) * t + s0)), h = (uv.getY(i) * t + y0);
+    if (m.userData.facade) uv.setXY(i, a / t, h / t);  /* v31 brick / stone: courses level, continuous round the house */
+    else if (H3) uv.setXY(i, h / CLAD_U, a / CLAD_V);      /* boards run along the facade */
+    else uv.setXY(i, a / CLAD_U, h / CLAD_V);
+  }
+}
+/* v36: the cladding of each stretch of an outside wall: finish.zones [{ rect [x0, z0, x1, z1], mat }] (and the older
+   finish.black rects) -> [[s0, s1, material]] along the wall */
+/* v39 (75 tsubo exterior, Toby 2026-10-24): stone panels, light render, mid-grey slate, stacked stone at the entrance,
+   bronze panel / black ribbed metal accent strips, dark-bronze trim, a light soffit - made on first use (the compact
+   plan never asks for them) */
+const MAT6 = {};
+function mat6(k) {
+  if (MAT6[k]) return MAT6[k];
+  const fac = (m) => { m.userData.facade = true; return m; };
+  const mk6 = {
+    spanel: () => fac(pbr('stone_panel', 3.6, { env: 0.8, rough: 1.0, nScale: 1.2, macro: { albedo: 0.05, rough: 0.06, scale: 7 } })),
+    render: () => fac(pbr('white_stucco', 2.0, { env: 0.8, rough: 1.0, color: [0.653, 0.65, 0.613], nScale: 0.8, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
+    /* v41 (Toby 2026-10-25, his photo): cleft slate, 300 x 150 stack bond, diagonal streaks (assets/tex/slate_tile_*, made by
+       proposals/2026-10-25/slate_tex.py, 8 x 16 tiles in 2.4 m: every tile position shows a random one of them) */
+    slate6: () => fac(pbr('slate_tile', 2.4, { env: 0.8, rough: 1.0, color: [0.62, 0.64, 0.68], nScale: 1.2, macro: { cells: [8, 16], tint: 0.03, albedo: 0.04, rough: 0.05, scale: 6 } })),
+    /* v43 (Toby 2026-10-25: the light tile looked bad, 'a more grayish long tile'): 227 x 60 grey tiles, running bond, grout close in
+       tone, per-tile shade (assets/tex/grey_longtile_*, made by proposals/2026-10-25/longtile_tex.py; 2.32 m = 10 tiles x 36 courses) */
+    ltile: () => fac(pbr('grey_longtile', 2.32, { env: 0.85, rough: 1.0, nScale: 1.0, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
+    sstone: () => fac(pbr('stacked_grey', 2.2, { env: 0.8, rough: 1.0, nScale: 1.4 })),
+    wtile: () => fac(pbr('white_tile_h', 1.27, { env: 0.9, rough: 0.7, color: [0.991, 1.064, 1.214], nScale: 1.0, macro: { albedo: 0.04, rough: 0.05, scale: 7 } })),
+    bronze: () => fac(pbr('bronze_panel', 2.0, { env: 1.0, rough: 1.0, metal: 0.55, nScale: 1.0 })),
+    bmetal: () => fac(pbr('metal_ribs', 1.2, { env: 0.9, rough: 1.0, metal: 0.5, nScale: 1.0 })),
+    trim: () => std({ color: 0x4e3d2c, roughness: 0.45, metalness: 0.6, envMapIntensity: 0.8 }),
+    soffit: () => std({ color: 0xc9c4bb, roughness: 0.85, metalness: 0.0, envMapIntensity: 0.6 }),
+  };
+  return (MAT6[k] = mk6[k] ? mk6[k]() : MAT.cladBlack);
+}
+const F6 = () => (STY && PLAN.model && PLAN.model.finish) || {};
+const TRIM6 = () => F6().trim === 'bronze' ? mat6('trim') : null;
+const CLADS = () => ({ stone: MAT.cladStone, tiles: MAT.cladTiles, slate: MAT.cladSlate, black: MAT.cladBlack,
+  get spanel() { return mat6('spanel'); }, get render() { return mat6('render'); }, get slate6() { return mat6('slate6'); },
+  get sstone() { return mat6('sstone'); }, get bronze() { return mat6('bronze'); }, get bmetal() { return mat6('bmetal'); },
+  get wtile() { return mat6('wtile'); }, get ltile() { return mat6('ltile'); } });
+/* v39: zones limited to levels / heights (finish.zones [{ rect, mat, levels?, y?: [y0, y1] }]): when a model has any, every
+   zone of an outside wall as { s0, s1, y0, y1, m } (later zones win); a zone reaching a wall's end runs on round the corner */
+/* v39: finish.piers [{ rect [x0, z0, x1, z1], y [y0, y1], mat }] - a column standing out of an outside wall (Toby: accents that
+   physically stick out, like a stone column) */
+function piers3() {
+  const C = CLADS();
+  for (const pr of F6().piers || []) {
+    const [x0, z0, x1, z1] = pr.rect, [y0, y1] = pr.y, M = C[pr.mat] || MAT.cladBlack;
+    mk(G.ext, B(x1 - x0, y1 - y0, z1 - z0, M), M, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    addCollBox((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, y0, y1);
+  }
+}
+function zones6(ax, az, ux, uz, len, lvl) {
+  const zs = F6().zones || [];
+  if (!zs.some(z => z.y || z.levels)) return null;
+  const C = CLADS(), out = [];
+  for (const z of zs) {
+    if (z.levels && !z.levels.includes(lvl)) continue;
+    for (const [a, b] of blackSpans(ax, az, ux, uz, len, [z.rect]))
+      out.push({ s0: a < 0.001 ? -1e9 : a, s1: b > len - 0.001 ? 1e9 : b, y0: z.y ? z.y[0] : -1e9, y1: z.y ? z.y[1] : 1e9, m: C[z.mat] || MAT.cladBlack, pr: z.proud || 0 });
+  }
+  return out;
+}
+function zoneSpans(ax, az, ux, uz, len) {
+  const F = (PLAN.model && PLAN.model.finish) || {}, C = CLADS();
+  const zs = (F.zones || []).map(z => [z.rect, C[z.mat] || MAT.cladBlack]).concat((F.black || []).map(r => [r, MAT.cladBlack]));
+  const out = [];
+  for (const [r, m] of zs) for (const [a, b] of blackSpans(ax, az, ux, uz, len, [r])) out.push([a, b, m]);
+  return out.sort((p, q) => p[0] - q[0]);
+}
+/* v31: where a wall's line runs through the model's finish.black rects ([x0, z0, x1, z1], 1F): [s0, s1] along it */
+function blackSpans(ax, az, ux, uz, len, rects) {
+  const out = [];
+  for (const r of rects || (PLAN.model && PLAN.model.finish && PLAN.model.finish.black) || []) {
+    let t0 = 0, t1 = len;
+    for (const [p, d, lo, hi] of [[ax, ux, r[0], r[2]], [az, uz, r[1], r[3]]]) {
+      if (Math.abs(d) < 1e-9) { if (p < lo || p > hi) { t0 = 1; t1 = 0; } continue; }
+      const a = (lo - p) / d, b = (hi - p) / d;
+      t0 = Math.max(t0, Math.min(a, b)); t1 = Math.min(t1, Math.max(a, b));
+    }
+    if (t1 > t0 + 0.01) out.push([t0, t1]);
+  }
+  return out.sort((p, q) => p[0] - q[0]);
+}
+/* A wall run along a->b. The wall occupies [n0, n1] along the unit normal n
+   (n0 < n1) and y in [y0, y1]. Openings cut full-height slots; sills / heads
+   are added back. Exterior walls get a cladding skin on the +n side. */
+function wallRun(G, w, lvl, L) {
+  const [ax, az] = w.a, [bx, bz] = w.b;
+  const len = Math.hypot(bx - ax, bz - az); if (len < 0.02) return;
+  const ux = (bx - ax) / len, uz = (bz - az) / len;
+  let nx, nz, n0, n1;
+  if (w.kind === 'ext') { nx = w.n[0]; nz = w.n[1]; n0 = 0; n1 = w.t; }
+  else { nx = -uz; nz = ux; n0 = -w.t / 2; n1 = w.t / 2; }
+  const ext = w.kind === 'ext';
+  /* Each corner is filled by exactly ONE wall (the one ending there); if both
+     ran on, the end face of one sits in the other's outer face and z-fights. */
+  const e0 = ext && w.pre ? w.pre : 0, e1 = ext ? (w.ext1 || 0) : 0;   /* w.pre: house 2 inside corners (parse_plan.py) */
+  const isTop = lvl === LV.length - 1;
+  /* house 3: 1F outside walls go down to the ground (foundation band in front),
+     walls beside a sunken floor (entrance, porch) start at that floor */
+  const yB = H3 ? (lvl === 0 && ext ? PLAN.ground : L.base + (w.dz0 || 0)) : L.base - (lvl === 0 && ext ? 0.25 : 0);
+  const yT = H3 ? L.base + (w.top || L.h) : L.base + L.h + (ext ? (isTop ? 0 : L.ct) : 0);
+  const hIn = H3 ? (w.top || L.h) : L.h;               /* interior clear height (house 3: openings may run up the whole outside wall) */
+  const th = Math.atan2(-uz, ux);                    /* local x -> u, local z -> n */
+  const SKIN = 0.025;
+  /* house 2 2F: every piece that reaches the wall top gets its top face put
+     on the sloped ceiling plane (per vertex), see roofTop(). House 3: any
+     level a roof covers is clipped DOWN to it (roofFor) */
+  const roof = H3 ? roofFor(w, lvl) : (isTop ? ROOF : null);
+  /* v31 warm finish: brick on the 1F, stone above, black where the model says (1F) */
+  const FC = STY && PLAN.model.finish.clad, CL = STY ? CLADS() : null;
+  const SK = STY ? ((FC && CL[FC[Math.min(lvl, FC.length - 1)]]) || (lvl === 0 ? MAT.cladStone : MAT.cladTiles)) : MAT.clad;
+  const BLK = STY && ext ? zoneSpans(ax, az, ux, uz, len) : [];
+  const Z6 = STY && ext ? zones6(ax, az, ux, uz, len, lvl) : null;
+  /* piece: s in [s0,s1], y in [y0,y1] (absolute), across n in [q0,q1] */
+  const piece = (s0, s1, y0, y1, q0, q1, mat, coll, bf) => {
+    if (s1 - s0 < 0.004 || y1 - y0 < 0.004 || q1 - q0 < 0.002) return;
+    const cs = (s0 + s1) / 2, cq = (q0 + q1) / 2;
+    const px = ax + ux * cs + nx * cq, py = (y0 + y1) / 2, pz = az + uz * cs + nz * cq;
+    let clip = !H3 && roof && y1 >= yT - 1e-6;
+    if (H3 && roof) {
+      const ys = [[s0, q0], [s0, q1], [s1, q0], [s1, q1]].map(([ss, qq]) => roof.y(ax + ux * ss + nx * qq, az + uz * ss + nz * qq));
+      if (Math.max(...ys) <= y0 + 0.004) return;       /* wholly above the roof */
+      clip = Math.min(...ys) < y1;
+    }
+    const geo = B(s1 - s0, y1 - y0, q1 - q0, mat);
+    if (bf) {                                          /* over a raked window head: the bottom follows bf(s) */
+      const P = geo.attributes.position, uv = geo.attributes.uv, hy = (y1 - y0) / 2, t = tileOf(mat), gr = mat.userData.grain;
+      for (let i = 0; i < P.count; i++) {
+        if (P.getY(i) > -hy + 1e-6) continue;
+        const ny = Math.min(hy - 0.004, bf(cs + P.getX(i)) - py);
+        P.setY(i, ny);
+        if (!gr && (i < 8 || i >= 16)) uv.setY(i, (ny + hy) / t);   /* +-x / +-z faces: v from the old bottom, as cladUV expects */
+      }
+      P.needsUpdate = true; uv.needsUpdate = true;
+    }
+    if (clip) roofTop(geo, px, py, pz, th, roof, H3);
+    if (mat === MAT.clad || mat.userData.facade) cladUV(geo, 16, 20, s0, y0, Math.abs(ux) > 0.5 ? ax : az, Math.sign(Math.abs(ux) > 0.5 ? ux : uz), mat);  /* outer (+z) face */
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(px, py, pz);
+    m.rotation.y = th;
+    m.castShadow = true; m.receiveShadow = true;
+    G.walls.add(m);
+    if (coll) addCollBox(m.position.x, m.position.z, s1 - s0, q1 - q0, -th, y0, y1);
+  };
+  const solid = (s0, s1, y0, y1, bf) => {
+    if (ext && w.skin) {
+      /* house 2: cladding only where the outer face is outside (parse_plan.py
+         `skin`); elsewhere it is in another wall and the core runs full depth */
+      let c = s0;
+      for (const [k0, k1] of w.skin) {
+        const a = Math.max(c, k0), b = Math.min(s1, k1);
+        if (b <= a) continue;
+        if (a > c) piece(c, a, y0, y1, n0, n1, MAT.plaster, true, bf);
+        piece(a, b, y0, y1, n0, n1 - SKIN, MAT.plaster, true, bf);
+        piece(a, b, y0, y1, n1 - SKIN, n1, MAT.clad, false, bf);
+        c = b;
+      }
+      if (c < s1) piece(c, s1, y0, y1, n0, n1, MAT.plaster, true, bf);
+    } else if (ext && Z6) {
+      /* v39: an s x y grid at the zones' edges; each row merged into runs of one material. Past the wall's ends (the
+         corner it fills) the cladding runs the full depth, so the corner's end face is cladding, not the plaster core */
+      const k0 = w.capA ? w.t : 0, k1 = w.cap ? len - w.t : len;      /* a capped end's last t = the outside corner */
+      const c0 = Math.max(s0, k0), c1 = Math.min(s1, k1);
+      if (c1 - c0 > 0.004) piece(c0, c1, y0, y1, n0, n1 - SKIN, MAT.plaster, true, bf);
+      const ss = [s0, s1], ys = [y0, y1];
+      for (const s of [k0, k1]) if (s > s0 + 0.004 && s < s1 - 0.004) ss.push(s);
+      for (const z of Z6) {
+        for (const s of [z.s0, z.s1]) if (s > s0 + 0.004 && s < s1 - 0.004) ss.push(s);
+        for (const y of [z.y0, z.y1]) if (y > y0 + 0.004 && y < y1 - 0.004) ys.push(y);
+      }
+      ss.sort((a, b) => a - b); ys.sort((a, b) => a - b);
+      for (let j = 0; j + 1 < ys.length; j++) {
+        const ya = ys[j], yb = ys[j + 1], ym = (ya + yb) / 2;
+        let ra = ss[0], rm = null, ro = false, rp = 0;
+        /* a proud zone (the band, the spine) stands out pr from the wall; at an outside corner it runs on by pr */
+        const emit = (rb) => {
+          const a2 = rp && w.capA && ra <= 0.001 ? ra - rp : ra, b2 = rp && w.cap && rb >= len - 0.001 ? rb + rp : rb;
+          piece(a2, b2, ya, yb, ro ? n0 : n1 - SKIN, n1 + rp, rm, ro, j === 0 ? bf : null);
+        };
+        for (let i = 0; i + 1 < ss.length; i++) {
+          const sm = (ss[i] + ss[i + 1]) / 2, out = sm < k0 || sm > k1;
+          let m = SK, pr = 0;
+          for (const z of Z6) if (sm > z.s0 && sm < z.s1 && ym > z.y0 && ym < z.y1) { m = z.m; pr = z.pr; }
+          if (rm === null) { rm = m; ro = out; rp = pr; }
+          else if (m !== rm || out !== ro || pr !== rp) { emit(ss[i]); ra = ss[i]; rm = m; ro = out; rp = pr; }
+        }
+        emit(ss[ss.length - 1]);
+      }
+    } else if (ext) {
+      piece(s0, s1, y0, y1, n0, n1 - SKIN, MAT.plaster, true, bf);
+      let c = s0;
+      for (const [k0, k1, km] of BLK) {                /* v31/v36: the stretches in another cladding zone */
+        const a = Math.max(c, k0), b = Math.min(s1, k1);
+        if (b <= a) continue;
+        if (a > c) piece(c, a, y0, y1, n1 - SKIN, n1, SK, false, bf);
+        piece(a, b, y0, y1, n1 - SKIN, n1, km, false, bf);
+        c = b;
+      }
+      if (c < s1) piece(c, s1, y0, y1, n1 - SKIN, n1, SK, false, bf);
+    } else piece(s0, s1, y0, y1, n0, n1, MAT.plaster, true, bf);
+  };
+  /* skirting on interior faces */
+  const skirt = (s0, s1) => {
+    if (s1 - s0 < 0.1) return;
+    const faces = ext ? [n0 - 0.006] : [n0 - 0.006, n1 + 0.006];
+    for (const q of faces) piece(s0, s1, L.base, L.base + 0.07, q - 0.006, q + 0.006, STY ? MAT.skirtDark : MAT.white, false);
+  };
+  /* v23: at the same start the wider opening first (it carries the stack of its bay, below) */
+  const ops = (roof && !H3 ? underRoof(w, L, ax, az, ux, uz, nx, nz, n0, n1) : w.doors.slice()).sort((p, q) => (p.off - q.off) || (q.w - p.w));
+  /* lowest point of the ceiling plane over [s0, s1] of this wall (plane: the minimum is at a corner) */
+  const roofMin = (s0, s1) => Math.min(...[s0, s1].flatMap(s => [n0, n1].map(q => roof.y(ax + ux * s + nx * q, az + uz * s + nz * q))));
+  /* houses 4-6: a fixed window the roof cuts down on a wall the roof slopes
+     along (the upper glass bands on the gable-side faces) gets a head that
+     follows the roof, ROOF_HEAD under it, not a flat head at its low end */
+  const rakeOf = (o, s0, s1) => {
+    if (HOUSE < 4 || !roof || o.kind !== 'WINDOW' || o.style !== 'fix') return null;
+    const hd = (ss) => Math.min(...[n0, n1].map(q => roof.y(ax + ux * ss + nx * q, az + uz * ss + nz * q))) - ROOF_HEAD;
+    const h0 = hd(s0), h1 = hd(s1);
+    return Math.abs(h1 - h0) > 0.02 && L.base + Math.min(o.top, hIn) >= Math.max(h0, h1) ? hd : null;
+  };
+  const own = { c0: COLL.length, c1: COLL.length };  /* this run's COLL boxes */
+  let cur = -e0;
+  const runEnd = len + e1;
+  for (const o of ops) {
+    const s = Math.max(o.off, cur), e = Math.min(o.off + o.w, runEnd);
+    if (e <= s) continue;
+    if (s > cur) { solid(cur, s, yB, yT); skirt(Math.max(cur, 0), Math.min(s, len)); }
+    /* openings stacked in one bay are cut one above the other, wall between them: the same
+       span (plans c + d's floor-to-ceiling bands; v23 stacked windows, PRIMITIVES.md), or a
+       narrower one inside the span wholly above or below this one (house 7's transoms + high
+       windows). v23: every house (was houses 5-9) */
+    const stack = ops.filter(q => q !== o && ((Math.abs(q.off - o.off) < 1e-4 && Math.abs(q.w - o.w) < 1e-4)
+      || (q.off > o.off - 1e-4 && q.off + q.w < o.off + o.w + 1e-4 && (q.bottom >= o.top - 1e-4 || q.top <= o.bottom + 1e-4))));
+    if (stack.length) {
+      let y = yB, rk = null;
+      const bands = [o, ...stack].sort((p, r) => p.bottom - r.bottom);
+      for (const q of bands) {
+        /* v23: a unit starts at the top of the one below at the lowest (overlapping / duplicate units:
+           only the part not open yet); nothing left of it (over the storey, under the roof): no cut, the
+           wall runs on (4 mm as piece(): a thin band that is left, e.g. house 5's 2 cm, is cut as before) */
+        const qb = Math.max(y, L.base + Math.min(q.bottom, hIn));
+        const qrk = q === bands[bands.length - 1] ? rakeOf(q, s, e) : null;
+        const qt = qrk ? Math.min(qrk(s), qrk(e)) : !roof ? L.base + Math.min(q.top, hIn) : (q.full ? Infinity : Math.min(L.base + (H3 ? Math.min(q.top, hIn) : q.top), roofMin(s, e) - ROOF_HEAD));
+        if (qt <= qb + 0.004) continue;
+        rk = qrk;
+        if (qb > y + 0.01) { solid(s, e, y, qb); if (y === yB && qb > L.base + 0.01) skirt(s, e); }   /* no skirting across a door (house 6's front door + fanlight) */
+        /* a band narrower than the bay (house 7's transoms): wall either side */
+        const qs = Math.max(s, q.off), qe = Math.min(e, q.off + q.w);
+        if (qs > s + 0.004) solid(s, qs, qb, qt);
+        if (qe < e - 0.004) solid(qe, e, qb, qt);
+        /* upper: over a transom (no oak sill board inside there) */
+        opening(G, q, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s: qs, e: qe, bot: qb, top: qt, ext, own, upper: y > yB, rake: rk });
+        y = Math.max(y, qt);
+      }
+      if (rk) solid(s, e, y, yT, rk);
+      else if (y < yT - 0.01) solid(s, e, y, yT);
+      cur = Math.max(cur, e);
+      continue;
+    }
+    const bot = L.base + Math.min(o.bottom, hIn);
+    /* under house 2's roof: an FPC style-2 hole is open to the ceiling; any
+       other opening keeps its drawn head unless the roof comes down past it */
+    const rk = rakeOf(o, s, e);
+    const top = rk ? Math.min(rk(s), rk(e)) : !roof ? L.base + Math.min(o.top, hIn) : (o.full ? Infinity : Math.min(L.base + (H3 ? Math.min(o.top, hIn) : o.top), roofMin(s, e) - ROOF_HEAD));
+    if (bot > L.base + 0.01) { solid(s, e, yB, bot); skirt(s, e); }
+    if (rk) solid(s, e, top, yT, rk);
+    else if (top < yT - 0.01) solid(s, e, top, yT);
+    opening(G, o, w, lvl, L, { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot, top, ext, own, rake: rk });
+    if (ext && lvl > 0 && o.kind !== 'WINDOW' && bot <= L.base + 0.01 && FLOOR_RECTS[lvl]) {
+      const pts = [[s, n0 - 0.05], [e, n0 - 0.05], [e, n1 + 0.05], [s, n1 + 0.05]].map(([ss, qq]) => [ax + ux * ss + nx * qq, az + uz * ss + nz * qq]);
+      FLOOR_RECTS[lvl].push(bbox(pts));
+    }
+    cur = Math.max(cur, e);
+  }
+  if (cur < runEnd) { solid(cur, runEnd, yB, yT); skirt(Math.max(cur, 0), len); }
+  own.c1 = COLL.length;
+  if (H3 && ext) {                                   /* house 3: clad the exposed corner ends (refplan.js joins); an end that
+                                                        faces a room (the L's inner corner where the rooms open round it, 2026-10-20) gets plaster */
+    for (const [on, sc] of [[w.cap, len + 0.005], [w.capA, -0.005]]) {
+      if (!on) continue;
+      const sp = sc + (sc > 0 ? 0.05 : -0.05), qx = ax + ux * sp + nx * (n0 + n1) / 2, qz = az + uz * sp + nz * (n0 + n1) / 2;
+      const inRoom = (L.faces || []).some(f => inside(f.poly, qx, qz) && !(f.holes || []).some(h => inside(h, qx, qz)));
+      const zm = BLK.find(([k0, k1]) => sc > k0 - 0.06 && sc < k1 + 0.06);
+      /* v39: with height-limited zones the cap is cut into the same rows as the wall (band, entrance stone ...) */
+      const rows = [[yB, yT, inRoom ? MAT.plaster : (zm ? zm[2] : SK)]];
+      if (Z6 && !inRoom) {
+        const ys = [yB, yT];
+        for (const z of Z6) for (const y of [z.y0, z.y1]) if (y > yB + 0.004 && y < yT - 0.004) ys.push(y);
+        ys.sort((a, b) => a - b); rows.length = 0;
+        for (let j = 0; j + 1 < ys.length; j++) {
+          let m = SK; const ym = (ys[j] + ys[j + 1]) / 2;
+          for (const z of Z6) if (sc > z.s0 - 0.06 && sc < z.s1 + 0.06 && ym > z.y0 && ym < z.y1) m = z.m;
+          rows.push([ys[j], ys[j + 1], m]);
+        }
+      }
+      for (const [ya, yb, cm] of rows) {
+        const cg = B(0.01, yb - ya, n1 - n0, cm);
+        const cx = ax + ux * sc + nx * (n0 + n1) / 2, cy = (ya + yb) / 2, cz = az + uz * sc + nz * (n0 + n1) / 2;
+        if (roof && yb >= yT - 1e-6) roofTop(cg, cx, cy, cz, th, roof, true);
+        if (!inRoom && (cm === MAT.clad || cm.userData.facade)) cladUV(cg, 0, 8, 0, ya, 0, 1, cm);
+        const m = new THREE.Mesh(cg, cm);
+        m.position.set(cx, cy, cz); m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
+      }
+    }
+  }
+  if (!H3 && ext && e1 > 0 && w.cap !== 0) {                /* clad the exposed corner end (house 2: not where it butts into the next wall) */
+    const cg = B(0.01, yT - yB, n1 - n0, MAT.clad);
+    const cx = ax + ux * (runEnd + 0.005) + nx * (n0 + n1) / 2, cy = (yB + yT) / 2, cz = az + uz * (runEnd + 0.005) + nz * (n0 + n1) / 2;
+    if (roof) roofTop(cg, cx, cy, cz, th);
+    cladUV(cg, 0, 8, 0, yB, 0, 1);
+    const m = new THREE.Mesh(cg, MAT.clad);
+    m.position.set(cx, cy, cz);
+    m.rotation.y = th; m.castShadow = true; m.receiveShadow = true; G.walls.add(m);
+  }
+}
+
+/* house 2: put a wall box's top face on the 2F ceiling plane, vertex by
+   vertex (the box is built up to the nominal level height first). The side
+   faces' v stays in metres / tile, so plaster and cladding keep their scale. */
+function roofTop(geo, px, py, pz, th, rf, clamp) {
+  const P = geo.attributes.position, uv = geo.attributes.uv;
+  const c = Math.cos(th), s = Math.sin(th), R = rf || ROOF;
+  let hy = -Infinity;
+  for (let i = 0; i < P.count; i++) hy = Math.max(hy, P.getY(i));
+  for (let i = 0; i < P.count; i++) {
+    if (P.getY(i) < hy - 1e-6) continue;
+    const lx = P.getX(i), lz = P.getZ(i);
+    let ny = R.y(px + lx * c + lz * s, pz - lx * s + lz * c) - py;   /* mesh turned by th about y */
+    if (clamp) ny = Math.max(-hy + 0.001, Math.min(hy, ny));          /* house 3: only ever cut down, never below the bottom */
+    if (uv && (i < 8 || i >= 16)) uv.setY(i, uv.getY(i) * (ny + hy) / (2 * hy));   /* +-x / +-z faces; v from the bottom */
+    P.setY(i, ny);
+  }
+  P.needsUpdate = true; if (uv) uv.needsUpdate = true;
+  geo.computeBoundingBox(); geo.computeBoundingSphere();
+}
+/* house 2 2F openings: a window the roof would cut is split where an
+   interior wall meets it (one window per room behind it) so only the part
+   under the low side loses height; the rest keeps its drawn head. */
+function underRoof(w, L, ax, az, ux, uz, nx, nz, n0, n1) {
+  const at = (s, q) => ROOF.y(ax + ux * s + nx * q, az + uz * s + nz * q) - L.base;
+  const clear = (s0, s1) => Math.min(at(s0, n0), at(s0, n1), at(s1, n0), at(s1, n1)) - ROOF_HEAD;
+  const out = [];
+  /* v23: the windows of a stacked bay (same off + w, PRIMITIVES.md) are split together, at the same
+     cuts, where any of them reaches past the roof; an opening overlapping another any other way
+     (a door + fanlight) is left whole */
+  const sameSpan = (q, o) => Math.abs(q.off - o.off) < 1e-4 && Math.abs(q.w - o.w) < 1e-4;
+  for (const o of w.doors) {
+    const mates = w.doors.filter(q => q !== o && Math.min(q.off + q.w, o.off + o.w) - Math.max(q.off, o.off) > 0.02);
+    const bay = mates.every(q => q.kind === 'WINDOW' && sameSpan(q, o)) ? [o, ...mates] : null;
+    if (o.kind !== 'WINDOW' || w.kind !== 'ext' || !bay || Math.max(...bay.map(q => q.top)) <= clear(o.off, o.off + o.w)) { out.push(o); continue; }
+    const cuts = [];
+    for (const v of L.walls) {
+      if (v.kind !== 'int' || v === w) continue;
+      const vl = Math.hypot(v.b[0] - v.a[0], v.b[1] - v.a[1]) || 1;
+      if (Math.abs(((v.b[0] - v.a[0]) * ux + (v.b[1] - v.a[1]) * uz) / vl) > 0.3) continue;   /* must stand across this wall */
+      for (const p of [v.a, v.b]) {
+        const q = (p[0] - ax) * nx + (p[1] - az) * nz, s = (p[0] - ax) * ux + (p[1] - az) * uz;
+        if (Math.abs(q - n0) < 0.15 && s > o.off + 0.3 && s < o.off + o.w - 0.3) cuts.push(s);
+      }
+    }
+    const xs = [o.off, ...[...new Set(cuts.map(v => +v.toFixed(3)))].sort((a, b) => a - b), o.off + o.w];
+    for (let i = 0; i + 1 < xs.length; i++) out.push(Object.assign({}, o, { off: xs[i], w: xs[i + 1] - xs[i] }));
+  }
+  return out;
+}
+
+/* glazing, door leaves, frames */
+/* v23: two-leaf entrance doors (o.type 'double' | 'parent-child': the ref models via refplan.js,
+   house 2 straight from plan2.json; PRIMITIVES.md) are solid leaves on an outside wall. Leaf
+   widths from s: double = two equal; parent-child = the parent (W - child) at the hinge end
+   ('a' = s, 'b' = e) and the narrow child (refplan.js childLeaf: o.child, default 0.3 W) */
+const ENTRY2 = (o) => o.type === 'double' || o.type === 'parent-child';
+function leafWidths(o, W) {
+  if (o.type === 'parent-child' && !o.cut) {
+    const ch = childLeaf(o, W);                          /* refplan.js: W <= 0.5 -> two halves */
+    return o.hinge === 'b' ? [ch, W - ch] : [W - ch, ch];
+  }
+  const n = ENTRY2(o) ? 2 : o.leaves ? o.leaves : (o.kind === 'DOUBLE_DOOR' ? 2 : 1);
+  return Array(n).fill(W / n);
+}
+function opening(G, o, w, lvl, L, c) {
+  const { ax, az, ux, uz, nx, nz, n0, n1, th, s, e, bot, top, ext } = c;
+  const W = e - s, H = top - bot;
+  if (H < 0.05 || W < 0.05 || o.kind === 'HOLE') return;
+  const at = (ss, qq, yy) => new V(ax + ux * ss + nx * qq, yy, az + uz * ss + nz * qq);
+  const put = (geo, mat, ss, qq, yy, shadow) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(at(ss, qq, yy)); m.rotation.y = th;
+    m.castShadow = !!shadow; m.receiveShadow = true;
+    G.walls.add(m); return m;
+  };
+  const glazed = o.kind === 'WINDOW' || (ext && !o.solid && !ENTRY2(o) && (o.kind === 'DOUBLE_DOOR' || o.kind === 'DOOR'));
+  if (glazed) {
+    /* aluminium frame near the outside face, glass in the middle of it */
+    const q = ext ? n1 - 0.11 : 0, fd = 0.07, fw = 0.05;
+    /* c.rake: the head follows the roof (houses 4-6), tp(s) = head height at s */
+    const tp = c.rake || (() => top), g = c.rake ? (tp(e) - tp(s)) / W : 0, sm = (s + e) / 2;
+    const shear = (geo, all) => {                       /* raked head: y += g * (along the wall); all = whole piece, else only its top */
+      const P = geo.attributes.position;
+      for (let i = 0; i < P.count; i++) if (all || P.getY(i) > 0) P.setY(i, P.getY(i) + g * P.getX(i));
+      P.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingBox(); geo.computeBoundingSphere(); return geo;
+    };
+    const bar = (s0, s1, y0, y1) => put(B(s1 - s0, y1 - y0, fd), MAT.frame, (s0 + s1) / 2, q, (y0 + y1) / 2, true);
+    bar(s, e, bot, bot + fw);
+    if (g) put(shear(B(W, fw, fd), true), MAT.frame, sm, q, tp(sm) - fw / 2, true); else bar(s, e, top - fw, top);
+    bar(s, s + fw, bot, tp(s + fw / 2)); bar(e - fw, e, bot, tp(e - fw / 2));
+    if (ext) {                                          /* black metal reveal lining outside the frame */
+      const qa = q + fd / 2, qb = n1 + 0.002, dq = qb - qa, cq = (qa + qb) / 2;
+      put(B(0.006, tp(s) - bot, dq), MAT.blackSteel, s + 0.004, cq, (bot + tp(s)) / 2, false);
+      put(B(0.006, tp(e) - bot, dq), MAT.blackSteel, e - 0.004, cq, (bot + tp(e)) / 2, false);
+      put(g ? shear(B(W, 0.006, dq), true) : B(W, 0.006, dq), MAT.blackSteel, sm, cq, tp(sm) - 0.004, false);
+      if (bot > L.base + 0.05) put(B(W, 0.006, dq), MAT.blackSteel, (s + e) / 2, cq, bot + 0.004, false);
+    }
+    const nMull = o.panes ? o.panes - 1 : Math.max(0, Math.ceil(W / 1.9) - 1);   /* staging: o.panes = the unit's sashes / panes */
+    for (let i = 1; i <= nMull; i++) { const mx = s + W * i / (nMull + 1); bar(mx - 0.025, mx + 0.025, bot, tp(mx)); }
+    if (o.kind !== 'WINDOW') bar(s, e, bot + 1.02, bot + 1.06);          /* door rail */
+    const Hm = tp(sm) - bot, pg = new THREE.PlaneGeometry(W - 0.04, Hm - 0.04);
+    const gl = put(g ? shear(pg, false) : pg, o.frost ? MAT.glassFrost : (STY && !ext ? MAT.glassIn : MAT.glass), sm, q, (bot + tp(sm)) / 2, false);   /* v36: inside glass (the bath) doesn't mirror the sky */
+    gl.renderOrder = 2;
+    if (o.kind === 'WINDOW' && bot > L.base + 0.05) {
+      /* oak sill board inside (none on a transom: c.upper), metal flashing outside */
+      const qa = (ext ? n0 : n0) - 0.03, qb = q - fd / 2;
+      if (!c.upper) put(B(W + 0.06, 0.03, qb - qa, MAT.oakFurn), MAT.oakFurn, (s + e) / 2, (qa + qb) / 2, bot - 0.015, true);
+      if (ext) put(B(W + 0.04, 0.02, 0.1), MAT.blackSteel, (s + e) / 2, n1 - 0.03, bot - 0.01, true);
+    }
+    return;
+  }
+  /* solid doors: leaves + casings */
+  const leafMat = MAT.oakFurn;
+  const q = ext ? n1 - 0.12 : 0;
+  const casing = (s0, s1, y0, y1) => put(B(s1 - s0, y1 - y0, (n1 - n0) + 0.02, MAT.white), MAT.white, (s0 + s1) / 2, (n0 + n1) / 2, (y0 + y1) / 2, true);
+  if (!ext && !o.glass) { casing(s - 0.04, s, bot, top + 0.04); casing(e, e + 0.04, bot, top + 0.04); casing(s - 0.04, e + 0.04, top, top + 0.04); }
+  const LW = leafWidths(o, W), nLeaf = LW.length, lw = W / nLeaf;
+  const lx = (i) => s + LW.slice(0, i).reduce((a, b) => a + b, 0) + LW[i] / 2;   /* leaf i's centre along the wall */
+  const isChild = (i) => o.type === 'parent-child' && LW[i] < W / 2 - 1e-6;      /* the narrow leaf: bolts, no handle */
+  if (!ext && o.glass) {
+    /* v36 (Toby 2026-10-24): a glass door (the bath): clear leaf in a slim black frame */
+    for (const [a, b] of [[s - 0.03, s], [e, e + 0.03]]) put(B(b - a, top - bot + 0.03, (n1 - n0) + 0.02), MAT.accBlack || MAT.blackSteel, (a + b) / 2, (n0 + n1) / 2, (bot + top + 0.03) / 2, true);
+    put(B(W + 0.06, 0.03, (n1 - n0) + 0.02), MAT.accBlack || MAT.blackSteel, (s + e) / 2, (n0 + n1) / 2, top + 0.015, true);
+    const gl = put(B(W - 0.01, H - 0.01, 0.01), MAT.glassIn, (s + e) / 2, 0, bot + H / 2, false); gl.renderOrder = 2;
+    for (const [y0, y1] of [[bot, bot + 0.04], [top - 0.04, top]]) put(B(W - 0.01, y1 - y0, 0.03), MAT.accBlack || MAT.blackSteel, (s + e) / 2, 0, (y0 + y1) / 2, false);
+    put(B(0.02, 0.6, 0.05), MAT.steel, s + (W - 0.08), 0, bot + 1.0, false);
+    return;
+  }
+  if (!ext) {
+    /* Interior doors (Toby 2026-10-05): shown CLOSED in their own openings as
+       see-through leaves with a handle -- no swing or parked sliding leaf can
+       end up through a wall, and you can still see into the room. House 3
+       cupboard doors (o.solid) are plain wood. */
+    for (let i = 0; i < nLeaf; i++) {
+      const lc = lx(i), li = LW[i];
+      const leaf = put(B(li - 0.012, H - 0.012, 0.035, o.solid ? MAT.doorWood : null), o.solid ? MAT.doorWood : MAT.doorGhost, lc, 0, bot + H / 2, false);
+      if (!o.solid) leaf.renderOrder = 2;
+      if (!isChild(i)) put(B(0.02, 0.24, 0.06), MAT.blackSteel, lc + (i === 0 ? 1 : -1) * (li / 2 - 0.09), 0, bot + 1.0, false);
+    }
+    return;
+  }
+  if (o.kind === 'SLIDING_HUNG_DOOR') {
+    /* slid open against a wall face beside the opening, on a track. Which
+       face and which way needs every wall in place: see parkSliders() */
+    SLIDERS.push({ id: o.id, lvl, put, at, lw, H, s, e, bot, top, n0, n1, own: c.own });
+    return;
+  }
+  for (let i = 0; i < nLeaf; i++) {
+    /* exterior solid door, closed; handles on the meeting stile inside + out (one leaf: its e
+       side). Interior doors returned above. v23: leaf widths from leafWidths (parent-child) */
+    const g = new THREE.Group(), li = LW[i];
+    const leaf = new THREE.Mesh(B(li - 0.01, H - 0.01, 0.04, MAT.cedar), MAT.cedar);
+    leaf.castShadow = true; leaf.receiveShadow = true;
+    const handle = new THREE.Mesh(B(0.02, 0.26, 0.05), MAT.blackSteel);
+    g.position.copy(at(lx(i), q, bot + H / 2)); g.rotation.y = th;
+    handle.position.set((i === 0 ? 1 : -1) * (li / 2 - 0.1), 0, -0.05);
+    if (!isChild(i)) { const h2 = handle.clone(); h2.position.z = 0.05; g.add(h2); g.add(leaf, handle); }
+    else g.add(leaf);
+    G.walls.add(g);
+  }
+}
+
+/* Every sliding leaf parks flat against a wall face beside its opening, in
+   the first of: n1 face toward the wall start, n1 toward its end, n0 toward
+   the start, n0 toward the end, where the leaf box (lw x H x 5 cm, 3.5 cm off
+   the face) hits no wall but its own and no furniture, fixture or door leaf,
+   stays on this floor of the house and has solid wall behind it (not open
+   space or another opening). If none is free, the first. Runs once all walls
+   of all levels exist, before mergeStatic. */
+const SLIDERS = [];
+function parkSliders(list) {
+  scene.updateMatrixWorld(true);
+  const obst = [];
+  for (const g of G.furn) for (const o of g.children) obst.push(new THREE.Box3().setFromObject(o));
+  for (const g of G.walls) for (const o of g.children) if (o.isGroup) obst.push(new THREE.Box3().setFromObject(o));
+  const inWall = (v) => COLL.some(b => v.x > b.x0 && v.x < b.x1 && v.z > b.z0 && v.z < b.z1 && v.y > b.y0 && v.y < b.y1);
+  for (const d of (list || SLIDERS)) {
+    const { put, at, lw, H, s, e, bot, top, n0, n1, own } = d;
+    const spots = [[1, -1], [1, 1], [-1, -1], [-1, 1]].map(([side, dir]) => ({
+      side, dir,
+      q: side > 0 ? n1 + 0.035 : n0 - 0.035,               /* leaf centre plane */
+      sc: dir < 0 ? s - lw / 2 + 0.08 : e + lw / 2 - 0.08, /* leaf centre along the wall */
+    }));
+    const blocker = (p) => {
+      const c = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => at(p.sc + i * lw / 2, p.q + j * 0.025, 0));
+      const box = new THREE.Box3(new V(Math.min(...c.map(v => v.x)), bot + 0.02, Math.min(...c.map(v => v.z))),
+        new V(Math.max(...c.map(v => v.x)), bot + H - 0.02, Math.max(...c.map(v => v.z))));
+      for (let k = 0; k < COLL.length; k++) {
+        if (k >= own.c0 && k < own.c1) continue;
+        const b = COLL[k];
+        if (box.min.x < b.x1 && box.max.x > b.x0 && box.min.z < b.z1 && box.max.z > b.z0 && box.min.y < b.y1 && box.max.y > b.y0) return 'wall';
+      }
+      if (obst.some(b => b.intersectsBox(box))) return 'furniture';
+      for (let i = 0; i <= 10; i++) for (const j of [-1, 1]) {
+        const v = at(p.sc - lw / 2 + lw * i / 10, p.q + j * 0.025, 0);
+        if (!onRects(FLOOR_RECTS[d.lvl], v.x, v.z, 0.005)) return 'off floor';
+      }
+      const a0 = p.dir < 0 ? s - lw + 0.1 : e + 0.02, a1 = p.dir < 0 ? s - 0.02 : e + lw - 0.1;
+      for (let i = 0; i <= 8; i++) for (const y of [0.3, 1.1, H - 0.15])
+        if (!inWall(at(a0 + (a1 - a0) * i / 8, p.side > 0 ? n1 - 0.02 : n0 + 0.02, bot + y))) return 'no wall behind';
+      return '';
+    };
+    for (const p of spots) p.why = blocker(p);
+    const p = d.park = spots.find(q => !q.why) || spots[0];
+    const leafMat = MAT.oakFurn;
+    put(B(lw, H - 0.02, 0.035, leafMat), leafMat, p.sc, p.q, bot + (H - 0.02) / 2, true);
+    put(B(0.02, 0.3, 0.03), MAT.blackSteel, p.sc - p.dir * (lw / 2 - 0.07), p.q + p.side * 0.03, bot + 1.0, true);   /* pull, opening end */
+    put(B(2 * lw, 0.05, 0.05), MAT.blackSteel, p.dir < 0 ? s + 0.08 : e - 0.08, p.q, top + 0.03, true);       /* track over leaf + opening */
+  }
+}
+
+/* -------------------------------------------------------------- slabs */
+function shapeFrom(poly, holes) {
+  const sh = new THREE.Shape(poly.map(p => new THREE.Vector2(p[0], -p[1])));
+  for (const h of holes) sh.holes.push(new THREE.Path(h.map(p => new THREE.Vector2(p[0], -p[1])).reverse()));
+  return sh;
+}
+/* slab whose TOP is at yTop, `thick` deep; top material + edge material */
+function slab(poly, holes, yTop, thick, topMat, edgeMat) {
+  const geo = new THREE.ExtrudeGeometry(shapeFrom(poly, holes), { depth: thick, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);                      /* shape z (extrude) -> +y */
+  geo.translate(0, yTop - thick, 0);
+  scaleUV(geo, 1 / tileOf(topMat));
+  const m = new THREE.Mesh(geo, [topMat, edgeMat || MAT.slabEdge]);
+  m.receiveShadow = true; m.castShadow = true;
+  return m;
+}
+/* flat plane facing up (dir=1) or down (dir=-1) */
+function flat(poly, holes, y, mat, dir) {
+  const geo = new THREE.ShapeGeometry(shapeFrom(poly, holes));
+  geo.rotateX(-Math.PI / 2);                      /* (x, 0, plan y), facing up */
+  if (dir < 0) {
+    const idx = geo.index.array;
+    for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+    const nr = geo.attributes.normal;
+    for (let i = 0; i < nr.count; i++) nr.setY(i, -nr.getY(i));
+  }
+  geo.translate(0, y, 0);
+  scaleUV(geo, 1 / tileOf(mat));
+  const m = new THREE.Mesh(geo, mat);
+  m.receiveShadow = true;
+  return m;
+}
+const rectPoly = (x0, z0, x1, z1) => [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+const bbox = (pts) => {
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const p of pts) { x0 = Math.min(x0, p[0]); z0 = Math.min(z0, p[1]); x1 = Math.max(x1, p[0]); z1 = Math.max(z1, p[1]); }
+  return [x0, z0, x1, z1];
+};
+
+/* Axis-aligned region -> non-overlapping rects. Everything in this plan is
+   orthogonal, so floors are built from rects rather than triangulated shapes
+   with holes (earcut mangles holes that touch the outline). */
+function gridRects(xsIn, zsIn, pred) {
+  const xs = [...new Set(xsIn.map(v => +v.toFixed(4)))].sort((a, b) => a - b);
+  const zs = [...new Set(zsIn.map(v => +v.toFixed(4)))].sort((a, b) => a - b);
+  const out = [];
+  let open = new Map();
+  for (let j = 0; j < zs.length - 1; j++) {
+    const cz = (zs[j] + zs[j + 1]) / 2, runs = [];
+    let run = null;
+    for (let i = 0; i < xs.length - 1; i++) {
+      const cx = (xs[i] + xs[i + 1]) / 2;
+      if (pred(cx, cz)) { if (run) run[1] = xs[i + 1]; else { run = [xs[i], xs[i + 1]]; runs.push(run); } }
+      else run = null;
+    }
+    const next = new Map();
+    for (const [x0, x1] of runs) {
+      const k = x0 + '|' + x1, r = open.get(k);
+      if (r) { r[3] = zs[j + 1]; next.set(k, r); }
+      else { const nr = [x0, zs[j], x1, zs[j + 1]]; out.push(nr); next.set(k, nr); }
+    }
+    open = next;
+  }
+  return out;
+}
+function rectsOf(poly, holes) {
+  const P = bbox(poly), hb = holes.map(bbox);
+  const xs = poly.map(p => p[0]), zs = poly.map(p => p[1]);
+  for (const h of hb) {
+    for (const x of [h[0], h[2]]) if (x > P[0] && x < P[2]) xs.push(x);
+    for (const z of [h[1], h[3]]) if (z > P[1] && z < P[3]) zs.push(z);
+  }
+  return gridRects(xs, zs, (x, z) => inside(poly, x, z) && !hb.some(h => x > h[0] && x < h[2] && z > h[1] && z < h[3]));
+}
+function unionRects(polys, classify) {
+  const xs = [], zs = [];
+  for (const p of polys) for (const q of p) { xs.push(q[0]); zs.push(q[1]); }
+  return gridRects(xs, zs, (x, z) => polys.some(p => inside(p, x, z)) && (!classify || classify(x, z)));
+}
+/* quad soup with world-space UVs (metres / tile), one mesh per material */
+function Quads(mat) { return { mat, p: [], n: [], uv: [], i: [] }; }
+function quad(Q, a, b, c, d, nrm, uvOf) {
+  const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  const cr = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+  if (cr[0] * nrm[0] + cr[1] * nrm[1] + cr[2] * nrm[2] < 0) { const t = b; b = d; d = t; }
+  const base = Q.p.length / 3, t = tileOf(Q.mat);
+  for (const v of [a, b, c, d]) { Q.p.push(...v); Q.n.push(...nrm); const uv = uvOf(v); Q.uv.push(uv[0] / t, uv[1] / t); }
+  Q.i.push(base, base + 1, base + 2, base, base + 2, base + 3);
+}
+function qMesh(Q) {
+  if (!Q.p.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(Q.p, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(Q.n, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(Q.uv, 2));
+  g.setIndex(Q.i);
+  const m = new THREE.Mesh(g, Q.mat); m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+/* slab from rects: top face at yTop, bottom face (optional) at yTop-th, edges */
+function slabRects(parent, rects, yTop, th, topMat, botMat, edgeMat, botPick) {
+  const T = Quads(topMat), E = Quads(edgeMat), Bm = new Map();
+  const yb = yTop - th, up = [0, 1, 0], dn = [0, -1, 0];
+  const plan = (v) => [v[0], -v[2]];
+  for (const r of rects) {
+    const [x0, z0, x1, z1] = r;
+    quad(T, [x0, yTop, z0], [x0, yTop, z1], [x1, yTop, z1], [x1, yTop, z0], up, plan);
+    const bm = botPick ? botPick(r) : botMat;
+    if (bm) {
+      if (!Bm.has(bm)) Bm.set(bm, Quads(bm));
+      quad(Bm.get(bm), [x0, yb, z0], [x1, yb, z0], [x1, yb, z1], [x0, yb, z1], dn, plan);
+    }
+    const side = (ax, az, bx, bz, n) => quad(E, [ax, yb, az], [bx, yb, bz], [bx, yTop, bz], [ax, yTop, az], n,
+      (v) => [Math.abs(n[0]) > 0 ? v[2] : v[0], v[1]]);
+    side(x0, z0, x1, z0, [0, 0, -1]); side(x1, z1, x0, z1, [0, 0, 1]);
+    side(x0, z1, x0, z0, [-1, 0, 0]); side(x1, z0, x1, z1, [1, 0, 0]);
+  }
+  for (const Q of [T, E, ...Bm.values()]) { const m = qMesh(Q); if (m) parent.add(m); }
+}
+
+/* ------------------------------------------------------------------ stairs */
+function stairRise(s) {
+  const L = LV[s.level], N = LV[s.level + 1];
+  return N ? N.base - L.base : L.h + L.ct;
+}
+function buildStraightStair(G, s) {
+  const g = new THREE.Group();
+  const H = stairRise(s), run = s.d, wid = s.w;
+  const n = Math.round(H / 0.18), rise = H / n, go = run / n;
+  const outside = s.level === 0 && !LV[0].rooms.some(r => inside(r.poly, s.x, s.y));
+  const treadMat = outside ? MAT.deck : MAT.oakFurn;
+  /* climbs towards local -z (FPC: up the drawing) */
+  for (let i = 1; i <= n; i++) {
+    const zc = run / 2 - go * (i - 0.5);
+    mk(g, B(wid - 0.02, 0.045, go + 0.03, treadMat), treadMat, 0, rise * i - 0.0225, zc);
+    if (outside) mk(g, RS(wid - 0.06, 0.05, go * 0.8, 0.02, MAT.snow), MAT.snow, 0, rise * i + 0.012, zc + 0.01).castShadow = false;
+  }
+  /* steel stringers */
+  const slope = Math.atan2(H, run), sl = Math.hypot(H, run);
+  for (const sx of [-1, 1]) {
+    const st = mk(g, B(0.012, 0.26, sl + 0.25), MAT.blackSteel, sx * (wid / 2 - 0.006), H / 2 - 0.12, 0);
+    st.rotation.x = slope;
+    /* handrail + posts */
+    const hr = mk(g, CY(0.022, sl + 0.2, 12), outside ? MAT.blackSteel : MAT.oakFurn, sx * (wid / 2 - 0.03), H / 2 + 0.92, 0);
+    hr.rotation.x = Math.PI / 2 + slope;
+    for (let i = 1; i <= n; i += 3) {
+      const zc = run / 2 - go * (i - 0.5), y = rise * i;
+      mk(g, CY(0.011, 0.92, 8), MAT.blackSteel, sx * (wid / 2 - 0.03), y + 0.46, zc);
+    }
+  }
+  g.position.set(s.x, LV[s.level].base, s.y);
+  g.rotation.y = -s.a;
+  G.furn.add(g);
+}
+/* house 2: a flat landing (FPC stair piece with landing="1", parse_plan.py)
+   at the top of a flight: deck at the floor above, on a black steel frame and
+   four posts; a guard rail on every side that neither a wall nor the flight
+   closes. Walkable: stairHeights(). */
+function landingTop(s) { const N = LV[s.level + 1]; return N ? N.base : LV[s.level].base + s.top; }
+function buildLanding(G, s) {
+  const g = new THREE.Group(), H = landingTop(s) - LV[s.level].base, w = s.w, d = s.d;
+  const outside = s.level === 0 && !LV[0].rooms.some(r => inside(r.poly, s.x, s.y));
+  mk(g, B(w, 0.045, d, outside ? MAT.deck : MAT.oakFurn), outside ? MAT.deck : MAT.oakFurn, 0, H - 0.0225, 0);
+  if (outside) mk(g, RS(w - 0.08, 0.05, d - 0.08, 0.02, MAT.snow), MAT.snow, 0, H + 0.012, 0).castShadow = false;
+  const fr = 0.16, yF = H - 0.045 - fr / 2;
+  mk(g, B(w, fr, 0.06), MAT.blackSteel, 0, yF, -d / 2 + 0.03); mk(g, B(w, fr, 0.06), MAT.blackSteel, 0, yF, d / 2 - 0.03);
+  mk(g, B(0.06, fr, d - 0.12), MAT.blackSteel, -w / 2 + 0.03, yF, 0); mk(g, B(0.06, fr, d - 0.12), MAT.blackSteel, w / 2 - 0.03, yF, 0);
+  const yb = H - 0.045 - fr;
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.1, yb, 0.1), MAT.blackSteel, sx * (w / 2 - 0.05), yb / 2, sz * (d / 2 - 0.05));
+  /* open sides: not against the house, not where a flight arrives */
+  const ca = Math.cos(s.a), sa = Math.sin(s.a), W = (lx, lz) => [s.x + lx * ca - lz * sa, s.y + lx * sa + lz * ca];
+  const flightAt = (x, z) => STAIRS.some(f => f !== s && f.name === 'stairs' && inside(rectCorners({ x: f.x, y: f.y, w: f.w + 0.1, d: f.d + 0.1, a: f.a }), x, z));
+  const sides = [[0, -d / 2, w, 0], [0, d / 2, w, 0], [-w / 2, 0, d, 1], [w / 2, 0, d, 1]];
+  for (const [cx, cz, L, vert] of sides) {
+    const ox = vert ? Math.sign(cx) * 0.25 : 0, oz = vert ? 0 : Math.sign(cz) * 0.25;
+    if (houseAt(...W(cx + ox, cz + oz)) || flightAt(...W(cx + ox, cz + oz))) continue;
+    const rx = vert ? cx - Math.sign(cx) * 0.03 : cx, rz = vert ? cz : cz - Math.sign(cz) * 0.03;
+    mk(g, vert ? B(0.05, 0.04, L) : B(L, 0.04, 0.05), MAT.blackSteel, rx, H + 1.1, rz);
+    const nb = Math.round(L / 0.11);
+    for (let i = 0; i <= nb; i++) {
+      const t = -L / 2 + 0.03 + (L - 0.06) * i / nb;
+      mk(g, B(0.016, 1.08, 0.016), MAT.blackSteel, vert ? rx : rx + t, H + 0.56, vert ? rz + t : rz);
+    }
+  }
+  g.position.set(s.x, LV[s.level].base, s.y);
+  g.rotation.y = -s.a;
+  G.furn.add(g);
+}
+function buildSpiralStair(G, s) {
+  const g = new THREE.Group();
+  const H = stairRise(s), n = s.treads || 16, sweep = s.rot || Math.PI * 2;
+  const d = sweep / n, rise = H / n, r = s.w / 2 - 0.02;
+  /* top tread faces the landing (north, three theta = PI); climbs clockwise
+     seen from above, which puts the first step on the open WNW side */
+  const thTop = Math.PI;
+  mk(g, CY(0.075, H + 1.0, 20), MAT.blackSteel, 0, (H + 1.0) / 2, 0);
+  const pts = [];
+  for (let i = 1; i <= n; i++) {
+    const thc = thTop + (n - i) * d;
+    /* built centred on +z so the grain can run out along the radius, then turned into place */
+    const geo = grainUV(new THREE.CylinderGeometry(r, r, 0.045, 10, 1, false, -d / 2, d * 1.04), tileOf(MAT.oakFurn), 'z');
+    geo.rotateY(thc);
+    mk(g, geo, MAT.oakFurn, 0, rise * i - 0.0225, 0);
+    /* baluster at the outer end */
+    const bx = Math.sin(thc) * (r - 0.04), bz = Math.cos(thc) * (r - 0.04);
+    mk(g, CY(0.009, 0.95, 8), MAT.blackSteel, bx, rise * i + 0.475, bz);
+    pts.push(new V(bx, rise * i + 0.95, bz));
+  }
+  const rail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), n * 6, 0.022, 8, false), MAT.blackSteel);
+  rail.castShadow = true; g.add(rail);
+  g.position.set(s.x, LV[s.level].base, s.y);
+  G.furn.add(g);
+}
+
+/* --------------------------------------------------------- glTF furniture */
+const GLTF = {};
+const gltfLoader = new GLTFLoader(LM);
+const MODELS = {
+  armchair: 'modern_arm_chair_01/modern_arm_chair_01_1k.gltf',
+  dining: 'dining_chair_02/dining_chair_02_1k.gltf',
+  pendant: 'modern_ceiling_lamp_01/modern_ceiling_lamp_01_1k.gltf',
+  plant: 'potted_plant_02/potted_plant_02_1k.gltf',
+  side: 'side_table_01/side_table_01_1k.gltf',
+  coffee: 'modern_coffee_table_01/modern_coffee_table_01_1k.gltf',
+};
+function loadModels() {
+  return Promise.all(Object.entries(MODELS).map(([k, f]) => new Promise((res) => {
+    gltfLoader.load(ASSETS + 'models/' + f, (gl) => {
+      const o = gl.scene;
+      o.traverse(m => {
+        if (!m.isMesh) return;
+        m.userData.gltf = 1;
+        m.castShadow = true; m.receiveShadow = true;
+        const mm = m.material; if (mm) { mm.envMapIntensity = 0.6; if (mm.map) mm.map.anisotropy = 4; }
+      });
+      const bb = new THREE.Box3().setFromObject(o);
+      GLTF[k] = { obj: o, size: bb.getSize(new V()), min: bb.min.clone(), center: bb.getCenter(new V()) };
+      res();
+    }, undefined, () => res());
+  })));
+}
+/* place a model: footprint centred on (x,z), front facing local +z rotated by ry */
+function placeModel(parent, key, x, y, z, ry, scale, faceFix) {
+  const M = GLTF[key]; if (!M) return null;
+  const o = M.obj.clone(true);
+  const wrap = new THREE.Group();
+  o.position.set(-M.center.x, -M.min.y, -M.center.z);
+  const inner = new THREE.Group(); inner.add(o);
+  inner.rotation.y = faceFix || 0;
+  inner.scale.setScalar(scale || 1);
+  wrap.add(inner);
+  wrap.position.set(x, y, z); wrap.rotation.y = ry || 0;
+  parent.add(wrap);
+  return wrap;
+}
+
+/* --------------------------------------------------------- procedural props */
+/* FPC furniture: x/y centre, w along local x, d along local y, angle a. In
+   three: group at (x, base, y), rotation.y = -a; local +z = FPC local +y. */
+function makeProp(s, lvl) {
+  if (H3) { const r3 = makeProp3(s, lvl); if (r3 !== undefined) return r3; }
+  const g = new THREE.Group();
+  const n = s.name, w = s.w, d = s.d, top = s.top, bot = s.bottom;
+  const h = Math.max(0.02, top - bot);
+  const has = (k) => n.indexOf(k) >= 0;
+  let placed = true;
+
+  if (has('bed')) {
+    /* FPC bed: headboard at local -y (top of the symbol). On 3F the symbol's
+       head edge IS the wall face, so everything stays inside the footprint:
+       headboard 1.6 cm off the wall (clear of the 1.2 cm skirting), 1 cm clear
+       of the bedside tables, top at 0.92 m (bed 3's window sill board starts at
+       0.97); the frame's head end tucks inside the headboard. (v2's headboard
+       sat in the wall, its face coplanar with the plaster: vertical stripes.) */
+    mk(g, B(w - 0.12, 0.14, d - 0.12), MAT.black, 0, 0.07, 0);
+    mk(g, RS(w, 0.16, d - 0.04, 0.02, MAT.oakFurn), MAT.oakFurn, 0, 0.22, 0.02);
+    mk(g, RS(w - 0.06, 0.22, d - 0.08, 0.05, MAT.linenWhite, 0.06), MAT.linenWhite, 0, 0.41, 0.01);
+    mk(g, RS(w + 0.02, 0.09, d * 0.66, 0.06, MAT.linen, 0.04), MAT.linen, 0, 0.555, d * 0.16);
+    mk(g, RS(w + 0.03, 0.05, 0.36, 0.04, MAT.linenDark, 0.022), MAT.linenDark, 0, 0.61, d * 0.34);
+    for (const sx of [-1, 1]) mk(g, RS(w * 0.42, 0.13, 0.36, 0.07, MAT.linenWhite, 0.055), MAT.linenWhite, sx * w * 0.24, 0.58, -d / 2 + 0.3);
+    mk(g, B(w + 0.28, 0.92, 0.06, MAT.oakFurn), MAT.oakFurn, 0, 0.46, -d / 2 + 0.046);
+    for (const sx of [-1, 1]) {                                     /* bedside tables + lamps */
+      mk(g, B(0.42, 0.45, 0.38, MAT.oakFurn), MAT.oakFurn, sx * (w / 2 + 0.36), 0.225, -d / 2 + 0.22);
+      mk(g, CY(0.06, 0.03, 16), MAT.blackSteel, sx * (w / 2 + 0.36), 0.465, -d / 2 + 0.2);
+      mk(g, CY(0.012, 0.3, 8), MAT.blackSteel, sx * (w / 2 + 0.36), 0.61, -d / 2 + 0.2);
+      mk(g, new THREE.CylinderGeometry(0.08, 0.12, 0.16, 20, 1, true), MAT.linenWhite, sx * (w / 2 + 0.36), 0.8, -d / 2 + 0.2);
+    }
+  } else if (has('toilet')) {
+    /* FPC toilet: cistern at local +y (checked against all four in the plan) */
+    mk(g, RB(w * 0.62, 0.38, d * 0.6, 0.06, MAT.porcelain), MAT.porcelain, 0, 0.19, -d * 0.08);
+    mk(g, new THREE.CylinderGeometry(w * 0.36, w * 0.3, 0.06, 24), MAT.porcelain, 0, 0.41, -d * 0.1);
+    mk(g, RB(w * 0.9, 0.42, d * 0.24, 0.03, MAT.porcelain), MAT.porcelain, 0, 0.3, d * 0.36);
+  } else if (has('showerRect')) {
+    mk(g, B(w, 0.03, d, MAT.bathTile), MAT.bathTile, 0, 0.015, 0);
+    /* clear screen in a thin black frame on the tray's +z edge, 2 m tall */
+    const gl = new THREE.Mesh(new THREE.BoxGeometry(w - 0.02, 1.98, 0.008), MAT.glassIn); gl.position.set(0, 1.03, d / 2); gl.renderOrder = 2; g.add(gl);
+    for (const y of [0.04, 2.02]) mk(g, B(w, 0.02, 0.022), MAT.blackSteel, 0, y, d / 2);
+    for (const sx of [-1, 1]) mk(g, B(0.02, 1.96, 0.022), MAT.blackSteel, sx * (w / 2 - 0.01), 1.03, d / 2);
+    mk(g, CY(0.012, 0.9, 10), MAT.steel, -w * 0.3, 1.6, -d * 0.44);
+    mk(g, CY(0.1, 0.012, 24), MAT.steel, -w * 0.3, 2.06, -d * 0.3);
+  } else if (has('showerSystem')) {
+    mk(g, B(0.05, h, 0.04), MAT.steel, 0, bot + h / 2, 0);
+    mk(g, CY(0.11, 0.012, 24), MAT.steel, 0, bot + h - 0.02, 0.14);
+  } else if (has('tube')) {
+    /* built-in hinoki soaking tub (hot bath + cold plunge) */
+    const Ht = 0.6, t = 0.06;
+    mk(g, B(w, Ht, t, MAT.hinoki), MAT.hinoki, 0, Ht / 2, -d / 2 + t / 2);
+    mk(g, B(w, Ht, t, MAT.hinoki), MAT.hinoki, 0, Ht / 2, d / 2 - t / 2);
+    mk(g, B(t, Ht, d - 2 * t, MAT.hinoki), MAT.hinoki, -w / 2 + t / 2, Ht / 2, 0);
+    mk(g, B(t, Ht, d - 2 * t, MAT.hinoki), MAT.hinoki, w / 2 - t / 2, Ht / 2, 0);
+    mk(g, B(w - 2 * t, 0.04, d - 2 * t, MAT.hinoki), MAT.hinoki, 0, 0.02, 0);
+    const wt = new THREE.Mesh(new THREE.PlaneGeometry(w - 2 * t, d - 2 * t), MAT.water);
+    wt.rotation.x = -Math.PI / 2; wt.position.y = Ht - 0.09; g.add(wt);
+  } else if (has('jacuzzi')) {
+    mk(g, new THREE.CylinderGeometry(w / 2, w / 2 * 0.96, 0.9, 40), MAT.cedar, 0, 0.45, 0);
+    const wt = new THREE.Mesh(new THREE.CircleGeometry(w / 2 - 0.06, 40), MAT.water); wt.rotation.x = -Math.PI / 2; wt.position.y = 0.8; g.add(wt);
+    const ring = mk(g, new THREE.TorusGeometry(w / 2 - 0.02, 0.03, 8, 40), MAT.cedar, 0, 0.9, 0); ring.rotation.x = Math.PI / 2;
+  } else if (has('sinkDouble') || has('handBasin') || has('Basin') || has('basin')) {
+    const vt = Math.max(top, 0.8);
+    mk(g, B(w, 0.04, d, MAT.stoneTop), MAT.stoneTop, 0, vt - 0.02, 0);
+    mk(g, B(w - 0.02, 0.36, d - 0.03, MAT.oakFurn), MAT.oakFurn, 0, vt - 0.22, 0);
+    const nb = has('Double') ? 2 : 1;
+    for (let i = 0; i < nb; i++) {
+      const bx = nb === 1 ? 0 : (i - 0.5) * w * 0.48;
+      mk(g, RB(Math.min(0.46, w * 0.8 / nb), 0.12, d * 0.62, 0.05, MAT.porcelain), MAT.porcelain, bx, vt + 0.06, 0.02);
+      mk(g, CY(0.012, 0.22, 10), MAT.steel, bx, vt + 0.11, -d * 0.36);
+    }
+  } else if (has('cornerCabinet') || has('kitchen.cabinet')) {
+    mk(g, B(w, 0.1, d - 0.06), MAT.black, 0, 0.05, -0.03);
+    if (STY && s.fin === 'black') mk(g, B(w, top - 0.14, d), MAT.accBlack, 0, 0.1 + (top - 0.14) / 2, 0);   /* v32: black units */
+    else mk(g, B(w, top - 0.14, d, MAT.oakFurn, 'y'), MAT.oakFurn, 0, 0.1 + (top - 0.14) / 2, 0);   /* cupboard fronts: vertical grain */
+    mk(g, B(w + 0.01, 0.04, d + 0.03, MAT.stoneTop), MAT.stoneTop, 0, top - 0.02, 0.015);
+    mk(g, B(w - 0.004, 0.004, 0.004), MAT.black, 0, top * 0.62, d / 2 + 0.002);
+  } else if (has('hood')) {
+    mk(g, B(w, 0.06, d, MAT.steel), MAT.steel, 0, bot + 0.03, 0);
+    mk(g, B(w * 0.4, h - 0.06, d * 0.5), MAT.steel, 0, bot + 0.06 + (h - 0.06) / 2, 0);
+  } else if (has('racks') || has('bookcase')) {
+    if (STY && s.fin === 'black') mk(g, B(w, top, d), MAT.accBlack, 0, top / 2, 0);   /* v32: black shelving */
+    else mk(g, B(w, top, d, MAT.oakFurn, 'y'), MAT.oakFurn, 0, top / 2, 0);
+    if (has('racks')) {                                 /* built-in cupboard fronts */
+      const nd = Math.max(1, Math.round(w / 0.6));
+      for (let i = 1; i < nd; i++) mk(g, B(0.004, top - 0.04, 0.004), MAT.black, -w / 2 + w * i / nd, top / 2, d / 2 + 0.002);
+    } else {
+      const ns = Math.max(2, Math.round(top / 0.38));
+      for (let i = 1; i < ns; i++) mk(g, B(w - 0.04, 0.02, 0.01), MAT.black, 0, top * i / ns, d / 2 + 0.004);
+    }
+  } else if (has('fridge')) {
+    mk(g, RB(w, top, d, 0.015, MAT.steel), MAT.steel, 0, top / 2, 0);
+    mk(g, B(w * 0.98, 0.006, 0.006), MAT.black, 0, top * 0.62, d / 2 + 0.002);
+    mk(g, B(0.02, 0.5, 0.03), MAT.black, w * 0.4, top * 0.8, d / 2 + 0.02);
+  } else if (has('owen') || has('oven')) {
+    /* sauna heater with stones */
+    mk(g, B(w * 0.85, 0.65, d * 0.85), MAT.heater, 0, 0.325, 0);
+    for (let i = 0; i < 26; i++) {
+      const st = mk(g, new THREE.IcosahedronGeometry(0.045 + Math.random() * 0.03, 1), MAT.stones,
+        (Math.random() - 0.5) * w * 0.7, 0.69 + Math.random() * 0.1, (Math.random() - 0.5) * d * 0.7);
+      st.scale.y = 0.7;
+    }
+  } else if (has('stowe') || has('stove') || has('hob')) {
+    if (lvl === 0) { placed = false; }                 /* 1F one = the sauna heater's twin symbol */
+    else {
+      mk(g, B(w, 0.012, d), MAT.black, 0, 0.905, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
+        mk(g, CY(w * 0.15, 0.004, 24), MAT.screen, sx * w * 0.22, 0.913, sz * d * 0.22);
+    }
+  } else if (has('laundry') || has('dryer')) {
+    mk(g, RB(w - 0.02, top, d - 0.02, 0.02, MAT.white), MAT.white, 0, top / 2, 0);
+    const port = mk(g, CY(w * 0.28, 0.02, 32), MAT.glass, 0, top * 0.46, d / 2 - 0.005); port.rotation.x = Math.PI / 2;
+    const rim = mk(g, new THREE.TorusGeometry(w * 0.29, 0.015, 8, 32), MAT.steel, 0, top * 0.46, d / 2); rim.castShadow = false;
+  } else if (has('water_heater')) {
+    mk(g, CY(w * 0.36, 1.7, 28), MAT.white, 0, 0.85, 0);
+    mk(g, CY(0.02, 0.4, 10), MAT.steel, w * 0.15, 1.9, 0);
+  } else if (has('desk')) {
+    mk(g, B(w, 0.035, d, MAT.oakFurn), MAT.oakFurn, 0, top - 0.018, 0);
+    for (const sx of [-1, 1]) mk(g, B(0.03, top - 0.035, d - 0.06), MAT.blackSteel, sx * (w / 2 - 0.05), (top - 0.035) / 2, 0);
+  } else if (has('table')) {
+    mk(g, RS(w, 0.04, d + 0.3, 0.02, MAT.oakFurn), MAT.oakFurn, 0, top - 0.02, 0);
+    for (const sx of [-1, 1]) {
+      mk(g, B(0.05, top - 0.04, 0.05), MAT.blackSteel, sx * (w / 2 - 0.2), (top - 0.04) / 2, -(d + 0.3) / 2 + 0.12);
+      mk(g, B(0.05, top - 0.04, 0.05), MAT.blackSteel, sx * (w / 2 - 0.2), (top - 0.04) / 2, (d + 0.3) / 2 - 0.12);
+    }
+  } else if (has('armchair')) {
+    /* must be tested before 'chair' ('living.armchair' contains it). Both
+       Poly Haven chairs face their own +z (rendered alone: seat to +z, back
+       at -z). FPC armchair front = local +y = three +z (the living one faces
+       the TV, the terrace pair the jacuzzi, the 1F one faces west): no flip */
+    placeModel(g, 'armchair', 0, 0, 0, 0, 1, 0);
+  } else if (has('chair')) {
+    /* FPC dining chair front = local -y (the row at y+55 faces up the drawing
+       into the table) = three -z: turn the +z-facing model round */
+    if (!placeModel(g, 'dining', 0, 0, 0, 0, 1, Math.PI)) {
+      mk(g, RS(w, 0.04, d, 0.02, MAT.oakFurn), MAT.oakFurn, 0, 0.45, 0);
+    }
+  } else if (has('sofa')) {
+    /* 250 x 250 "sofa" symbol = corner (L) sofa. The plan parks an armchair in
+       the -x/+y corner, so the L runs along -y and +x (backs on those sides). */
+    const SD = 0.95, SH = 0.42, BH = 0.8;
+    const seat = (x0, z0, x1, z1) => mk(g, RS(x1 - x0, SH - 0.1, z1 - z0, 0.05, MAT.sofa, 0.07), MAT.sofa, (x0 + x1) / 2, 0.1 + (SH - 0.1) / 2, (z0 + z1) / 2);
+    const base = (x0, z0, x1, z1) => mk(g, B(x1 - x0, 0.1, z1 - z0), MAT.black, (x0 + x1) / 2, 0.05, (z0 + z1) / 2);
+    const X0 = -w / 2, X1 = w / 2, Z0 = -d / 2, Z1 = d / 2;
+    base(X0 + 0.05, Z0 + 0.05, X1 - 0.05, Z0 + SD); base(X1 - SD, Z0 + SD, X1 - 0.05, Z1 - 0.05);
+    seat(X0, Z0, X1, Z0 + SD); seat(X1 - SD, Z0 + SD, X1, Z1);
+    mk(g, RS(w, BH - SH, 0.22, 0.07, MAT.sofa, 0.07), MAT.sofa, 0, SH + (BH - SH) / 2, Z0 + 0.11);
+    mk(g, RS(0.22, BH - SH, d - 0.22, 0.07, MAT.sofa, 0.07), MAT.sofa, X1 - 0.11, SH + (BH - SH) / 2, 0.11);
+    mk(g, RS(0.22, 0.2, SD - 0.22, 0.07, MAT.sofa, 0.07), MAT.sofa, X0 + 0.11, SH + 0.1, Z0 + 0.22 + (SD - 0.22) / 2);
+    for (let i = 0; i < 3; i++) mk(g, RB(0.5, 0.44, 0.15, 0.07, i === 1 ? MAT.linenDark : MAT.linenWhite, 0.06), i === 1 ? MAT.linenDark : MAT.linenWhite, X0 + 0.65 + i * 0.6, SH + 0.2, Z0 + 0.32);
+    for (let i = 0; i < 2; i++) mk(g, RB(0.15, 0.44, 0.5, 0.07, MAT.linenWhite, 0.06), MAT.linenWhite, X1 - 0.32, SH + 0.2, Z0 + 1.4 + i * 0.6);
+    if (s.mx) for (const c of g.children) c.position.x = -c.position.x;   /* mirrored symbol (house 2): the L runs along -x */
+  } else if (has('rug')) {
+    mk(g, B(w, 0.012, d, MAT.rug), MAT.rug, 0, 0.006, 0).castShadow = false;
+  } else if (has('tv')) {
+    mk(g, B(w * 1.3, 0.42, 0.42, MAT.oakFurn), MAT.oakFurn, 0, 0.21, 0);        /* low media unit */
+    mk(g, B(w * 1.1, 0.64, 0.03), MAT.screen, 0, 0.42 + 0.06 + 0.32, 0);
+  } else if (has('mirror')) {
+    mk(g, B(w, h, 0.012), std({ color: 0xe8eef2, roughness: 0.02, metalness: 1, envMapIntensity: 1.2 }), 0, bot + h / 2, 0);
+  } else if (n === 'fence') {
+    /* house 2: the plot's boundary (FPC railing drawn round the site; parse_plan.py) */
+    buildFence(g, Math.max(w, d), w >= d, Math.max(top, 0.9));
+  } else if (has('coatHanger')) {
+    /* wardrobe: hanging rail under a shelf, a few garments on it */
+    const ry = Math.min(1.85, Math.max(bot, 1.6) + 0.12);
+    const rail = mk(g, CY(0.013, w - 0.04, 12), MAT.steel, 0, ry, 0); rail.rotation.z = Math.PI / 2;
+    mk(g, B(w, 0.025, d + 0.12, MAT.oakFurn), MAT.oakFurn, 0, Math.max(top, ry + 0.12), 0);
+    const cloth = [MAT.linen, MAT.linenDark, MAT.linenWhite, MAT.sofa];
+    const ng = Math.max(3, Math.round(w / 0.13));
+    for (let i = 0; i < ng; i++) {
+      const L = 0.78 + ((i * 7) % 5) * 0.08, gx = -w / 2 + 0.08 + (w - 0.16) * i / (ng - 1);
+      mk(g, RB(0.03, L, Math.min(0.44, d + 0.08), 0.012, cloth[i % 4]), cloth[i % 4], gx, ry - 0.03 - L / 2, 0);
+    }
+  } else if (has('railing') && STY) {
+    /* v32 warm finish: black steel balusters (11 cm apart), oak handrail, black base rail */
+    const Lr = Math.max(w, d), along = w >= d, top2 = Math.max(top, 1.05), nb = Math.max(2, Math.round(Lr / 0.11));
+    for (let i = 0; i <= nb; i++) { const t = -Lr / 2 + 0.02 + (Lr - 0.04) * i / nb; mk(g, B(0.016, top2 - 0.04, 0.016), MAT.accBlack, along ? t : 0, (top2 - 0.04) / 2 + 0.03, along ? 0 : t); }
+    mk(g, along ? B(Lr, 0.04, 0.06, MAT.oakFurn) : B(0.06, 0.04, Lr, MAT.oakFurn), MAT.oakFurn, 0, top2, 0);
+    mk(g, along ? B(Lr, 0.03, 0.04) : B(0.04, 0.03, Lr), MAT.accBlack, 0, 0.015, 0);
+  } else if (has('railing')) {
+    const Lr = Math.max(w, d), along = w >= d, top2 = Math.max(top, 1.05);
+    const gl = new THREE.Mesh(along ? new THREE.BoxGeometry(Lr, top2 - 0.06, 0.012) : new THREE.BoxGeometry(0.012, top2 - 0.06, Lr), MAT.glassIn);
+    gl.position.y = (top2 - 0.06) / 2 + 0.03; gl.renderOrder = 2; g.add(gl);
+    mk(g, along ? B(Lr, 0.04, 0.06, MAT.oakFurn) : B(0.06, 0.04, Lr, MAT.oakFurn), MAT.oakFurn, 0, top2, 0);
+    mk(g, along ? B(Lr, 0.03, 0.04) : B(0.04, 0.03, Lr), MAT.blackSteel, 0, 0.015, 0);
+  } else if (has('shade') && HOUSE === 2 && lvl === 0) {
+    /* house 2: a shade over a car (or >= 20 m2) is the carport (Toby moved it
+       into the north-east yard, 2026-10-05); a small one is a garden pergola.
+       Both trimmed clear of the walls; c is world-axis-aligned, hence a: 0 */
+    const c = clearOfHouse(s);
+    if (!c) placed = false;
+    else if (isCarport(s)) { buildCarport2(Object.assign({}, c, { top })); placed = false; }
+    else { pergola(g, c.w, c.d, top); s = Object.assign({}, s, { x: c.x, y: c.y, a: 0 }); }
+  } else if (has('shade')) {
+    pergola(g, w, d, top);
+  } else if (has('treeBig')) {
+    buildBareTree(g, top, w);
+  } else if (has('box')) {
+    /* 1F boxes are the sauna benches */
+    mk(g, B(w, top, d, MAT.hinoki), MAT.hinoki, 0, top / 2, 0);
+  } else if (has('suv') || has('motorbike') || has('tricycle') || has('grass')) {
+    placed = false;                                    /* toys read as Minecraft; leave them out */
+  } else {
+    mk(g, B(w, h, d), std({ color: 0xd8d4cc, roughness: 0.8 }), 0, bot + h / 2, 0);
+  }
+  if (!placed) return null;
+  g.position.set(s.x, 0, s.y);
+  g.rotation.y = -s.a;
+  return g;
+}
+
+/* free-standing garden pergola: black steel posts, cedar roof, snow load */
+function pergola(g, w, d, top) {
+  const t = Math.min(Math.max(top, 2.2), 2.6);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]])
+    mk(g, B(0.12, t, 0.12), MAT.blackSteel, sx * (w / 2 - 0.15), t / 2, sz * (d / 2 - 0.15));
+  mk(g, B(w, 0.18, d, MAT.cedar), MAT.cedar, 0, t + 0.09, 0);
+  mk(g, B(w + 0.02, 0.05, d + 0.02), MAT.blackSteel, 0, t + 0.2, 0);
+  mk(g, RS(w - 0.05, 0.18, d - 0.05, 0.08, MAT.roofSnow), MAT.roofSnow, 0, t + 0.31, 0);
+}
+/* house 2: an axis-aligned site symbol drawn into the house corner is
+   trimmed from ONE side until it is clear of the walls (the side that keeps
+   the most of it); null if that leaves less than half */
+function clearOfHouse(s) {
+  const [X0, Z0, X1, Z1] = bbox(rectCorners(s));
+  const clear = (r) => { for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) if (houseAt(r[0] + (r[2] - r[0]) * i / 12, r[1] + (r[3] - r[1]) * j / 12)) return false; return true; };
+  if (clear([X0, Z0, X1, Z1])) return { x: s.x, y: s.y, w: X1 - X0, d: Z1 - Z0 };   /* world extents (a rotated symbol: w/d swap) */
+  let best = null;
+  for (let k = 0; k < 4; k++) {
+    const r = [X0, Z0, X1, Z1];
+    for (let it = 0; it < 400 && !clear(r); it++) r[k] += (k < 2 ? 1 : -1) * 0.02;
+    const area = (r[2] - r[0]) * (r[3] - r[1]);
+    if (clear(r) && r[2] > r[0] && r[3] > r[1] && (!best || area > best.area)) best = { r, area };
+  }
+  if (!best || best.area < 0.5 * (X1 - X0) * (Z1 - Z0)) return null;
+  const r = best.r, gap = 0.1;                               /* and 10 cm off the cladding */
+  for (let k = 0; k < 4; k++) if (r[k] !== [X0, Z0, X1, Z1][k]) r[k] += (k < 2 ? 1 : -1) * gap;
+  return { x: (r[0] + r[2]) / 2, y: (r[1] + r[3]) / 2, w: r[2] - r[0], d: r[3] - r[1] };
+}
+
+/* house 2: a shade with a car symbol under it, or a big one, is a carport */
+function isCarport(s) {
+  const c = rectCorners(s);
+  if (s.w * s.d >= 20) return true;
+  return LV[0].furniture.some(f => /suv|car\b|\.car/.test(f.name) && inside(c, f.x, f.y));
+}
+/* house 2 carport: the FPC shade's footprint and top (3.0 m). Black steel
+   posts and beams, cedar soffit between the rafters, flat steel deck with
+   its snow load. Posts at the corners plus one mid-span on the edge nearest
+   the house: the drive side and the doors stay clear. */
+let CARPORT2 = null;
+function buildCarport2(c) {
+  const g = G.ext, top = Math.max(2.4, Math.min(c.top || 3.0, 3.4));
+  const x0 = c.x - c.w / 2, x1 = c.x + c.w / 2, z0 = c.y - c.d / 2, z1 = c.y + c.d / 2, W = x1 - x0, D = z1 - z0;
+  CARPORT2 = { x0, z0, x1, z1, top };
+  const bd = 0.24, dk = 0.05, H = top - dk - bd, P = 0.14;
+  /* which edge faces the house: the one whose outside strip (0.6 m) touches it */
+  const near = (ax, az, bx, bz) => { for (let k = 0; k <= 10; k++) if (houseAt(ax + (bx - ax) * k / 10, az + (bz - az) * k / 10)) return true; return false; };
+  const edges = [
+    { m: [x0 - 0.6, z0, x0 - 0.6, z1], post: (t) => [x0 + P / 2 + 0.03, z0 + (D) * t] },
+    { m: [x1 + 0.6, z0, x1 + 0.6, z1], post: (t) => [x1 - P / 2 - 0.03, z0 + (D) * t] },
+    { m: [x0, z0 - 0.6, x1, z0 - 0.6], post: (t) => [x0 + W * t, z0 + P / 2 + 0.03] },
+    { m: [x0, z1 + 0.6, x1, z1 + 0.6], post: (t) => [x0 + W * t, z1 - P / 2 - 0.03] },
+  ];
+  const posts = [[x0 + P / 2 + 0.03, z0 + P / 2 + 0.03], [x1 - P / 2 - 0.03, z0 + P / 2 + 0.03],
+    [x0 + P / 2 + 0.03, z1 - P / 2 - 0.03], [x1 - P / 2 - 0.03, z1 - P / 2 - 0.03]];
+  /* a mid-span post never stands in front of a door in the house wall */
+  const doorClear = (px, pz) => !LV[0].walls.some(w => w.kind === 'ext' && w.doors.some(o => {
+    if (o.kind === 'WINDOW' || o.kind === 'HOLE') return false;
+    const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / len, uz = (bz - az) / len;
+    const sa = (px - ax) * ux + (pz - az) * uz, q = (px - ax) * w.n[0] + (pz - az) * w.n[1];
+    return sa > o.off - 0.6 && sa < o.off + o.w + 0.6 && q > 0 && q < w.t + 1.5;
+  }));
+  for (const e of edges) if (near(...e.m)) {
+    const len = Math.hypot(e.m[2] - e.m[0], e.m[3] - e.m[1]), pp = e.post(0.5);
+    if (len > 5.5 && doorClear(...pp)) posts.push(pp);
+  }
+  for (const [px, pz] of posts) { mk(g, B(P, H, P), MAT.blackSteel, px, H / 2, pz); addCollBox(px, pz, P, P, 0, 0, H); }
+  /* perimeter beams, rafters across the short span */
+  mk(g, B(W, bd, 0.12), MAT.blackSteel, (x0 + x1) / 2, H + bd / 2, z0 + 0.06);
+  mk(g, B(W, bd, 0.12), MAT.blackSteel, (x0 + x1) / 2, H + bd / 2, z1 - 0.06);
+  mk(g, B(0.12, bd, D - 0.24), MAT.blackSteel, x0 + 0.06, H + bd / 2, (z0 + z1) / 2);
+  mk(g, B(0.12, bd, D - 0.24), MAT.blackSteel, x1 - 0.06, H + bd / 2, (z0 + z1) / 2);
+  const alongX = W <= D, span = alongX ? D : W, nR = Math.max(1, Math.round(span / 1.2));
+  for (let i = 1; i < nR; i++) {
+    const t = i / nR;
+    if (alongX) mk(g, B(W - 0.24, 0.16, 0.06), MAT.blackSteel, (x0 + x1) / 2, H + bd - 0.08, z0 + D * t);
+    else mk(g, B(0.06, 0.16, D - 0.24), MAT.blackSteel, x0 + W * t, H + bd - 0.08, (z0 + z1) / 2);
+  }
+  /* cedar soffit just under the deck, the deck, its snow */
+  const sof = mk(g, B(W - 0.24, 0.02, D - 0.24, MAT.cedar), MAT.cedar, (x0 + x1) / 2, H + bd - 0.012, (z0 + z1) / 2); sof.castShadow = false;
+  mk(g, B(W + 0.04, dk, D + 0.04), MAT.blackSteel, (x0 + x1) / 2, H + bd + dk / 2, (z0 + z1) / 2);
+  mk(g, RS(W - 0.5, 0.2, D - 0.5, 0.08, MAT.roofSnow), MAT.roofSnow, (x0 + x1) / 2, top + 0.1, (z0 + z1) / 2);
+  /* two downlights in the soffit */
+  for (const t of [0.3, 0.7]) {
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.05, 20), MAT.lampGlow);
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(alongX ? (x0 + x1) / 2 : x0 + W * t, H + bd - 0.024, alongX ? z0 + D * t : (z0 + z1) / 2); g.add(lens);
+  }
+}
+/* house 2 boundary fence, length L along local x: black steel posts every
+   ~1.8 m, six horizontal cedar boards, a steel cap with a line of snow */
+function buildFence(g0, L, alongX, top) {
+  const g = new THREE.Group(); g0.add(g);
+  if (!alongX) g.rotation.y = Math.PI / 2;            /* symbol drawn with its length along local y */
+  const n = Math.max(2, Math.ceil(L / 1.8) + 1), bh = 0.11, gap = 0.045, nb = 6;
+  for (let i = 0; i < n; i++) mk(g, B(0.07, top, 0.07), MAT.blackSteel, -L / 2 + 0.035 + (L - 0.07) * i / (n - 1), top / 2, 0);
+  for (let k = 0; k < nb; k++) {
+    const y = top - 0.04 - bh / 2 - k * (bh + gap);
+    mk(g, B(L, bh, 0.022, MAT.cedar), MAT.cedar, 0, y, 0.0);
+  }
+  mk(g, B(L + 0.02, 0.03, 0.08), MAT.blackSteel, 0, top - 0.015, 0);
+  mk(g, RS(L, 0.05, 0.09, 0.02, MAT.roofSnow), MAT.roofSnow, 0, top + 0.022, 0).castShadow = false;
+  /* collision (walk mode): one box along the run, added by buildHouse */
+  g0.userData.fence = { L, top };
+}
+
+let _house = null;
+function houseAt(x, z) { _house = _house || LV[0].rooms.map(r => offsetPoly(r.poly, 0.38)); return _house.some(p => inside(p, x, z)); }
+
+/* winter tree: bare branching trunk, a little snow on the big limbs */
+function buildBareTree(g, H, spread) {
+  const geos = [], snow = [];
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const branch = (p, dir, len, r, depth) => {
+    const end = p.clone().addScaledVector(dir, len);
+    const geo = new THREE.CylinderGeometry(r * 0.7, r, len, 7, 1);
+    geo.translate(0, len / 2, 0);
+    const q = new THREE.Quaternion().setFromUnitVectors(new V(0, 1, 0), dir);
+    geo.applyQuaternion(q); geo.translate(p.x, p.y, p.z);
+    geos.push(geo);
+    if (depth < 3 && r > 0.04) {
+      const s = new THREE.CylinderGeometry(r * 0.72, r * 0.9, len * 0.8, 7, 1, false, -Math.PI / 2, Math.PI);
+      s.translate(0, len / 2, 0); s.applyQuaternion(q); s.translate(p.x, p.y + r * 0.35, p.z);
+      if (dir.y < 0.85) snow.push(s);
+    }
+    if (depth >= 5 || r < 0.012) return;
+    const k = depth === 0 ? 4 : 3;
+    for (let i = 0; i < k; i++) {
+      const a = rnd() * Math.PI * 2, tilt = 0.35 + rnd() * 0.55;
+      const nd = new V(Math.cos(a) * Math.sin(tilt), Math.cos(tilt), Math.sin(a) * Math.sin(tilt)).lerp(dir, 0.35).normalize();
+      branch(end, nd, len * (0.62 + rnd() * 0.18), r * 0.62, depth + 1);
+    }
+  };
+  branch(new V(0, 0, 0), new V(0, 1, 0), H * 0.38, Math.max(0.16, spread * 0.05), 0);
+  const tm = new THREE.Mesh(mergeGeometries(geos, false), MAT.bark); tm.castShadow = true; tm.receiveShadow = true; g.add(tm);
+  if (snow.length) { const sm = new THREE.Mesh(mergeGeometries(snow, false), MAT.roofSnow); sm.castShadow = false; g.add(sm); }
+}
+
+/* ------------------------------------------------------- finishes & labels */
+function buildLabels(i) {
+  const gl = G.labels[i], L = LV[i];
+  for (const sp of gl.children.slice()) { sp.material.map.dispose(); sp.material.dispose(); gl.remove(sp); }
+  for (const l of LABELS) if (l[0] === i) {
+    const sp = labelSprite(l[4] && LANG === 'ja' ? l[4] : NM(l[3])); sp.position.set(l[1], L.base + (l[5] !== undefined ? l[5] : (H3 ? 1.9 : 2.1)), l[2]); if (l[6]) sp.material.depthTest = false; gl.add(sp);
+  }
+}
+function labelSprite(text) {
+  const pad = 16, f = 30;
+  const c = document.createElement('canvas'), x = c.getContext('2d');
+  x.font = `600 ${f}px -apple-system,Segoe UI,Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif`;
+  const w = Math.ceil(x.measureText(text).width) + pad * 2;
+  c.width = w; c.height = f + pad * 2;
+  const g = c.getContext('2d');
+  g.font = `600 ${f}px -apple-system,Segoe UI,Roboto,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif`;
+  g.fillStyle = 'rgba(12,17,22,.72)';
+  g.beginPath(); g.roundRect(0, 0, c.width, c.height, 14); g.fill();
+  g.fillStyle = '#eaf2f8'; g.textBaseline = 'middle';
+  g.fillText(text, pad, c.height / 2 + 2);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: true, depthWrite: false, opacity: .95, fog: false }));
+  sp.scale.set(c.width / c.height * 0.26, 0.26, 1);
+  sp.renderOrder = 999;
+  return sp;
+}
+
+/* house 2 (plan2.json: re-centred on the house, x east, z south). FPC has
+   no room names: they are read off the fixtures (tubs, sauna benches +
+   heater, plant room, wash room) and Toby's note (1F = gym + bath).
+   Floor finish overlays [level, x0, z0, x1, z1, material]. Ceiling lights
+   [x, z, lit]: every one gets a fitting; only `lit` ones get a real light
+   (each extra light costs every pixel, so they're rationed) */
+const ZONES2 = [
+  [0, -7.76, -4.95, -3.94, -1.84, 'granite'],          /* bath: soaking tubs + showers (2026-10-05 v6 layout) */
+  [0, -3.94, -4.95, -1.25, -3.10, 'granite'],
+  [0, -7.76, -6.73, -4.17, -4.95, 'granite'],
+  [0, -4.11, -6.73, -1.25, -4.95, 'hinoki'],           /* sauna */
+  [0, -3.82, -3.04, -2.91, -1.98, 'bathTile'],         /* WC */
+  [0, -2.79, -0.51, 0.84, 3.21, 'bathTile'],           /* wash room */
+  [0, -2.79, 3.33, 0.84, 6.92, 'entranceStone'],       /* entrance (south door) */
+  [1, -7.74, 0.33, -4.26, 1.88, 'bathTile'],           /* bathrooms */
+  [1, -7.74, -1.31, -4.26, 0.21, 'bathTile'],
+  [1, -2.80, -3.31, 0.84, -1.93, 'bathTile'],
+  [1, -1.82, 0.87, 0.84, 2.11, 'bathTile'],
+];
+const LABELS2 = [
+  [0, -5.30, 1.30, 'Gym'],
+  [0, -1.00, 5.40, 'Entrance'],
+  [0, 4.40, 3.70, 'Stair hall · north door'],
+  [0, -6.00, -4.30, 'Bath · soaking tubs'],
+  [0, -2.70, -5.85, 'Sauna'],
+  [0, -3.36, -2.50, 'WC'],
+  [0, -1.00, 1.50, 'Wash room'],
+  [0, -0.15, -2.30, 'Laundry'],
+  [0, -0.15, -5.50, 'Boiler room'],                  /* v23: Toby 2026-10-12 "plant room" = the boiler room */
+  [0, 5.07, -2.99, 'Carport'],
+  [0, 3.20, 8.09, 'Outside stair · 2F door'],
+  [1, 4.60, 3.60, 'Living'],
+  [1, 0.30, 3.10, 'Dining'],
+  [1, -2.60, 4.60, 'Kitchen'],
+  [1, -6.00, -5.60, 'Bedroom 1'],
+  [1, -0.65, -5.20, 'Bedroom 2'],
+  [1, -0.95, -0.40, 'Bedroom 3'],
+  [1, -6.20, 5.30, 'Bedroom 4'],
+  [1, -6.00, 1.10, 'Bathroom'],
+  [1, -6.00, -0.55, 'Bathroom'],
+  [1, -0.95, -2.62, 'Bathroom'],
+  [1, -0.45, 1.48, 'Bathroom'],
+  [1, -3.53, -0.80, 'Hall'],
+];
+/* 1F lights; the 2F ones hang off the sloped ceiling: ROOF_LIGHTS2 */
+const DOWN2 = {
+  0: [[-5.3, 0.8, 1], [-5.3, 4.6, 0], [-1.0, 5.4, 0], [4.4, 3.4, 1], [-5.9, -4.0, 1], [-1.0, 1.6, 0], [-0.15, -2.3, 0], [-0.15, -5.4, 0], [-2.7, -5.85, 0]],
+};
+const ROOF_LIGHTS2 = [[-2.6, 4.6, 1], [-6.0, -5.6, 1], [-0.65, -5.2, 1], [-0.95, -0.4, 0], [-6.2, 5.3, 1], [-3.53, -0.8, 0],
+  [-6.0, 1.1, 0], [-6.0, -0.55, 0], [-0.95, -2.62, 0], [-0.45, 1.48, 0], [5.6, 4.6, 0], [3.3, 4.6, 0]];
+const LABELS3 = [];   /* houses 4-9: filled from the model's rooms (setupLabels3) */
+const ZONES = ZONES2, LABELS = H3 ? LABELS3 : LABELS2, DOWN = DOWN2;
+
+/* ------------------------------------------------------------ build it all */
+const G = { floor: [], walls: [], furn: [], ceil: [], labels: [], ext: new THREE.Group(), roof: new THREE.Group() };
+let PLAN = null, LV = [], STAIRS = [], FLOOR_RECTS = [];
+
+function buildHouse(plan) {
+  PLAN = plan; LV = plan.levels; STAIRS = plan.stairs || [];
+  /* v23: a plan2.json window with a stack (PRIMITIVES.md) -> one opening per unit, same off / w;
+     the units' sills, ids, style and frost by refplan.js expandStack, as for houses 4-9 */
+  for (const L of LV) for (const w of L.walls) w.doors = w.doors.flatMap(d => {
+    if (d.kind !== 'WINDOW' || !Array.isArray(d.stack) || !d.stack.length) return [d];
+    const units = expandStack({ type: 'window', id: d.id, at: d.off, w: d.w, sill: d.bottom, head: d.top, stack: d.stack }).slice(1);
+    return [d, ...units.map(u => ({ kind: 'WINDOW', off: d.off, w: d.w, bottom: u.sill, top: u.head, id: u.id, style: u.style, frost: u.frost }))];
+  });
+  root.add(G.ext); root.add(G.roof);
+
+  /* stair openings through the floor above + landing nosings */
+  const extraHoles = LV.map(() => []), patches = LV.map(() => []);
+  for (const s of STAIRS) {
+    const up = s.level + 1; if (!LV[up] || s.name === 'landing') continue;
+    const c = s.name === 'stairsCircle'
+      ? rectPoly(s.x - s.w / 2 - 0.02, s.y - s.d / 2 - 0.02, s.x + s.w / 2 + 0.02, s.y + s.d / 2 + 0.02)
+      : s.hole ? holeOver(s) : rectCorners({ x: s.x, y: s.y, w: s.w + 0.04, d: s.d + 0.04, a: s.a });
+    extraHoles[up].push(c);
+    if (s.name === 'stairs') {
+      /* the top edge of the flight must meet floor: bridge any gap to the slab */
+      const ca = Math.cos(s.a), sa = Math.sin(s.a);
+      const dir = [sa, -ca];                         /* local -y in world */
+      const tx = s.x + dir[0] * s.d / 2, tz = s.y + dir[1] * s.d / 2;
+      const onFloor = (x, z) => LV[up].rooms.some(r => inside(r.poly, x, z) && !r.voids.some(v => inside(rectCorners(v), x, z)));
+      for (let k = 1; k <= 12; k++) {
+        const px = tx + dir[0] * k * 0.05, pz = tz + dir[1] * k * 0.05;
+        if (onFloor(px, pz)) {
+          if (k > 1) patches[up].push(rectCorners({ x: tx + dir[0] * k * 0.025, y: tz + dir[1] * k * 0.025, w: s.w, d: k * 0.05 + 0.02, a: s.a }));
+          break;
+        }
+      }
+    }
+  }
+
+  LV.forEach((L, i) => {
+    const gf = new THREE.Group(), gw = new THREE.Group(), gu = new THREE.Group(), gc = new THREE.Group(), gl = new THREE.Group();
+    G.floor[i] = gf; G.walls[i] = gw; G.furn[i] = gu; G.ceil[i] = gc; G.labels[i] = gl;
+    root.add(gf, gw, gu, gc, gl);
+    const GL = { walls: gw, furn: gu };
+    const floorMat = i === 0 ? MAT.concrete : MAT.oak;
+
+    const th = i === 0 ? 0.3 : LV[i - 1].ct;
+    const rects = [];
+    for (const rm of L.rooms) {
+      const holes = rm.voids.map(v => rectCorners(v)).concat(extraHoles[i]);
+      rects.push(...rectsOf(rm.poly, holes));
+      for (const z of ZONES) if (z[0] === i) {
+        const cx = (z[1] + z[3]) / 2, cz = (z[2] + z[4]) / 2;
+        if (inside(rm.poly, cx, cz)) {
+          const zm = cloneMat(MAT[z[5]]); zm.polygonOffset = true; zm.polygonOffsetFactor = -2; zm.polygonOffsetUnits = -2;
+          gf.add(flat(rectPoly(z[1], z[2], z[3], z[4]), [], L.base + 0.002, zm, 1));
+        }
+      }
+      for (const f of rm.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base; gu.add(p); } }
+    }
+    for (const p of patches[i]) rects.push(bbox(p));
+    /* house 2: floor across the gap between two rooms' facing walls (parse_plan.py) */
+    for (const p of L.patches || []) rects.push(...rectsOf(rectPoly(p[0], p[1], p[2], p[3]), extraHoles[i]));
+    FLOOR_RECTS[i] = rects;
+    /* this level's floor; its underside is the ceiling of the level below */
+    slabRects(gf, rects, L.base, th, floorMat, i > 0 ? MAT.ceiling : null, MAT.slabEdge);
+    if (HOUSE === 2 && i === LV.length - 1) { /* house 2 2F walls follow the roof: buildUnderRoof() */ }
+    else for (const w of L.walls) {
+      if (w.kind === 'int' && i === 0) {
+        /* free walls that run out past the house become a garden screen */
+        for (const part of clipToHouse(w, L)) wallRun(GL, part, i, L);
+      } else if (w.kind === 'int') {
+        for (const part of clipToHouse(w, L)) if (part.inHouse) wallRun(GL, part, i, L);
+      } else wallRun(GL, w, i, L);
+    }
+    for (const f of L.furniture) {
+      const p = makeProp(f, i); if (!p) continue;
+      p.position.y += L.base;
+      (i === 0 ? G.ext : gu).add(p);
+      if (p.userData.fence) addCollBox(f.x, f.y, Math.max(f.w, f.d), 0.08, f.w >= f.d ? f.a : f.a + Math.PI / 2, L.base, L.base + p.userData.fence.top);
+    }
+    buildLabels(i);
+    for (const p of DOWN[i] || []) {
+      if (p[2]) { const pl = new THREE.PointLight(0xffdcb0, 6, 9, 1.5); pl.position.set(p[0], L.base + L.h - 0.25, p[1]); gu.add(pl); }
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow);
+      lens.rotation.x = Math.PI / 2; lens.position.set(p[0], L.base + L.h - 0.004, p[1]); gu.add(lens);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white);
+      ring.rotation.x = Math.PI / 2; ring.position.set(p[0], L.base + L.h - 0.003, p[1]); gu.add(ring);
+    }
+  });
+
+  for (const s of STAIRS) (s.name === 'stairsCircle' ? buildSpiralStair : s.name === 'landing' ? buildLanding : buildStraightStair)({ furn: s.level === 0 && !LV[0].rooms.some(r => inside(r.poly, s.x, s.y)) ? G.ext : G.furn[s.level] }, s);
+
+  roofSetup(); decorate2(); buildUnderRoof(); buildSite2();   /* house 2 (houses 4-9: buildHouse3) */
+  parkSliders();
+
+  for (let i = 0; i < LV.length; i++) { mergeStatic(G.walls[i]); mergeStatic(G.furn[i]); mergeStatic(G.floor[i]); mergeStatic(G.ceil[i]); }
+  mergeStatic(G.ext); mergeStatic(G.roof);
+}
+/* the part of a flight the floor above is open over: s.hole = [from, to] as
+   fractions of the flight from its foot (parse_plan.py: from the balustrade
+   drawn across it upstairs to the top) */
+function holeOver(s) {
+  const [f0, f1] = s.hole, ly = s.d / 2 - (f0 + f1) / 2 * s.d;   /* local y of the hole's middle (the flight climbs to -y) */
+  return rectCorners({ x: s.x - ly * Math.sin(s.a), y: s.y + ly * Math.cos(s.a), w: s.w + 0.04, d: (f1 - f0) * s.d + 0.04, a: s.a });
+}
+/* split a free wall into the part inside the house footprint and the part
+   outside it (level 0 only keeps the outside part, as a lower garden screen) */
+function clipToHouse(w, L) {
+  const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az);
+  /* a wall drawn in the sliver between two room outlines (1F: the entrance's
+     north wall, sliding door 168) has rooms on both sides: inside, not a screen */
+  const nx = -(bz - az) / len, nz = (bx - ax) / len, D = (w.t || 0.12) / 2 + 0.04;
+  const inR = (x, z) => L.rooms.some(r => inside(r.poly, x, z));
+  const inH = (x, z) => inR(x, z) || (inR(x + nx * D, z + nz * D) && inR(x - nx * D, z - nz * D));
+  const N = Math.max(2, Math.ceil(len / 0.05)), runs = [];
+  let cur = null;
+  for (let k = 0; k <= N; k++) {
+    const t = k / N, x = ax + (bx - ax) * t, z = az + (bz - az) * t, v = inH(x, z);
+    if (!cur || cur.v !== v) { cur = { v, t0: t, t1: t }; runs.push(cur); } else cur.t1 = t;
+  }
+  const out = [];
+  for (const r of runs) {
+    let t0 = r.t0, t1 = r.t1;
+    if (r.v) { t0 = Math.max(0, t0 - 0.3 / len); t1 = Math.min(1, t1 + 0.3 / len); }   /* run into the outer wall */
+    else {
+      if (L !== LV[0] || (t1 - t0) * len < 1.0) continue;
+      /* drawn from either end: stop 1 cm off the cladding (houseAt) */
+      const P = (t) => [ax + (bx - ax) * t, az + (bz - az) * t];
+      while (t1 > t0 && houseAt(...P(t1))) t1 -= 0.01 / len;
+      while (t0 < t1 && houseAt(...P(t0))) t0 += 0.01 / len;
+    }
+    const a = [ax + (bx - ax) * t0, az + (bz - az) * t0], b = [ax + (bx - ax) * t1, az + (bz - az) * t1];
+    const doors = w.doors.map(d => Object.assign({}, d, { off: d.off - t0 * len })).filter(d => d.off > -d.w && d.off < (t1 - t0) * len);
+    const part = Object.assign({}, w, { a, b, doors, inHouse: r.v });
+    if (!r.v) { part.kind = 'screen'; }
+    out.push(part);
+  }
+  return out.map(p => p.kind === 'screen' ? screenWall(p) : p).filter(Boolean);
+}
+function screenWall(p) {
+  /* 1.9 m slatted cedar privacy screen */
+  const [ax, az] = p.a, [bx, bz] = p.b, len = Math.hypot(bx - ax, bz - az);
+  const ux = (bx - ax) / len, uz = (bz - az) / len, th = Math.atan2(-uz, ux);
+  const g = new THREE.Group();
+  const n = Math.floor(len / 0.11);
+  for (let i = 0; i < n; i++) mk(g, B(0.07, 1.9, 0.045, MAT.cedar), MAT.cedar, -len / 2 + 0.055 + i * 0.11, 0.95, 0);
+  for (const y of [0.25, 1.65]) mk(g, B(len, 0.06, 0.04), MAT.blackSteel, 0, y, -0.045);
+  g.position.set((ax + bx) / 2, 0, (az + bz) / 2); g.rotation.y = th;
+  G.ext.add(g);
+  return null;
+}
+
+function findProp(lvl, key) {
+  for (const r of LV[lvl].rooms) for (const f of r.furniture) if (f.name === key || f.name.indexOf(key) === 0) return f;
+  return null;
+}
+
+/* grow a closed axis-aligned polygon outwards by d */
+function offsetPoly(poly, d) {
+  const n = poly.length, out = [];
+  const area = poly.reduce((a, p, i) => { const q = poly[(i + 1) % n]; return a + p[0] * q[1] - q[0] * p[1]; }, 0);
+  const sgn = area > 0 ? 1 : -1;
+  const lines = [];
+  for (let i = 0; i < n; i++) {
+    const p = poly[i], q = poly[(i + 1) % n];
+    const dx = q[0] - p[0], dz = q[1] - p[1], l = Math.hypot(dx, dz) || 1;
+    const nx = dz / l * sgn, nz = -dx / l * sgn;              /* outward for CCW-in-y-down */
+    lines.push([p[0] + nx * d, p[1] + nz * d, dx, dz]);
+  }
+  for (let i = 0; i < n; i++) {
+    const A = lines[(i - 1 + n) % n], Bl = lines[i];
+    const den = A[2] * Bl[3] - A[3] * Bl[2];
+    if (Math.abs(den) < 1e-9) { out.push([Bl[0], Bl[1]]); continue; }
+    const t = ((Bl[0] - A[0]) * Bl[3] - (Bl[1] - A[1]) * Bl[2]) / den;
+    out.push([A[0] + A[2] * t, A[1] + A[3] * t]);
+  }
+  /* sanity: if we grew the wrong way, flip */
+  const test = inside(out, poly[0][0], poly[0][1]);
+  return test ? out : offsetPolyFlip(poly, d);
+}
+function offsetPolyFlip(poly, d) { return offsetPoly(poly.slice().reverse(), d); }
+
+/* ================================================================ house 2 */
+/* The 2F ceiling is ONE plane (a mono-pitch / shed roof). It falls from the
+   living room towards the bedrooms, along the plan's own axis: the vector
+   from the living room's centroid (the 2F room with the sofa) to the mean
+   of the bed centres, snapped to x or z. The heights are the plane's height
+   above the 2F floor at the OUTER faces of the two end walls; the "Living
+   side" / "Bedroom side" sliders change them and everything under the roof
+   is rebuilt (buildUnderRoof). */
+function roofSetup() {
+  const top = LV[LV.length - 1];
+  const cen = (P) => {
+    let a = 0, cx = 0, cz = 0;
+    for (let i = 0; i < P.length; i++) {
+      const [x0, z0] = P[i], [x1, z1] = P[(i + 1) % P.length], k = x0 * z1 - x1 * z0;
+      a += k; cx += (x0 + x1) * k; cz += (z0 + z1) * k;
+    }
+    return [cx / (3 * a), cz / (3 * a)];
+  };
+  const liv = top.rooms.find(r => r.furniture.some(f => f.name === 'sofa')) || top.rooms[0];
+  const lc = cen(liv.poly);
+  const beds = LV.flatMap(L => L.rooms.flatMap(r => r.furniture.filter(f => f.name === 'bed')));
+  const bc = beds.length ? [beds.reduce((a, f) => a + f.x, 0) / beds.length, beds.reduce((a, f) => a + f.y, 0) / beds.length] : [0, 0];
+  const d = [bc[0] - lc[0], bc[1] - lc[1]];
+  const axis = Math.abs(d[0]) >= Math.abs(d[1]) ? 0 : 1;              /* 0: x (east-west), 1: z (north-south) */
+  const t = Math.max(...top.walls.filter(w => w.kind === 'ext').map(w => w.t));
+  const lo = Math.min(...top.rooms.flatMap(r => r.poly.map(q => q[axis]))) - t;
+  const hi = Math.max(...top.rooms.flatMap(r => r.poly.map(q => q[axis]))) + t;
+  const bedLow = d[axis] < 0;
+  ROOF = {
+    axis, living: lc, bedrooms: bc, delta: d, sBed: bedLow ? lo : hi, sLiv: bedLow ? hi : lo,
+    hBed: 3.0, hLiv: 6.0, base: top.base,
+    y(x, z) { return this.base + this.hBed + this.k * ((this.axis ? z : x) - this.sBed); },
+    get k() { return (this.hLiv - this.hBed) / (this.sLiv - this.sBed); },
+    get n() { return new V(this.axis ? 0 : -this.k, 1, this.axis ? -this.k : 0).normalize(); },
+    get pitch() { return Math.atan(Math.abs(this.hLiv - this.hBed) / Math.abs(this.sLiv - this.sBed)) * 180 / Math.PI; },
+  };
+  /* default bedroom side: the lowest, in 0.1 m steps from 3.0 m, that keeps
+     every window and door in the 2F facades at its drawn head (2026-10-05:
+     the 3.5 m windows Toby added on the bedroom side need 3.7 m) */
+  const fits = () => top.walls.every(w => {
+    if (w.kind !== 'ext') return true;
+    const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / len, uz = (bz - az) / len;
+    return w.doors.every(o => o.kind === 'HOLE' || o.full ||
+      Math.min(...[o.off, o.off + o.w].flatMap(s => [0, w.t].map(q => ROOF.y(ax + ux * s + w.n[0] * q, az + uz * s + w.n[1] * q)))) - ROOF_HEAD - top.base >= o.top - 1e-6);
+  });
+  while (ROOF.hBed < ROOF.hLiv - 1 && !fits()) ROOF.hBed = Math.round(ROOF.hBed * 10 + 1) / 10;
+  console.log('[h3d] roof axis', axis ? 'z' : 'x', 'living', lc.map(v => +v.toFixed(2)), 'bedrooms', bc.map(v => +v.toFixed(2)),
+    'delta', d.map(v => +v.toFixed(2)), 'bedroom side at', ROOF.sBed.toFixed(2), 'living side at', ROOF.sLiv.toFixed(2));
+}
+function clearGroup(g) {
+  g.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
+  g.clear();
+}
+/* Everything that depends on the roof heights: the 2F walls (tops on the
+   plane, windows cut down where it comes too low), the roof and what hangs
+   off the ceiling. Run once by buildHouse, then again on every slider move. */
+let _rdFloor = null, _built = false;
+function buildUnderRoof() {
+  const li = LV.length - 1, L = LV[li];
+  if (!G.rdep) { G.rdep = new THREE.Group(); G.rdep.userData.keep = true; root.add(G.rdep); }
+  for (const g of [G.walls[li], G.roof, G.rdep]) clearGroup(g);
+  for (let k = COLL.length - 1; k >= 0; k--) if (COLL[k].rd) COLL.splice(k, 1);
+  for (let k = SLIDERS.length - 1; k >= 0; k--) if (SLIDERS[k].lvl === li) SLIDERS.splice(k, 1);
+  if (_rdFloor) FLOOR_RECTS[li] = _rdFloor.slice(); else _rdFloor = FLOOR_RECTS[li].slice();
+  const c0 = COLL.length, s0 = SLIDERS.length, GL = { walls: G.walls[li], furn: G.furn[li] };
+  for (const w of L.walls) {
+    if (w.kind === 'int') { for (const part of clipToHouse(w, L)) if (part.inHouse) wallRun(GL, part, li, L); }
+    else wallRun(GL, w, li, L);
+  }
+  for (let k = c0; k < COLL.length; k++) COLL[k].rd = true;
+  buildShedRoof();
+  roofFixtures();
+  if (_built) {                       /* a rebuild: park the new sliding doors and merge, as buildHouse does */
+    parkSliders(SLIDERS.slice(s0));
+    mergeStatic(G.walls[li]); mergeStatic(G.roof);
+  }
+}
+let _rdPending = false;
+function rebuildRoof() {
+  const t0 = performance.now();
+  buildUnderRoof();
+  ROOF.ms = Math.round(performance.now() - t0);
+}
+/* shed roof: plaster ceiling inside, cedar soffit under the 45 cm overhang,
+   black fascia, snow load on top -- all parallel to the ceiling plane */
+function buildShedRoof() {
+  const top = LV[LV.length - 1];
+  const walls = top.rooms.map(r => offsetPoly(r.poly, 0.37));
+  const eaves = top.rooms.map(r => offsetPoly(r.poly, 0.37 + 0.45));
+  const snowP = top.rooms.map(r => offsetPoly(r.poly, 0.37 + 0.38));
+  /* inside the walls and the overhang as separate rect sets: a merged row
+     would span both and take one material (the soffit has to be cedar all round) */
+  const all = eaves.concat(walls), inner = (x, z) => walls.some(p => inside(p, x, z));
+  slopedSlab(G.roof, unionRects(all, inner), 0, 0.32, MAT.blackSteel, MAT.blackSteel, () => MAT.ceiling);
+  slopedSlab(G.roof, unionRects(all, (x, z) => !inner(x, z)), 0, 0.32, MAT.blackSteel, MAT.blackSteel, () => MAT.cedar);
+  slopedSlab(G.roof, unionRects(snowP), 0.32, 0.30, MAT.roofSnow, MAT.roofSnow, null);
+}
+/* slabRects on the roof plane: bottom face = plane + off, top = bottom + th */
+function slopedSlab(parent, rects, off, th, topMat, edgeMat, botPick, rf) {
+  const T = Quads(topMat), E = Quads(edgeMat), Bm = new Map(), R = rf || ROOF;
+  const n = R.n, up = [n.x, n.y, n.z], dn = [-n.x, -n.y, -n.z];
+  const yb = (x, z) => R.y(x, z) + off, yt = (x, z) => R.y(x, z) + off + th;
+  const plan = (v) => [v[0], -v[2]];
+  for (const r of rects) {
+    const [x0, z0, x1, z1] = r;
+    quad(T, [x0, yt(x0, z0), z0], [x0, yt(x0, z1), z1], [x1, yt(x1, z1), z1], [x1, yt(x1, z0), z0], up, plan);
+    const bm = botPick && botPick(r);
+    if (bm) {
+      if (!Bm.has(bm)) Bm.set(bm, Quads(bm));
+      quad(Bm.get(bm), [x0, yb(x0, z0), z0], [x1, yb(x1, z0), z0], [x1, yb(x1, z1), z1], [x0, yb(x0, z1), z1], dn, plan);
+    }
+    const side = (ax, az, bx, bz, nn) => quad(E, [ax, yb(ax, az), az], [bx, yb(bx, bz), bz], [bx, yt(bx, bz), bz], [ax, yt(ax, az), az], nn,
+      (v) => [Math.abs(nn[0]) > 0 ? v[2] : v[0], v[1]]);
+    side(x0, z0, x1, z0, [0, 0, -1]); side(x1, z1, x0, z1, [0, 0, 1]);
+    side(x0, z1, x0, z0, [-1, 0, 0]); side(x1, z0, x1, z1, [1, 0, 0]);
+  }
+  for (const Q of [T, E, ...Bm.values()]) { const m = qMesh(Q); if (m) parent.add(m); }
+}
+/* v31: only the underside of a sloped slab (rects), in one material */
+function slopedUnder(parent, rects, mat, R) {
+  if (!rects.length) return;
+  const Q = Quads(mat), dn = [-R.n.x, -R.n.y, -R.n.z], plan = (v) => [v[0], -v[2]];
+  for (const [x0, z0, x1, z1] of rects) quad(Q, [x0, R.y(x0, z0), z0], [x1, R.y(x1, z0), z0], [x1, R.y(x1, z1), z1], [x0, R.y(x0, z1), z1], dn, plan);
+  const m = qMesh(Q); if (m) parent.add(m);
+}
+/* 2F downlights flush with the sloped ceiling + pendants over the dining table */
+function roofFixtures() {
+  const li = LV.length - 1, L = LV[li], g = G.rdep;
+  const q = new THREE.Quaternion().setFromUnitVectors(new V(0, 0, 1), ROOF.n.clone().negate());
+  for (const [x, z, lit] of ROOF_LIGHTS2) {
+    const y = ROOF.y(x, z);
+    if (lit) { const pl = new THREE.PointLight(0xffdcb0, 6, 9, 1.5); pl.position.set(x, y - 0.25, z); g.add(pl); }
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow);
+    lens.quaternion.copy(q); lens.position.set(x, y - 0.004, z); g.add(lens);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white);
+    ring.quaternion.copy(q); ring.position.set(x, y - 0.003, z); g.add(ring);
+  }
+  const tbl = findProp(li, 'table');
+  if (tbl) for (const dx of [-0.5, 0.5]) {
+    const px = tbl.x + dx * Math.cos(tbl.a), pz = tbl.y + dx * Math.sin(tbl.a);
+    const lamp = placeModel(g, 'pendant', px, L.base + 1.62, pz, 0, 1);       /* shade ~0.77 m over the table */
+    if (!lamp) continue;
+    const yc = ROOF.y(px, pz), y1 = lamp.position.y + GLTF.pendant.size.y;
+    mk(g, CY(0.004, yc - y1, 6), MAT.black, px, (yc + y1) / 2, pz);
+    const pl = new THREE.PointLight(0xffd6a0, 3.2, 5, 1.8); pl.position.set(px, lamp.position.y + 0.05, pz); g.add(pl);
+  }
+}
+/* a few things the plan implies but doesn't draw */
+function decorate2() {
+  const li = LV.length - 1, L = LV[li];
+  const sofa = findProp(li, 'sofa');
+  if (sofa) {                                        /* rug + coffee table on the sofa's open side */
+    const sx = sofa.mx ? 1 : -1;
+    mk(G.furn[li], B(2.3, 0.012, 2.1, MAT.rugWool), MAT.rugWool, sofa.x + sx * 0.55, L.base + 0.006, sofa.y + 0.3).castShadow = false;
+    placeModel(G.furn[li], 'coffee', sofa.x + sx * 0.85, L.base, sofa.y + 0.35, Math.PI / 2, 1);
+  }
+  placeModel(G.furn[li], 'plant', 6.75, L.base, 2.65, 0.4, 1.25);
+  placeModel(G.furn[0], 'plant', 0.45, LV[0].base, 4.2, 1.1, 1.15);
+  placeModel(G.furn[0], 'plant', 6.65, LV[0].base, 6.5, 2.2, 1.2);
+}
+/* snow field, the ploughed north-east yard (parking: the L's open corner),
+   paths to the doors */
+function buildSite2() {
+  const E = G.ext, R = 480;
+  const geo = new THREE.CircleGeometry(R, 96, 0, Math.PI * 2);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), d = Math.hypot(x, y);
+    const k = Math.min(1, Math.max(0, (d - 30) / 120));
+    p.setZ(i, (Math.sin(x * 0.05) * Math.cos(y * 0.043) * 0.6 + Math.sin(x * 0.013 + 1) * Math.cos(y * 0.011) * 2.2) * k);
+  }
+  geo.computeVertexNormals();
+  scaleUV(geo, R * 2 / tileOf(MAT.snow));
+  const gnd = new THREE.Mesh(geo, MAT.snow);
+  gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, -0.02, 0); gnd.receiveShadow = true;
+  E.add(gnd);
+  const flatOn = (m) => { m.castShadow = false; return m; };
+  const C = CARPORT2;
+  if (C) {                                                                           /* concrete under the carport, packed snow round it */
+    flatOn(mk(E, B(C.x1 - C.x0, 0.05, C.z1 - C.z0, MAT.pad), MAT.pad, (C.x0 + C.x1) / 2, 0.005, (C.z0 + C.z1) / 2));
+    flatOn(mk(E, B(7.4, 0.04, 9.0, MAT.packed), MAT.packed, 4.95, -0.004, -2.75));
+  } else flatOn(mk(E, B(7.4, 0.04, 9.0, MAT.packed), MAT.packed, 4.95, 0.0, -2.75));   /* parking, north-east yard */
+  flatOn(mk(E, B(13.4, 0.04, 6.0, MAT.packed), MAT.packed, 15.3, 0.0, -2.0));      /* drive out east */
+  /* the south door (moved west, 2026-10-05): a pad, and a path along the south
+     yard to the drive past the foot of the outside stair (fenced N, W, S) */
+  const sd = LV[0].walls.find(w => w.kind === 'ext' && w.doors.some(o => o.kind === 'DOUBLE_DOOR') && Math.abs(w.a[1] - w.b[1]) < 0.01 && w.n[1] > 0.5);
+  const dd = sd && sd.doors.find(o => o.kind === 'DOUBLE_DOOR');
+  const dx = dd ? sd.a[0] + Math.sign(sd.b[0] - sd.a[0]) * (dd.off + dd.w / 2) : -0.6, zf = sd ? sd.a[1] + sd.t : 7.29;
+  flatOn(mk(E, B(2.0, 0.05, 1.7, MAT.pad), MAT.pad, dx, 0.005, zf + 0.85));
+  const site = PLAN.site;
+  if (site) flatOn(mk(E, B(site[2] - dx + 1.0, 0.04, 1.4, MAT.packed), MAT.packed, (dx - 1.0 + site[2]) / 2 + 0.001, 0.0, zf + 2.4));
+  else flatOn(mk(E, B(2.0, 0.05, 2.8, MAT.pad), MAT.pad, -0.6, 0.005, 8.7));
+  flatOn(mk(E, B(2.4, 0.14, 2.4, MAT.deck), MAT.deck, -9.35, 0.07, -5.1));         /* deck, bath's west door */
+  /* garden lounge (small pergola + sofa in the south-west corner): cleared paving */
+  const lounge = LV[0].furniture.filter(f => /shade/.test(f.name) && !isCarport(f) || (f.name === 'sofa'));
+  if (lounge.length) {
+    const b = bbox(lounge.flatMap(f => rectCorners(f)));
+    flatOn(mk(E, B(b[2] - b[0] + 0.4, 0.05, b[3] - b[1] + 0.4, MAT.pad), MAT.pad, (b[0] + b[2]) / 2, 0.005, (b[1] + b[3]) / 2));
+  }
+}
+
+/* ===================================================== houses 4-9 (ref models) */
+/* Everything comes out of the editable model via refplan.js toPlan(): rooms are the faces the walls close, walls
+   come pre-joined (exterior runs: a-b on the inner face, n out; caps at the
+   corners they own), stairs are tread polygons, roofs are planes. */
+let ROOFS3 = [];
+const FLOORMAT3 = () => STY ? ({ oak: MAT.oakS, oakdark: MAT.oakDark, carpet: MAT.carpet, bathstone: MAT.bathStone, tile: MAT.bathStone, stone: MAT.lightStone,
+  darkstone: MAT.darkTile, slate: MAT.slateFloor, granite: MAT.bathStone,
+  concrete: MAT.concrete, hinoki: MAT.hinoki, rubber: MAT.rubber || MAT.concrete }) : ({ oak: MAT.pine, tile: MAT.greyTile, stone: MAT.entranceStone, concrete: MAT.concrete, granite: MAT.granite, hinoki: MAT.hinoki, rubber: MAT.rubber || MAT.concrete });
+function mkRoof3(r) {
+  /* underside (ceiling) plane: h0 at plan y = y0 (the low edge), rising k per
+     metre away from it (low on the south: y grows to the south) */
+  const R = Object.assign({}, r);
+  if (r.axis === 'x') {                              /* house 7: sloping east-west, h0 at plan x = x0 (the low edge) */
+    const sx = r.low === 'w' ? 1 : -1;
+    R.y = (x, z) => r.h0 + r.k * sx * (x - r.x0);
+    R.n = new V(-sx * r.k, 1, 0).normalize();
+    return R;
+  }
+  const sgn = r.low === 'n' ? -1 : 1;
+  R.y = (x, z) => r.h0 + r.k * sgn * (r.y0 - z);
+  R.n = new V(0, 1, sgn * r.k).normalize();
+  return R;
+}
+function roofFor(w, lvl) {
+  const mx = (w.a[0] + w.b[0]) / 2, mz = (w.a[1] + w.b[1]) / 2;
+  return ROOFS3.find(r => !r.outside && r.levels.includes(lvl) && mx > r.rect[0] - 0.01 && mx < r.rect[2] + 0.01 && mz > r.rect[1] - 0.01 && mz < r.rect[3] + 0.01) || null;
+}
+/* the ceiling over a point on a level: the floor above (flat) or a roof */
+let CEIL7 = null;                                    /* house 7: the Ichijo ceilings (flat + the sloped zone), ichijo.js */
+function ceilAt3(x, z, lvl) {
+  if (CEIL7) return CEIL7(x, z, lvl);
+  const L = LV[lvl], U = LV[lvl + 1];
+  if (U && onRects(FLOOR_RECTS[lvl + 1], x, z, 0)) return L.base + L.h;
+  let y = Infinity;
+  for (const r of ROOFS3) if (!r.outside && x > r.rect[0] - 0.01 && x < r.rect[2] + 0.01 && z > r.rect[1] - 0.01 && z < r.rect[3] + 0.01) y = Math.min(y, r.y(x, z));
+  return y === Infinity ? L.base + L.h : y;
+}
+
+/* props drawn for houses 4-9 only (undefined = use the shared makeProp code) */
+function makeProp3(s, lvl) {
+  const g = new THREE.Group(), w = s.w, d = s.d, top = s.top;
+  const L = LV[lvl];
+  switch (s.name) {
+    case 'dumbbellRack': {                             /* v42 (Toby 2026-10-25): two-tier dumbbell rack, black steel, hex dumbbells (handles front to back) */
+      const fr = MAT.accBlack || MAT.black, RB = MAT.rubber6 || (MAT.rubber6 = std({ color: 0x1c1d1f, roughness: 0.85, envMapIntensity: 0.4 }));
+      const H2 = Math.min(top || 0.8, 0.8);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) mk(g, B(0.04, H2 + 0.04, 0.04), fr, sx * (w / 2 - 0.03), (H2 + 0.04) / 2, sz * (d / 2 - 0.03));
+      for (const [y, dz] of [[H2 * 0.55, 0.08], [H2, -0.06]]) {
+        mk(g, B(w, 0.03, d * 0.5), fr, 0, y, dz);
+        const n = Math.max(2, Math.floor((w - 0.08) / 0.15));
+        for (let i = 0; i < n; i++) {
+          const x = -w / 2 + 0.1 + i * (w - 0.2) / (n - 1), r = 0.04 + 0.025 * i / n;
+          const bar = mk(g, new THREE.CylinderGeometry(0.016, 0.016, 0.15, 8), MAT.steel, x, y + 0.015 + r, dz); bar.rotation.x = Math.PI / 2;
+          for (const e of [-1, 1]) { const hd = mk(g, new THREE.CylinderGeometry(r, r, 0.05, 6), RB, x, y + 0.015 + r, dz + e * 0.1); hd.rotation.x = Math.PI / 2; }
+        }
+      }
+      break;
+    }
+    case 'gymMirror': {                                /* v42: wall mirror 0.3 m up to the top, thin black frame (local +y = the room) */
+      const MR = MAT.mirror6 || (MAT.mirror6 = std({ color: 0xaab2b8, roughness: 0.06, metalness: 0.95, envMapIntensity: 0.45 }));
+      const h = top - 0.3;
+      mk(g, B(w, h, 0.012), MR, 0, 0.3 + h / 2, 0);
+      for (const [cx, cy, cw, chh] of [[0, 0.3, w + 0.03, 0.02], [0, top, w + 0.03, 0.02], [-w / 2, 0.3 + h / 2, 0.02, h], [w / 2, 0.3 + h / 2, 0.02, h]])
+        mk(g, B(cw, chh, 0.02), MAT.accBlack || MAT.black, cx, cy, 0.004);
+      break;
+    }
+    case 'plantWall': {                                /* v42 (Toby): living green wall - dark felt backing covered in leaves (instanced), facing local +y */
+      const LF = MAT.leaf6 || (MAT.leaf6 = std({ color: 0xffffff, roughness: 0.75, envMapIntensity: 0.5, side: THREE.DoubleSide }));
+      mk(g, B(w, top, 0.03), MAT.accBlack || MAT.black, 0, top / 2, -d / 2 + 0.015);
+      const geo = new THREE.CircleGeometry(0.05, 7); geo.scale(1, 1.7, 1);
+      const n = Math.round(w * top * 300), im = new THREE.InstancedMesh(geo, LF, n);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), eu = new THREE.Euler(), pv = new THREE.Vector3(), sv = new THREE.Vector3(), col = new THREE.Color();
+      const greens = [0x2c5a27, 0x3d7733, 0x4e8c3b, 0x234a20, 0x5b9844, 0x36662e, 0x6aa04c];
+      let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < n; i++) {
+        pv.set((rnd() - 0.5) * (w - 0.04), 0.03 + rnd() * (top - 0.06), -d / 2 + 0.04 + rnd() * (d - 0.05));
+        eu.set((rnd() - 0.5) * 1.3, (rnd() - 0.5) * 1.3, rnd() * Math.PI * 2); q.setFromEuler(eu);
+        const sc = 0.7 + rnd() * 1.0; sv.set(sc, sc, sc);
+        im.setMatrixAt(i, m4.compose(pv, q, sv)); im.setColorAt(i, col.setHex(greens[Math.floor(rnd() * greens.length)]));
+      }
+      im.castShadow = false; im.receiveShadow = true; im.userData.keep = true; g.add(im);
+      break;
+    }
+    case 'rockGarden': {                               /* v40 (Toby 2026-10-24: the gym's east side): indoor dry garden - pale raked gravel in a low
+                                                          dark-steel curb, three stones, a small red maple */
+      const ch = 0.12, GRV = MAT.gravel6 || (MAT.gravel6 = std({ color: 0xd8d4cc, roughness: 1.0, envMapIntensity: 0.5 }));
+      const RK = MAT.rock6 || (MAT.rock6 = std({ color: 0x55585c, roughness: 0.9, envMapIntensity: 0.6, flatShading: true }));
+      const LF = MAT.maple6 || (MAT.maple6 = std({ color: 0x8a2f22, roughness: 0.85, envMapIntensity: 0.5, flatShading: true }));
+      for (const [cx, cz, cw, cd] of [[0, -d / 2 + 0.02, w, 0.04], [0, d / 2 - 0.02, w, 0.04], [-w / 2 + 0.02, 0, 0.04, d - 0.08], [w / 2 - 0.02, 0, 0.04, d - 0.08]])
+        mk(g, B(cw, ch, cd), MAT.accBlack || MAT.black, cx, ch / 2, cz);
+      mk(g, B(w - 0.08, ch - 0.03, d - 0.08), GRV, 0, (ch - 0.03) / 2, 0);
+      for (let z = -d / 2 + 0.12; z < d / 2 - 0.08; z += 0.07) mk(g, B(w - 0.12, 0.008, 0.02), GRV, 0, ch - 0.026, z);   /* raked ridges */
+      for (const [fx, fz, r, hs] of [[-0.15, -0.28, 0.24, 0.75], [0.18, 0.05, 0.17, 0.6], [-0.1, 0.32, 0.12, 0.55]]) {
+        const st = mk(g, new THREE.DodecahedronGeometry(r, 0), RK, fx * w, ch - 0.03 + r * hs * 0.8, fz * d);
+        st.scale.set(1.15, hs, 0.9); st.rotation.y = fx * 7 + fz * 3;
+      }
+      /* a small spreading maple near the back corner: a leaning trunk, three branches, a wide flat crown of leaf clumps */
+      const tx = 0.12 * w, tz = -0.3 * d, th = Math.min(top || 2.2, 2.2) * 0.5;
+      const LF2 = MAT.maple6b || (MAT.maple6b = std({ color: 0xa8402a, roughness: 0.85, envMapIntensity: 0.5, flatShading: true }));
+      const tr = mk(g, new THREE.CylinderGeometry(0.022, 0.04, th, 8), MAT.bark, tx, ch + th / 2, tz); tr.rotation.z = 0.08;
+      let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (const [bx, bz] of [[0.32, 0.1], [-0.28, 0.16], [0.05, -0.3]]) {
+        const L = Math.hypot(bx, bz, 0.25), br = mk(g, new THREE.CylinderGeometry(0.01, 0.018, L, 6), MAT.bark, tx + bx / 2, ch + th + 0.1, tz + bz / 2);
+        br.lookAt(new THREE.Vector3(tx + bx, ch + th + 0.22, tz + bz).add(g.position)); br.rotateX(Math.PI / 2);
+      }
+      for (let i = 0; i < 30; i++) {
+        const a = rnd() * Math.PI * 2, r = 0.08 + rnd() * 0.46, y = ch + th + 0.1 + rnd() * 0.26 - r * 0.22;
+        mk(g, new THREE.IcosahedronGeometry(0.07 + rnd() * 0.06, 1), i % 3 ? LF : LF2, tx + Math.cos(a) * r, y, tz + Math.sin(a) * r * 0.85);
+      }
+      break;
+    }
+    case 'slats': {                                    /* v32 (Toby): slatted divider, oak 4 x 6 cm slats 10 cm apart, floor to top, black channels */
+      const n = Math.max(2, Math.round(w / 0.1));
+      for (let i = 0; i < n; i++) mk(g, B(0.04, top - 0.04, Math.min(d, 0.06), MAT.timber, 'y'), MAT.timber, -w / 2 + (i + 0.5) * w / n, (top - 0.04) / 2 + 0.02, 0);
+      mk(g, B(w, 0.02, Math.min(d, 0.06) + 0.01), MAT.accBlack || MAT.black, 0, 0.01, 0);
+      mk(g, B(w, 0.02, Math.min(d, 0.06) + 0.01), MAT.accBlack || MAT.black, 0, top - 0.01, 0);
+      break;
+    }
+    case 'lounger': {                                  /* house 12 (v2): pool lounger, hinoki slats on four legs, backrest raised at local -y, a linen pad */
+      const Hs = Math.max(0.25, Math.min(0.45, top)), bk = Math.min(0.7, d * 0.36), seat = d - bk, th = 0.7;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.05, Hs - 0.03, 0.05, MAT.hinoki), MAT.hinoki, sx * (w / 2 - 0.05), (Hs - 0.03) / 2, sz * (d / 2 - 0.08));
+      mk(g, B(w, 0.04, seat, MAT.hinoki), MAT.hinoki, 0, Hs, d / 2 - seat / 2);
+      mk(g, B(w - 0.08, 0.03, seat - 0.06, MAT.linenWhite), MAT.linenWhite, 0, Hs + 0.035, d / 2 - seat / 2);
+      const zh = -d / 2 + bk;
+      const bb = mk(g, B(w, 0.04, bk, MAT.hinoki), MAT.hinoki, 0, Hs + Math.sin(th) * bk / 2, zh - Math.cos(th) * bk / 2); bb.rotation.x = th;
+      break;
+    }
+    case 'bunk': {                                     /* house 12: bunk bed, oak frame, two mattresses (heads at local -y, as 'bed'), ladder on the +x side at the foot */
+      const p = 0.06, ys = [0.32, Math.max(1.25, top - 0.4)], mh = 0.15;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(p, top, p, MAT.oakFurn, 'y'), MAT.oakFurn, sx * (w / 2 - p / 2), top / 2, sz * (d / 2 - p / 2));
+      for (const y of ys) {
+        for (const sx of [-1, 1]) mk(g, B(0.04, 0.14, d - 2 * p, MAT.oakFurn, 'z'), MAT.oakFurn, sx * (w / 2 - 0.02), y - 0.07, 0);
+        for (const sz of [-1, 1]) mk(g, B(w - 2 * p, 0.14, 0.04, MAT.oakFurn), MAT.oakFurn, 0, y - 0.07, sz * (d / 2 - 0.02));
+        mk(g, RS(w - 0.1, mh, d - 0.14, 0.04, MAT.linenWhite, 0.05), MAT.linenWhite, 0, y + mh / 2, 0);
+        mk(g, RS(w - 0.06, 0.06, (d - 0.14) * 0.68, 0.03, MAT.linen, 0.03), MAT.linen, 0, y + mh + 0.03, (d - 0.14) * 0.16);
+        mk(g, RS(w * 0.62, 0.1, 0.32, 0.04, MAT.linenWhite, 0.05), MAT.linenWhite, 0, y + mh + 0.05, -d / 2 + 0.26);
+      }
+      for (const sx of [-1, 1]) mk(g, B(0.04, 0.05, d - 2 * p, MAT.oakFurn, 'z'), MAT.oakFurn, sx * (w / 2 - 0.02), ys[1] + 0.32, -0.15);   /* top bunk guard rails */
+      const lz0 = d / 2 - 0.5, lz1 = d / 2 - 0.12, lx = w / 2 + 0.03;                                                            /* ladder */
+      for (const z of [lz0, lz1]) mk(g, B(0.04, ys[1] + 0.3, 0.04, MAT.oakFurn, 'y'), MAT.oakFurn, lx, (ys[1] + 0.3) / 2, z);
+      for (let y = 0.3; y < ys[1] + 0.1; y += 0.28) mk(g, B(0.04, 0.03, lz1 - lz0, MAT.oakFurn, 'z'), MAT.oakFurn, lx, y, (lz0 + lz1) / 2);
+      break;
+    }
+    case 'closet': case 'wardrobe': {                 /* built-in storage, walnut-stained pine, doors at local +y */
+      mk(g, B(w, top, d, MAT.walnut, 'y'), MAT.walnut, 0, top / 2, 0);
+      const nd = Math.max(2, Math.round(w / 0.45));
+      for (let i = 1; i < nd; i++) mk(g, B(0.004, top - 0.06, 0.004), MAT.black, -w / 2 + w * i / nd, top / 2, d / 2 + 0.002);
+      for (let i = 0; i < nd; i++) {
+        const hx = -w / 2 + w * (i + 0.5) / nd + (i % 2 ? -1 : 1) * (w / nd / 2 - 0.05);
+        mk(g, B(0.015, 0.26, 0.02), MAT.blackSteel, hx, 1.0, d / 2 + 0.012);
+      }
+      break;
+    }
+    case 'ub': {                                       /* unit bath: tub along local -y, walnut accent panel behind it */
+      const tw = Math.min(w - 0.12, 1.6), td = 0.78, tz = -d / 2 + td / 2 + 0.04;
+      mk(g, RB(tw, 0.56, td, 0.07, MAT.porcelain), MAT.porcelain, 0, 0.28, tz);
+      const wt = new THREE.Mesh(new THREE.PlaneGeometry(tw - 0.18, td - 0.18), MAT.water);
+      wt.rotation.x = -Math.PI / 2; wt.position.set(0, 0.5, tz); g.add(wt);
+      mk(g, B(w - 0.06, 1.55, 0.015, MAT.walnut), MAT.walnut, 0, 0.56 + 0.775, -d / 2 + 0.075);
+      mk(g, B(w - 0.06, 0.03, 0.2), MAT.white, 0, 0.9, d / 2 - 0.6);                       /* counter shelf */
+      mk(g, CY(0.012, 1.0, 10), MAT.steel, w / 2 - 0.08, 1.35, 0.25);                        /* shower rail + head */
+      const hd = mk(g, CY(0.07, 0.02, 20), MAT.steel, w / 2 - 0.1, 1.9, 0.25); hd.rotation.z = Math.PI / 2;
+      mk(g, B(0.05, 0.08, 0.22), MAT.steel, w / 2 - 0.06, 0.95, 0.25);                       /* mixer */
+      mk(g, B(0.01, 0.7, 0.45), std({ color: 0xe8eef2, roughness: 0.02, metalness: 1, envMapIntensity: 1.2 }), w / 2 - 0.035, 1.45, -0.25);
+      break;
+    }
+    case 'vanity': {                                   /* washstand: walnut cabinet, white top + basin, mirror cabinet */
+      const vt = 0.82;
+      mk(g, B(w, vt - 0.1, d - 0.02, MAT.walnut, 'x'), MAT.walnut, 0, 0.1 + (vt - 0.1) / 2, 0);
+      mk(g, B(w, 0.1, d - 0.08), MAT.black, 0, 0.05, -0.03);
+      mk(g, B(w + 0.01, 0.04, d + 0.01), MAT.porcelain, 0, vt + 0.02, 0);
+      mk(g, RB(Math.min(0.46, w * 0.7), 0.12, d * 0.6, 0.05, MAT.porcelain), MAT.porcelain, 0, vt + 0.07, 0.03);
+      mk(g, CY(0.012, 0.22, 10), MAT.steel, 0, vt + 0.15, -d * 0.34);
+      mk(g, B(w, 0.75, 0.13, MAT.white), MAT.white, 0, 1.55, -d / 2 + 0.065);
+      mk(g, B(w - 0.04, 0.68, 0.01), std({ color: 0xe8eef2, roughness: 0.02, metalness: 1, envMapIntensity: 1.2 }), 0, 1.55, -d / 2 + 0.135);
+      break;
+    }
+    case 'washer': {
+      mk(g, RB(w - 0.04, 0.9, d - 0.04, 0.03, MAT.white), MAT.white, 0, 0.45, 0);
+      mk(g, B(w - 0.1, 0.012, d - 0.12), MAT.screen, 0, 0.905, 0.02);
+      break;
+    }
+    case 'dryer': {                                    /* gas dryer on a steel stand */
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.03, 1.0, 0.03), MAT.steel, sx * (w / 2 - 0.03), 0.5, sz * (d / 2 - 0.03));
+      mk(g, B(w, 0.03, d), MAT.steel, 0, 1.0, 0);
+      mk(g, RB(w - 0.02, 0.68, d - 0.06, 0.03, MAT.white), MAT.white, 0, 1.36, 0);
+      const port = mk(g, CY(w * 0.26, 0.02, 32), MAT.glass, 0, 1.38, d / 2 - 0.03); port.rotation.x = Math.PI / 2;
+      break;
+    }
+    case 'rail': {                                     /* drying pipe hung from the ceiling */
+      const y = top, c = ceilAt3(s.x, s.y, lvl) - L.base;
+      const r = mk(g, CY(0.014, w, 12), MAT.steel, 0, y, 0); r.rotation.z = Math.PI / 2;
+      for (const sx of [-1, 1]) mk(g, CY(0.008, Math.max(0.05, c - y), 8), MAT.steel, sx * (w / 2 - 0.1), (y + c) / 2, 0);
+      break;
+    }
+    case 'shelves': {                                  /* adjustable shelves under the stair (walnut-stained shina) */
+      for (const y of [0.35, 0.75, 1.15]) mk(g, B(w, 0.025, d, MAT.walnut), MAT.walnut, 0, y, 0);
+      break;
+    }
+    case 'sofa': {                                     /* straight sofa, back at local -y, optional chaise [x, width, depth] */
+      const SH = 0.42, BH = 0.8, back = 0.2;
+      mk(g, B(w - 0.06, 0.1, d - 0.06), MAT.black, 0, 0.05, 0);
+      mk(g, RS(w, SH - 0.1, d, 0.05, MAT.sofa, 0.07), MAT.sofa, 0, 0.1 + (SH - 0.1) / 2, 0);
+      mk(g, RS(w, BH - SH, back, 0.07, MAT.sofa, 0.07), MAT.sofa, 0, SH + (BH - SH) / 2, -d / 2 + back / 2);
+      for (const sx of [-1, 1]) mk(g, RS(0.18, 0.2, d - back, 0.07, MAT.sofa, 0.07), MAT.sofa, sx * (w / 2 - 0.09), SH + 0.1, back / 2);
+      for (let i = 0; i < 3; i++) mk(g, RB(0.5, 0.42, 0.14, 0.07, i === 1 ? MAT.linenDark : MAT.linenWhite, 0.06), i === 1 ? MAT.linenDark : MAT.linenWhite, -w / 2 + 0.55 + i * (w - 1.1) / 2, SH + 0.2, -d / 2 + back + 0.08);
+      if (s.chaise) {
+        const [cx, cw, cd] = s.chaise;
+        mk(g, B(cw - 0.06, 0.1, cd), MAT.black, cx, 0.05, d / 2 + cd / 2 - 0.03);
+        mk(g, RS(cw, SH - 0.1, cd + 0.04, 0.05, MAT.sofa, 0.07), MAT.sofa, cx, 0.1 + (SH - 0.1) / 2, d / 2 + cd / 2 - 0.02);
+      }
+      break;
+    }
+    case 'rugRound': {
+      const r = mk(g, new THREE.CylinderGeometry(w / 2, w / 2, 0.012, 64), MAT.rugWool, 0, 0.006, 0); r.castShadow = false;
+      break;
+    }
+    case 'stove': {                                    /* wood stove on a tiled hearth, flue up through the void */
+      const hs = s.hearth || 1.2;
+      const hz = mk(g, B(hs, 0.03, hs, MAT.greyTile), MAT.greyTile, -0.18, 0.015, -0.18); hz.castShadow = false;
+      mk(g, B(w, 0.5, d), MAT.heater, 0, 0.42, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.04, 0.17, 0.04), MAT.heater, sx * (w / 2 - 0.05), 0.085, sz * (d / 2 - 0.05));
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.6, 0.28), new THREE.MeshBasicMaterial({ color: 0xff8a3a }));
+      win.position.set(0, 0.44, d / 2 + 0.002); g.add(win);
+      const fire = new THREE.PointLight(0xff9a50, 1.6, 4, 2); fire.position.set(0, 0.5, d / 2 + 0.3); g.add(fire);
+      const c = ceilAt3(s.x, s.y, lvl) - L.base, fy = 0.67;
+      mk(g, CY(0.076, c - fy + 0.05, 20), MAT.heater, 0, (fy + c) / 2, -0.02);
+      break;
+    }
+    case 'table': {                                    /* dining table, walnut */
+      mk(g, B(w, 0.04, d, MAT.walnut), MAT.walnut, 0, top - 0.02, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(0.06, top - 0.04, 0.06, MAT.walnut), MAT.walnut, sx * (w / 2 - 0.1), (top - 0.04) / 2, sz * (d / 2 - 0.08));
+      break;
+    }
+    case 'bench': {
+      mk(g, B(w, 0.04, d, MAT.walnut), MAT.walnut, 0, top - 0.02, 0);
+      for (const sx of [-1, 1]) mk(g, B(0.05, top - 0.04, d - 0.06, MAT.walnut), MAT.walnut, sx * (w / 2 - 0.12), (top - 0.04) / 2, 0);
+      break;
+    }
+    case 'island': {                                   /* kitchen island: black, sink at local -x, hob at +x */
+      mk(g, B(w, 0.1, d - 0.08), MAT.black, 0, 0.05, 0);
+      mk(g, B(w - 0.01, top - 0.14, d - 0.02), MAT.kitchenBlack, 0, 0.1 + (top - 0.14) / 2, 0);
+      mk(g, B(w + 0.02, 0.04, d + 0.02), MAT.stoneTop, 0, top - 0.02, 0);
+      mk(g, B(0.6, 0.012, 0.42), MAT.steel, -w / 2 + 0.6, top + 0.001, 0.05);
+      mk(g, CY(0.014, 0.3, 10), MAT.steel, -w / 2 + 0.6, top + 0.15, -d / 2 + 0.18);
+      mk(g, B(0.75, 0.008, 0.5), MAT.screen, w / 2 - 0.62, top + 0.004, 0);
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1]]) mk(g, CY(0.07, 0.003, 24), MAT.black, w / 2 - 0.62 + sx * 0.18, top + 0.009, sz * 0.12);
+      for (let i = 1; i < Math.round(w / 0.6); i++) mk(g, B(0.004, top - 0.2, 0.004), MAT.black, -w / 2 + w * i / Math.round(w / 0.6), 0.1 + (top - 0.14) / 2, d / 2 + 0.001);
+      break;
+    }
+    case 'tall': {                                     /* tall kitchen units, black, doors at local +y */
+      mk(g, B(w, top, d, MAT.kitchenBlack), MAT.kitchenBlack, 0, top / 2, 0);
+      const nd = Math.max(2, Math.round(w / 0.6));
+      for (let i = 1; i < nd; i++) mk(g, B(0.004, top - 0.04, 0.004), MAT.black, -w / 2 + w * i / nd, top / 2, d / 2 + 0.002);
+      mk(g, B(w, 0.004, 0.004), MAT.black, 0, 0.9, d / 2 + 0.002);
+      if (s.fin === 'fridge') for (const [y0, y1] of [[0.25, 1.15], [1.3, 2.1]]) mk(g, B(0.025, y1 - y0, 0.03), MAT.steel, w / 2 - 0.07, (y0 + y1) / 2, d / 2 + 0.02);   /* v38: integrated fridge */
+      break;
+    }
+    case 'wallCabinet': {                              /* v22 (plan d): wall cabinets hung over a kitchen run between the item's z heights (default 1.45-2.15 m), oak like the base units, doors at local +y */
+      const src = PLAN && PLAN.model ? ((PLAN.model.levels[lvl] || {}).items || []).find(i => i.id === s.id) || PLAN.model.levels.flatMap(l => l.items || []).find(i => i.id === s.id) : null;
+      const z = src && Array.isArray(src.z) && src.z[1] > src.z[0] ? src.z : [1.45, 2.15], h = z[1] - z[0];
+      mk(g, B(w, h, d, MAT.oakFurn, 'y'), MAT.oakFurn, 0, z[0] + h / 2, 0);
+      const nd = Math.max(1, Math.round(w / 0.6));
+      for (let i = 1; i < nd; i++) mk(g, B(0.004, h - 0.04, 0.004), MAT.black, -w / 2 + w * i / nd, z[0] + h / 2, d / 2 + 0.002);
+      break;
+    }
+    case 'post': {                                     /* exposed timber post, floor to roof */
+      const c = (s.topMode === 'roof' ? ceilAt3(s.x, s.y, lvl) : L.base + top) - L.base;
+      mk(g, B(w, c, d, MAT.timber, 'y'), MAT.timber, 0, c / 2, 0);
+      addCollBox(s.x, s.y, w, d, s.a, L.base, L.base + c);
+      break;
+    }
+    case 'beam': {                                     /* exposed timber beam (top at `top` above the floor) */
+      const dp = s.depth || 0.24;
+      mk(g, B(w, dp, d, MAT.timber, 'x'), MAT.timber, 0, top - dp / 2, 0);
+      break;
+    }
+    case 'shower': {                                   /* unit shower: white tray, rail + head */
+      mk(g, B(w - 0.02, 0.06, d - 0.02, MAT.porcelain), MAT.porcelain, 0, 0.03, 0);
+      mk(g, CY(0.012, 1.0, 10), MAT.steel, 0, 1.35, -d / 2 + 0.06);
+      const hd = mk(g, CY(0.08, 0.02, 20), MAT.steel, 0, 1.92, -d / 2 + 0.15); hd.rotation.x = Math.PI / 2;
+      break;
+    }
+    /* ---- house 4 (the revised plan): gym + sauna pieces */
+    case 'gymRack': {                                  /* power rack: 4 black steel uprights, top frame, safety arms, a loaded bar on the hooks (front = local +y) */
+      const p = 0.06, hx = w / 2 - p / 2, hz = d / 2 - p / 2;
+      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) mk(g, B(p, top, p), MAT.blackSteel, sx * hx, top / 2, sz * hz);
+      for (const sz of [-1, 1]) mk(g, B(w, p, p), MAT.blackSteel, 0, top - p / 2, sz * hz);
+      for (const sx of [-1, 1]) mk(g, B(p, p, d - 2 * p), MAT.blackSteel, sx * hx, top - p / 2, 0);
+      for (const sz of [-1, 1]) mk(g, B(w, 0.05, p), MAT.blackSteel, 0, 0.025, sz * hz);
+      for (const sx of [-1, 1]) mk(g, B(0.05, 0.05, d + 0.1), MAT.steel, sx * (hx - 0.055), 0.6, 0.05);          /* safety arms */
+      for (const sx of [-1, 1]) mk(g, B(0.05, 0.06, 0.1), MAT.steel, sx * (hx - 0.055), 1.3, hz - 0.02);        /* J-hooks */
+      const bar = mk(g, CY(0.014, w + 0.5, 12), MAT.steel, 0, 1.36, hz - 0.03); bar.rotation.z = Math.PI / 2;
+      for (const sx of [-1, 1]) for (const [o, r] of [[0.02, 0.225], [0.075, 0.16]]) { const pl = mk(g, CY(r, 0.045, 32), MAT.black, sx * (hx + 0.05 + o), 1.36, hz - 0.03); pl.rotation.z = Math.PI / 2; }
+      break;
+    }
+    case 'treadmill': {                                /* deck + belt, console on two uprights at the head (local -y) */
+      const dh = 0.2;
+      mk(g, B(w, dh, d), MAT.black, 0, dh / 2, 0);
+      mk(g, B(w - 0.2, 0.012, d - 0.3), MAT.screen, 0, dh + 0.006, 0.08);
+      for (const sx of [-1, 1]) {
+        mk(g, B(0.05, 1.15, 0.07), MAT.blackSteel, sx * (w / 2 - 0.05), dh + 0.575, -d / 2 + 0.12);
+        mk(g, B(0.04, 0.04, 0.5), MAT.blackSteel, sx * (w / 2 - 0.05), 1.05, -d / 2 + 0.38);
+      }
+      mk(g, B(w - 0.04, 0.3, 0.12), MAT.blackSteel, 0, 1.3, -d / 2 + 0.12);
+      mk(g, B(w - 0.26, 0.18, 0.01), MAT.screen, 0, 1.31, -d / 2 + 0.185);
+      break;
+    }
+    case 'gymBench': {                                 /* flat bench: padded top on a black steel frame, at `top` */
+      const pad = 0.08;
+      mk(g, RB(w, pad, d, 0.02, MAT.kitchenBlack), MAT.kitchenBlack, 0, top - pad / 2, 0);
+      mk(g, B(w - 0.3, 0.05, 0.06), MAT.blackSteel, 0, top - pad - 0.025, 0);
+      for (const sx of [-1, 1]) {
+        mk(g, B(0.05, top - pad - 0.05, 0.05), MAT.blackSteel, sx * (w / 2 - 0.2), (top - pad - 0.05) / 2, 0);
+        mk(g, B(0.06, 0.04, d + 0.12), MAT.blackSteel, sx * (w / 2 - 0.2), 0.02, 0);
+      }
+      break;
+    }
+    case 'mat': {                                      /* exercise mat, 1 cm */
+      const m = mk(g, B(w, 0.01, d), MAT.kitchenBlack, 0, 0.005, 0); m.castShadow = false;
+      break;
+    }
+    case 'saunaBench': {                               /* sauna bench: hinoki box, seat at `top`, slatted (front = local +y) */
+      mk(g, B(w, top, d, MAT.hinoki), MAT.hinoki, 0, top / 2, 0);
+      const ns = Math.max(2, Math.round(d / 0.1));
+      for (let i = 1; i < ns; i++) mk(g, B(w - 0.02, 0.004, 0.008, MAT.walnut), MAT.walnut, 0, top + 0.001, -d / 2 + d * i / ns);
+      mk(g, B(w - 0.02, 0.06, 0.012, MAT.walnut), MAT.walnut, 0, 0.03, d / 2 + 0.002);                     /* toe recess shadow line */
+      break;
+    }
+    case 'saunaHeater': {                              /* sauna heater: black steel box heaped with stones (house 1's), hinoki guard */
+      mk(g, B(w * 0.85, 0.65, d * 0.85), MAT.heater, 0, 0.325, 0);
+      let sd = 4242;
+      const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 26; i++) {
+        const st = mk(g, new THREE.IcosahedronGeometry(0.045 + rnd() * 0.03, 1), MAT.stones, (rnd() - 0.5) * w * 0.7, 0.69 + rnd() * 0.1, (rnd() - 0.5) * d * 0.7);
+        st.scale.y = 0.7;
+      }
+      for (const [sx, sz, gw, gd] of [[0, 1, w + 0.12, 0.02], [0, -1, w + 0.12, 0.02], [1, 0, 0.02, d + 0.12], [-1, 0, 0.02, d + 0.12]])
+        mk(g, B(gw, 0.09, gd, MAT.hinoki), MAT.hinoki, sx * (w / 2 + 0.06), 0.5, sz * (d / 2 + 0.06));
+      break;
+    }
+    /* ---- house 7 (Plan B — Ichijo): catalogue unit bath / shower room shells, fittings that do not fit */
+    case 'ubox': case 'shbox': {                       /* the unit's own room: floor pan, walls, ceiling, glass door at local +y; tub along -y */
+      /* shower rooms (v19): a 0.65 m folding door, off centre by s.dx toward the standing strip */
+      const t = 0.04, H = top, dw = s.name === 'shbox' ? Math.min(0.65, w - 0.3) : Math.min(0.8, w - 0.3), wm = MAT.greyTile || MAT.white;   /* panels: grey stone-look */
+      const dx = Math.max(-(w / 2 - t - dw / 2), Math.min(w / 2 - t - dw / 2, s.dx || 0));
+      mk(g, B(w, 0.12, d, MAT.white), MAT.white, 0, 0.06, 0);
+      for (const sx of [-1, 1]) mk(g, B(t, H, d, wm), wm, sx * (w / 2 - t / 2), H / 2, 0);
+      mk(g, B(w - 2 * t, H, t, wm), wm, 0, H / 2, -d / 2 + t / 2);
+      for (const [x0, x1] of [[-w / 2 + t, dx - dw / 2], [dx + dw / 2, w / 2 - t]]) if (x1 - x0 > 0.005) mk(g, B(x1 - x0, H, t, wm), wm, (x0 + x1) / 2, H / 2, d / 2 - t / 2);
+      mk(g, B(dw, H - 2.0, t, wm), wm, dx, 2.0 + (H - 2.0) / 2, d / 2 - t / 2);
+      const door = new THREE.Mesh(new THREE.BoxGeometry(dw - 0.02, 1.86, 0.015), MAT.glassIn); door.position.set(dx, 0.12 + 0.93, d / 2 - t / 2); door.renderOrder = 2; g.add(door);
+      mk(g, B(w, 0.03, d, MAT.white), MAT.white, 0, H + 0.015, 0);
+      if (s.name === 'ubox') {
+        const tw = w - 2 * t - 0.04, td = Math.min(0.8, d * 0.45), tz = -d / 2 + t + td / 2 + 0.02;
+        mk(g, RB(tw, 0.55, td, 0.06, MAT.porcelain), MAT.porcelain, 0, 0.12 + 0.275, tz);
+        const wt = new THREE.Mesh(new THREE.PlaneGeometry(tw - 0.16, td - 0.16), MAT.water); wt.rotation.x = -Math.PI / 2; wt.position.set(0, 0.6, tz); g.add(wt);
+      }
+      mk(g, CY(0.012, 1.0, 10), MAT.steel, w / 2 - t - 0.06, 1.45, 0.1);
+      const hd = mk(g, CY(0.07, 0.02, 20), MAT.steel, w / 2 - t - 0.1, 1.98, 0.1); hd.rotation.z = Math.PI / 2;
+      mk(g, B(0.05, 0.08, 0.22), MAT.steel, w / 2 - t - 0.03, 1.0, 0.1);
+      break;
+    }
+    case 'ghostNoFill': case 'ghostNeedsFill': {       /* a fitting that does not fit as drawn: translucent red (NO) / amber (NEEDS), inside its room */
+      const gm = new THREE.Mesh(new THREE.BoxGeometry(w, top, d), s.name === 'ghostNoFill' ? MAT.ghostNo : MAT.ghostNeeds); gm.position.y = top / 2; gm.renderOrder = 3; g.add(gm);
+      break;
+    }
+    case 'ghostLineNo': case 'ghostLineNeeds': {       /* ... and its real size as an outline (through the walls it overruns) */
+      const ln = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, top, d)), new THREE.LineBasicMaterial({ color: s.name === 'ghostLineNo' ? 0xff3b3b : 0xffb020 }));
+      ln.position.y = top / 2; g.add(ln);
+      break;
+    }
+    default: return undefined;
+  }
+  g.position.set(s.x, 0, s.y);
+  g.rotation.y = -s.a;
+  return g;
+}
+
+/* stairs: winders on the floor are solid; a flight with open space under it
+   (the one over the entrance) is one closed solid with a smooth sloped soffit */
+function buildStairs3(list) {
+  for (const s of list) {
+    if (s.hidden) continue;                          /* house 7: outside stair + porch steps, walkable but drawn by buildIchijo7 */
+    const L = LV[s.level], g = new THREE.Group(), y0 = L.base;
+    const rise = s.rise / s.n;
+    s.treads.forEach((t, k) => {
+      if (k < s.solid) {
+        g.add(slab(t.poly, [], y0 + t.top - 0.03, t.top - 0.03 + 0.05, MAT.white, MAT.white));
+      }
+      const top = STY ? slab(t.poly, [], y0 + t.top, 0.06, MAT.oakS, MAT.oakS) : slab(t.poly, [], y0 + t.top, 0.03, MAT.pine, MAT.timber);   /* tread board (v38: 6 cm floating) */
+      g.add(top);
+    });
+    /* the open flight: rectangles in a row after the solid ones */
+    const open = s.treads.slice(s.solid);
+    if (open.length) {
+      const c = (t) => t.poly.reduce((a, p) => [a[0] + p[0] / t.poly.length, a[1] + p[1] / t.poly.length], [0, 0]);
+      const c0 = c(open[0]), c1 = c(open[open.length - 1]);
+      const dir = [c1[0] - c0[0], c1[1] - c0[1]], dl = Math.hypot(dir[0], dir[1]) || 1, u = [dir[0] / dl, dir[1] / dl], nrm = [-u[1], u[0]];
+      const proj = (p) => [(p[0] - c0[0]) * u[0] + (p[1] - c0[1]) * u[1], (p[0] - c0[0]) * nrm[0] + (p[1] - c0[1]) * nrm[1]];
+      const P = open.flatMap(t => t.poly.map(proj));
+      const s0 = Math.min(...P.map(p => p[0])), s1 = Math.max(...P.map(p => p[0]));
+      const q0 = Math.min(...P.map(p => p[1])), q1 = Math.max(...P.map(p => p[1]));
+      const n = open.length, go = (s1 - s0) / n, thick = 0.16;
+      const sh = new THREE.Shape();
+      const tt = STY ? 0.045 : 0;                    /* v36: the body stops under the 45 mm treads */
+      sh.moveTo(s0, open[0].top - rise - thick);
+      sh.lineTo(s0, open[0].top - tt);
+      for (let k = 0; k < n; k++) { sh.lineTo(s0 + go * (k + 1), open[k].top - tt); if (k + 1 < n) sh.lineTo(s0 + go * (k + 1), open[k + 1].top - tt); }
+      sh.lineTo(s1, open[n - 1].top - thick);
+      sh.lineTo(s0, open[0].top - rise - thick);
+      if (THREE.ShapeUtils.isClockWise(sh.getPoints())) { const pts = sh.getPoints().reverse(); sh.curves = []; sh.setFromPoints(pts); }
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: q1 - q0, bevelEnabled: false });
+      geo.translate(0, 0, q0);
+      /* shape (s, y, q) -> world: x = c0 + s*u + q*nrm, y, z likewise */
+      const M = new THREE.Matrix4().set(u[0], 0, nrm[0], c0[0], 0, 1, 0, y0, u[1], 0, nrm[1], c0[1], 0, 0, 0, 1);
+      geo.applyMatrix4(M);
+      geo.computeVertexNormals();
+      if (!STY) { const m = new THREE.Mesh(geo, MAT.plaster); m.castShadow = true; m.receiveShadow = true; g.add(m); }
+      else {
+        /* v38 (Toby 2026-10-24): a floating stair - the treads cantilever off the wall, nothing under them; a frameless
+           glass balustrade with an oak rail on the open side */
+        const W = (L.walls || []).filter(w => w.t > 0.02 && !w.h);
+        const walled = (q) => W.some(w => {
+          const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az); if (len < 0.05) return false;
+          const d = (sx) => { const px = c0[0] + sx * u[0] + q * nrm[0], pz = c0[1] + sx * u[1] + q * nrm[1];
+            const t = ((px - ax) * (bx - ax) + (pz - az) * (bz - az)) / (len * len);
+            return t > -0.02 && t < 1.02 && Math.abs((px - ax) * (bz - az) - (pz - az) * (bx - ax)) / len < w.t / 2 + 0.2; };
+          return d(s0 + 0.2) && d(s1 - 0.2);
+        });
+        const qo = walled(q0) ? q1 : walled(q1) ? q0 : null;
+        if (qo !== null) {
+          const qq = qo + (qo === q1 ? -0.03 : 0.03), yA = y0 + open[0].top, yB = y0 + open[n - 1].top, H = 0.95;
+          const at = (sx, y) => [c0[0] + sx * u[0] + qq * nrm[0], y, c0[1] + sx * u[1] + qq * nrm[1]];
+          const vs = [at(s0, yA), at(s1, yB), at(s1, yB + H), at(s0, yA + H)].flat();
+          const gg = new THREE.BufferGeometry();
+          gg.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3)); gg.setIndex([0, 1, 2, 0, 2, 3]); gg.computeVertexNormals();
+          const gl = new THREE.Mesh(gg, MAT.glassIn); gl.renderOrder = 2; g.add(gl);
+          const lr = Math.hypot(s1 - s0, yB - yA), mid = at((s0 + s1) / 2, (yA + yB) / 2 + H + 0.02);
+          const rail = mk(g, B(lr, 0.04, 0.05, MAT.oakFurn, 'x'), MAT.oakFurn, mid[0], mid[1], mid[2]);
+          rail.rotation.set(0, Math.atan2(-u[1], u[0]), Math.atan2(yB - yA, s1 - s0), 'YXZ');
+        }
+      }
+    }
+    G.furn[s.level].add(g);
+  }
+}
+function floorAt3(x, z, lvl) {
+  let h = null;
+  for (const r of FLOOR_RECTS[lvl] || []) if (x > r[0] && x < r[2] && z > r[1] && z < r[3]) h = h === null ? (r[4] || 0) : Math.max(h, r[4] || 0);
+  return LV[lvl].base + (h === null ? (lvl === 0 ? PLAN.ground : 0) : h);
+}
+function stairHeights3(x, z) {
+  const out = [];
+  for (const s of (PLAN.stairs3 || [])) {
+    const b = LV[s.level].base;
+    for (const t of s.treads) if (inside(t.poly, x, z)) out.push(b + t.top);
+  }
+  return out;
+}
+
+/* roofs: underside = ceiling inside the walls, cedar soffit outside them,
+   standing-seam metal on top, a layer of snow */
+function buildRoofs3() {
+  for (const r of ROOFS3) {
+    if (r.custom) continue;                          /* house 7 builds its own (buildRoof7) */
+    const o = r.over || { n: 0, s: 0, e: 0, w: 0 };
+    const X0 = r.rect[0] - (o.w || 0), X1 = r.rect[2] + (o.e || 0), Z0 = r.rect[1] - (o.n || 0), Z1 = r.rect[3] + (o.s || 0);
+    /* inside = the rooms under it (the lowest level it covers), out to the walls' outside faces */
+    const lv = Math.min(...r.levels), faces = LV[lv].rooms.filter(f => { const c = f.poly.reduce((a, p) => [a[0] + p[0] / f.poly.length, a[1] + p[1] / f.poly.length], [0, 0]); return c[0] > r.rect[0] && c[0] < r.rect[2] && c[1] > r.rect[1] && c[1] < r.rect[3]; });
+    let inner = null;
+    if (faces.length) {
+      const bb = bbox(faces.flatMap(f => f.poly));
+      inner = [Math.max(X0, bb[0] - 0.114), Math.max(Z0, bb[1] - 0.114), Math.min(X1, bb[2] + 0.114), Math.min(Z1, bb[3] + 0.114)];
+    }
+    const xs = [X0, X1], zs = [Z0, Z1];
+    if (inner) { xs.push(inner[0], inner[2]); zs.push(inner[1], inner[3]); }
+    const isIn = (x, z) => inner && x > inner[0] && x < inner[2] && z > inner[1] && z < inner[3];
+    /* v31 warm finish: the ceiling follows the room under it (boards / white), so the grid follows the rooms */
+    if (STY) for (const f of faces) for (const p of f.poly) if (p[0] > X0 && p[0] < X1 && p[1] > Z0 && p[1] < Z1) { xs.push(p[0]); zs.push(p[1]); }
+    const ceilOf = (x, z) => {
+      if (!STY) return MAT.ceiling;
+      return MAT.ceiling;                            /* v36: board ceilings hang under it (ceilings3) */
+    };
+    const all = gridRects(xs, zs, () => true);
+    const th = r.th || 0.3;
+    if (STY) {                                       /* (gridRects merges the whole roof into one rect: the underside per material) */
+      slopedSlab(G.roof, all, 0, th, MAT.roofMetal, TRIM6() || MAT.blackSteel, null, r);
+      const SOF = F6().soffit === 'render' ? mat6('soffit') : MAT.cedar;            /* v39: 75 tsubo - no wood outside */
+      const pick = (x, z) => isIn(x, z) ? ceilOf(x, z) : SOF;
+      for (const M of [MAT.ceiling, MAT.woodCeil, SOF]) slopedUnder(G.roof, gridRects(xs, zs, (x, z) => pick(x, z) === M), M, r);
+    } else slopedSlab(G.roof, all, 0, th, MAT.roofMetal, MAT.blackSteel, (q) => isIn((q[0] + q[2]) / 2, (q[1] + q[3]) / 2) ? MAT.ceiling : MAT.cedar, r);
+    /* snow load, held back from the edges */
+    slopedSlab(G.roof, [[X0 + 0.08, Z0 + 0.08, X1 - 0.08, Z1 - 0.15]], th, 0.22, MAT.roofSnow, MAT.roofSnow, null, r);
+    /* carport posts + a beam under the eaves */
+    if (r.posts && r.posts.length) {
+      const PM = TRIM6() || MAT.timber;                 /* v39: 75 tsubo - dark-bronze steel */
+      for (const [px, pz] of r.posts) {
+        const H = r.y(px, pz) - PLAN.ground;
+        mk(G.ext, B(0.12, H, 0.12, PM, 'y'), PM, px, PLAN.ground + H / 2, pz);
+        addCollBox(px, pz, 0.12, 0.12, 0, PLAN.ground, PLAN.ground + H);
+      }
+      if (r.beams) {
+        /* house 6: a beam along each line of posts ([x0, z0, x1, z1], along x or z), its top on the underside */
+        for (const [x0, z0, x1, z1] of r.beams) {
+          const yA = r.y(x0, z0), yB = r.y(x1, z1), alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0), Lb = alongX ? Math.abs(x1 - x0) : Math.abs(z1 - z0);
+          const geo = alongX ? B(Math.hypot(Lb, yB - yA), 0.24, 0.12, PM, 'x') : B(0.12, 0.24, Math.hypot(Lb, yB - yA), PM, 'z');
+          const bm = mk(G.ext, geo, PM, (x0 + x1) / 2, (yA + yB) / 2 - 0.12, (z0 + z1) / 2);
+          if (alongX) bm.rotation.z = Math.atan2(yB - yA, x1 - x0); else bm.rotation.x = Math.atan2(yA - yB, z1 - z0);
+        }
+      } else {
+        const zA = Math.min(...r.posts.map(p => p[1])) - 0.3, zB = Math.max(...r.posts.map(p => p[1])) + 0.3, px = r.posts[0][0];
+        const yA = r.y(px, zA), yB = r.y(px, zB), Lb = zB - zA;
+        const bm = mk(G.ext, B(0.12, 0.24, Math.hypot(Lb, yB - yA), MAT.timber, 'z'), MAT.timber, px, (yA + yB) / 2 - 0.12, (zA + zB) / 2);
+        bm.rotation.x = Math.atan2(yA - yB, Lb);
+      }
+    }
+  }
+}
+function buildChimney3() {
+  const c = PLAN.chimney, r = ROOFS3[0];
+  if (!c || !r) return;
+  const yLo = r.y(c.x, c.y + c.d / 2), yHi = r.y(c.x, c.y - c.d / 2) + (r.th || 0.3);
+  const top = yHi + 0.9, H = top - yLo;
+  mk(G.roof, B(c.w, H, c.d, MAT.siding), MAT.siding, c.x, yLo + H / 2, c.y);
+  mk(G.roof, B(c.w + 0.06, 0.05, c.d + 0.06), MAT.blackSteel, c.x, top + 0.025, c.y);
+  mk(G.roof, CY(0.08, 0.7, 16), MAT.heater, c.x, top + 0.4, c.y);
+  mk(G.roof, CY(0.16, 0.05, 16), MAT.heater, c.x, top + 0.78, c.y);
+  mk(G.roof, CY(0.1, 0.12, 16), MAT.heater, c.x, top + 0.86, c.y);
+}
+
+/* snow field at the design ground level, concrete foundation band, carport
+   slab, ploughed drive */
+function buildSite3() {
+  const E = G.ext, R = 480, gy = PLAN.ground;
+  const geo = new THREE.CircleGeometry(R, 96, 0, Math.PI * 2);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), d = Math.hypot(x, y);
+    const k = Math.min(1, Math.max(0, (d - 30) / 120));
+    p.setZ(i, (Math.sin(x * 0.05) * Math.cos(y * 0.043) * 0.6 + Math.sin(x * 0.013 + 1) * Math.cos(y * 0.011) * 2.2) * k);
+  }
+  geo.computeVertexNormals();
+  scaleUV(geo, R * 2 / tileOf(MAT.snow));
+  const gnd = new THREE.Mesh(geo, MAT.snow);
+  gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, gy - 0.02, 0); gnd.receiveShadow = true;
+  E.add(gnd);
+  /* foundation: concrete band 4 cm proud of the 1F outside walls, ground to 20 cm under the floor */
+  for (const w of LV[0].walls) {
+    if (w.kind !== 'ext') continue;
+    const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az);
+    if (len < 0.05) continue;
+    const ux = (bx - ax) / len, uz = (bz - az) / len, q = w.t + 0.02, top = -0.2;
+    const s0 = -(w.capA ? 0.04 : 0), s1 = len + (w.cap ? 0.04 : 0), H = top - gy;
+    const m = mk(E, B(s1 - s0, H, 0.04, MAT.found), MAT.found, ax + ux * (s0 + s1) / 2 + w.n[0] * q, gy + H / 2, az + uz * (s0 + s1) / 2 + w.n[1] * q, Math.atan2(-uz, ux));
+    m.castShadow = false;
+  }
+  const flatOn = (m) => { m.castShadow = false; return m; };
+  const car = ROOFS3.find(r => r.posts && r.posts.length);
+  if (car && car.pad) {
+    /* house 6: pad, drive and porch step as the model gives them ([x0, z0, x1, z1], porch + its top) */
+    const [px0, pz0, px1, pz1] = car.pad;
+    flatOn(mk(E, B(px1 - px0, 0.05, pz1 - pz0, MAT.pad), MAT.pad, (px0 + px1) / 2, gy + 0.005, (pz0 + pz1) / 2));
+    for (const [qx0, qz0, qx1, qz1] of car.pads || []) flatOn(mk(E, B(qx1 - qx0, 0.05, qz1 - qz0, MAT.pad), MAT.pad, (qx0 + qx1) / 2, gy + 0.005, (qz0 + qz1) / 2));
+    if (car.drive) { const [dx0, dz0, dx1, dz1] = car.drive; flatOn(mk(E, B(dx1 - dx0, 0.04, dz1 - dz0, MAT.packed), MAT.packed, (dx0 + dx1) / 2, gy, (dz0 + dz1) / 2)); }
+    if (car.porch) {
+      const [sx0, sz0, sx1, sz1, top] = car.porch;
+      flatOn(mk(E, B(sx1 - sx0, top - gy, sz1 - sz0, MAT.pad), MAT.pad, (sx0 + sx1) / 2, (gy + top) / 2, (sz0 + sz1) / 2));
+      if (FLOOR_RECTS[0]) FLOOR_RECTS[0].push([sx0, sz0, sx1, sz1, top]);   /* walkable: pad -> porch -> genkan */
+    }
+  } else if (car) {
+    const x0 = Math.max(...LV[0].rooms.flatMap(f => f.poly.map(q => q[0]))) + 0.12, x1 = car.rect[2] - 0.2, z0 = car.rect[1] + 0.3, z1 = car.rect[3] - 0.1;
+    flatOn(mk(E, B(x1 - x0, 0.05, z1 - z0, MAT.pad), MAT.pad, (x0 + x1) / 2, gy + 0.005, (z0 + z1) / 2));
+    flatOn(mk(E, B(x1 - x0 + 1.0, 0.04, 9.0, MAT.packed), MAT.packed, (x0 + x1) / 2, gy, z1 + 4.5));      /* drive out to the south */
+  }
+}
+
+/* room labels + ceiling lights from the model's rooms */
+function setupLabels3() {
+  LABELS3.length = 0;
+  LV.forEach((L, i) => { for (const f of L.faces) if (f.anchored && f.name && f.floor !== 'void') LABELS3.push([i, f.label[0], f.label[1], f.name, f.ja]); });
+  /* staging: the model's notes in the 3D (the portal frame to be sized by the structural engineer), at their own height */
+  for (const n of (PLAN.model && PLAN.model.notes3) || []) LABELS3.push([n.level, n.at[0], n.at[1], n.en, n.ja, n.z, 1]);   /* always on top */
+}
+const LIT3 = HOUSE === 4 ? /bedroom|living|hall|entrance|gym|changing|bath|sauna|lounge|den/i : /bedroom|living|hall|corridor|entrance|gym|changing|bath|sauna|lounge|kitchen|den/i;
+function lights3() {
+  LV.forEach((L, i) => {
+    for (const f of L.faces) {
+      if (f.floor === 'void' || !f.anchored || f.area < 1.0) continue;
+      const [x, z] = f.label, y = ceilAt3(x, z, i);
+      const lit = LIT3.test(f.name) && f.area > 2;
+      const sloped = !(LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0)) && y !== L.base + L.h;
+      const q = new THREE.Quaternion();
+      const r = ROOFS3.find(rr => !rr.outside && x > rr.rect[0] && x < rr.rect[2] && z > rr.rect[1] && z < rr.rect[3]);
+      if (sloped && r) q.setFromUnitVectors(new V(0, 0, 1), r.n.clone().negate()); else q.setFromUnitVectors(new V(0, 0, 1), new V(0, -1, 0));
+      if (lit) { const pl = new THREE.PointLight(0xffdcb0, f.area > 20 ? 8 : 5, 9, 1.5); pl.position.set(x, y - 0.3, z); G.furn[i].add(pl); }
+      const yl = y - (f.floor === 'hinoki' ? 0.021 : 0) - (STY && f.ceil === 'wood' && inside(insetOrtho(f.poly, PANEL_IN), x, z) ? PANEL_DROP + PANEL_T : 0);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.045, 20), MAT.lampGlow); lens.quaternion.copy(q); lens.position.set(x, yl - 0.004, z); G.furn[i].add(lens);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.06, 24), MAT.white); ring.quaternion.copy(q); ring.position.set(x, yl - 0.003, z); G.furn[i].add(ring);
+    }
+  });
+  /* pendants over the island and the dining table */
+  for (let i = 0; i < LV.length; i++) for (const f of LV[i].furniture) {
+    if (f.name !== 'table' && f.name !== 'island') continue;
+    if (HOUSE >= 5 && f.top < 0.6) continue;            /* plans c + d: none over the coffee / side tables */
+    const along = f.name === 'table' ? [-0.5, 0.5] : [-0.6, 0.6];
+    for (const dx of along) {
+      const px = f.x + dx * Math.cos(f.a), pz = f.y + dx * Math.sin(f.a);
+      const lamp = placeModel(G.furn[i], 'pendant', px, LV[i].base + 1.6, pz, 0, 1);
+      if (!lamp) continue;
+      const yc = ceilAt3(px, pz, i), y1 = lamp.position.y + GLTF.pendant.size.y;
+      mk(G.furn[i], CY(0.004, Math.max(0.05, yc - y1), 6), MAT.black, px, (yc + y1) / 2, pz);
+      const pl = new THREE.PointLight(0xffd6a0, 3.0, 5, 1.8); pl.position.set(px, lamp.position.y + 0.05, pz); G.furn[i].add(pl);
+    }
+  }
+}
+function decorate3() {
+  const li = 1, L = LV[li];
+  if (!L || HOUSE >= 5) return;                                        /* plans c + d: the model's own pieces only (its coffee table too) */
+  const sofa = L.furniture.find(f => f.name === 'sofa');
+  if (sofa) placeModel(G.furn[li], 'coffee', sofa.x, L.base, sofa.y - 0.95, 0, 1);
+  if (HOUSE === 4) {
+    const s1 = LV[0].furniture.find(f => f.name === 'sofa');           /* rest area: side table in front of the sofa */
+    if (s1) placeModel(G.furn[0], 'side', s1.x - 0.75 * Math.cos(s1.a - Math.PI / 2), LV[0].base, s1.y - 0.75 * Math.sin(s1.a - Math.PI / 2), 0, 1);
+    placeModel(G.furn[li], 'plant', -0.75, L.base, -0.31, 0.4, 1.2);    /* LDK, beside the bedroom door */
+    placeModel(G.furn[0], 'plant', 2.55, LV[0].base, 1.19, 1.1, 1.0);   /* changing + rest room (v21: the old spot is in the bigger bath) */
+  }
+}
+
+/* house 4: a room with a hinoki floor (the sauna) is lined with hinoki boards,
+   walls (round its openings) and ceiling */
+function lineRooms3() {
+  const T = 0.014;
+  LV.forEach((L, i) => {
+    for (const f of L.faces) {
+      /* v31/v32 warm finish: rooms marked wall 'stone' (wet rooms: tiled) or 'light' (lighter paint), to the ceiling -
+         under the roof the boards' tops follow it */
+      const LM = f.floor === 'hinoki' ? MAT.hinoki : !STY ? null : f.wall === 'stone' ? MAT.bathStone : f.wall === 'light' ? MAT.plasterLight : null;
+      if (!LM || !f.anchored) continue;
+      const T = LM === MAT.plasterLight ? 0.004 : 0.014;
+      const inF = (x, z) => inside(f.poly, x, z) && !f.holes.some(h => inside(h, x, z));
+      const RF = LM === MAT.hinoki ? null : roofOver3(i, f.label[0], f.label[1]);
+      const yb = L.base + (f.dz || 0), yt = (RF ? L.base + 6 : ceilAt3(f.label[0], f.label[1], i)) - 0.006;
+      for (const w of L.walls) {
+        const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az);
+        if (len < 0.05) continue;
+        const ux = (bx - ax) / len, uz = (bz - az) / len, th = Math.atan2(-uz, ux);
+        const sides = w.kind === 'ext' ? [[-w.n[0], -w.n[1], 0]] : [[-uz, ux, w.t / 2], [uz, -ux, w.t / 2]];
+        for (const [nx, nz, q] of sides) {
+          const N = Math.max(2, Math.ceil(len / 0.05)), spans = [];
+          for (let k = 0; k < N; k++) {
+            const sm = (k + 0.5) / N * len, on = inF(ax + ux * sm + nx * (q + 0.06), az + uz * sm + nz * (q + 0.06));
+            if (!on) continue;
+            const s0 = k / N * len, s1 = (k + 1) / N * len, last = spans[spans.length - 1];
+            if (last && Math.abs(last[1] - s0) < 1e-6) last[1] = s1; else spans.push([s0, s1]);
+          }
+          const board = (s0, s1, y0, y1) => liner(G.walls[i], w, [nx, nz, q], s0, s1, y0, y1, LM, T, 0, RF);
+          for (const [s0, s1] of spans) aroundOps(w, s0, s1, L, yb, yt, board);
+        }
+      }
+      const rs = rectsOf(f.poly, f.holes);
+      if (rs.length && LM === MAT.hinoki) slabRects(G.walls[i], rs, yt, T, MAT.hinoki, MAT.hinoki, MAT.hinoki);
+    }
+  });
+}
+/* v32: the solid parts of wall w's face over s0..s1, yb..yt round its openings (stacked units too): fn(a, b, y0, y1,
+   full) - full = the whole height (no opening in that stretch) */
+function aroundOps(w, s0, s1, L, yb, yt, fn) {
+  const xs = [s0, s1];
+  for (const o of w.doors) for (const v of [o.off, o.off + o.w]) if (v > s0 + 1e-4 && v < s1 - 1e-4) xs.push(v);
+  xs.sort((p, q) => p - q);
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const a = xs[i], b = xs[i + 1];
+    if (b - a < 0.005) continue;
+    const m = (a + b) / 2;
+    const iv = w.doors.filter(o => m > o.off && m < o.off + o.w).map(o => [L.base + o.bottom, L.base + o.top]).sort((p, q) => p[0] - q[0]);
+    if (!iv.length) { fn(a, b, yb, yt, true); continue; }
+    let y = yb;
+    for (const [lo, hi] of iv) { if (lo > y + 0.01) fn(a, b, y, lo, false); y = Math.max(y, hi); }
+    if (yt > y + 0.01) fn(a, b, y, yt, false);
+  }
+}
+/* v32: the roof over a point of a level when nothing is built above it there (else null: a flat ceiling) */
+function roofOver3(lvl, x, z) {
+  if (LV[lvl + 1] && onRects(FLOOR_RECTS[lvl + 1], x, z, 0)) return null;
+  return ROOFS3.find(r => !r.outside && x > r.rect[0] - 0.01 && x < r.rect[2] + 0.01 && z > r.rect[1] - 0.01 && z < r.rect[3] + 0.01) || null;
+}
+/* v32: one lining board on wall w's face (side [nx, nz, q] = into the room, the face q off the wall's line), s0..s1
+   along it, y0..y1; off = how far in front of the face; under a roof (rf) the top follows the roof */
+function liner(g, w, side, s0, s1, y0, y1, mat, T, off, rf) {
+  if (s1 - s0 < 0.02 || y1 - y0 < 0.02) return null;
+  const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / len, uz = (bz - az) / len, th = Math.atan2(-uz, ux);
+  const [nx, nz, q] = side, sm = (s0 + s1) / 2, qq = q + (off || 0) + T / 2;
+  const px = ax + ux * sm + nx * qq, py = (y0 + y1) / 2, pz = az + uz * sm + nz * qq;
+  const geo = B(s1 - s0, y1 - y0, T, mat);
+  if (rf) roofTop(geo, px, py, pz, th, rf, true);
+  return mk(g, geo, mat, px, py, pz, th);
+}
+/* v32 (Toby 2026-10-23): accent walls from the model's finish.walls - { level, a, b (the stretch of a wall's line),
+   at (a point in the room it faces), mat: dark | light | black | darktile | slat (oak strips on dark) } - round the
+   openings, floor to ceiling (under the roof: to the roof), in front of any room lining */
+function accents3() {
+  const list = (PLAN.model && PLAN.model.finish && PLAN.model.finish.walls) || [];
+  for (const A of list) {
+    const L = LV[A.level]; if (!L) continue;
+    let W = null;
+    for (const w of L.walls) {
+      const [ax, az] = w.a, [bx, bz] = w.b, len = Math.hypot(bx - ax, bz - az);
+      if (len < 0.05 || !(w.t > 0.02)) continue;
+      const ux = (bx - ax) / len, uz = (bz - az) / len, dl = (p) => Math.abs((p[0] - ax) * -uz + (p[1] - az) * ux);
+      const sOf = (p) => (p[0] - ax) * ux + (p[1] - az) * uz;
+      if (dl(A.a) < 0.1 && dl(A.b) < 0.1 && Math.max(sOf(A.a), sOf(A.b)) > 0.05 && Math.min(sOf(A.a), sOf(A.b)) < len - 0.05) { W = { w, ax, az, ux, uz, len, sOf }; break; }
+    }
+    if (!W) continue;
+    const { w, ax, az, ux, uz, len, sOf } = W;
+    const sides = w.kind === 'ext' ? [[-w.n[0], -w.n[1], 0]] : [[-uz, ux, w.t / 2], [uz, -ux, w.t / 2]];
+    const toward = (sd) => (A.at[0] - ax) * sd[0] + (A.at[1] - az) * sd[1];
+    const side = sides.reduce((b, sd) => toward(sd) > toward(b) ? sd : b);
+    const s0 = Math.max(0, Math.min(sOf(A.a), sOf(A.b))), s1 = Math.min(len, Math.max(sOf(A.a), sOf(A.b)));
+    const f = faceAt3(A.level, A.at[0], A.at[1]);
+    /* v38: only the top floor's accents run up to the roof; lower down they stop at the ceiling - or, beside an opening
+       in the floor above (the stair), at that floor's level (they used to run on up through the void) */
+    const top = A.level === LV.length - 1, RF = top ? roofOver3(A.level, A.at[0], A.at[1]) : null;
+    const under = !top && LV[A.level + 1] && !onRects(FLOOR_RECTS[A.level + 1], A.at[0], A.at[1], 0);
+    const yb = L.base + ((f && f.dz) || 0), yt = (RF ? L.base + 6 : under ? LV[A.level + 1].base : top ? ceilAt3(A.at[0], A.at[1], A.level) : L.base + L.h) - 0.004;
+    const M = { dark: MAT.plasterDark, light: MAT.plasterLight, black: MAT.accBlack, darktile: MAT.darkTile, slat: MAT.plasterDark,
+      stack: MAT.stackDark, splitface: MAT.splitFace, rubble: MAT.rubbleIn }[A.mat] || MAT.plasterDark;
+    const OFF = 0.016, T = /^(darktile|stack|splitface|rubble)$/.test(A.mat) ? 0.012 : 0.006;
+    const spans = [];                                /* the solid stretches between the openings, full height */
+    const board = (a, b, y0, y1, full) => {
+      liner(G.walls[A.level], w, side, a, b, y0, y1, M, T, OFF, RF);
+      if (A.mat === 'slat' && full) spans.push([a, b]);
+    };
+    aroundOps(w, s0, s1, L, yb, yt, board);
+    /* oak strips: 3 x 3 cm, 7 cm apart, on the dark backing */
+    for (const [a, b] of spans) {
+      const n = Math.floor((b - a - 0.02) / 0.07);
+      for (let k = 0; k < n; k++) {
+        const c = a + 0.035 + k * 0.07 + ((b - a - 0.02) - n * 0.07) / 2;
+        liner(G.walls[A.level], w, side, c - 0.015, c + 0.015, yb + 0.07, yt, MAT.timber, 0.03, OFF + T, RF);
+      }
+    }
+  }
+}
+/* v31 warm finish: the face of level lvl at (x, z) (the smallest that holds it) */
+function faceAt3(lvl, x, z) {
+  let best = null;
+  for (const f of (LV[lvl] && LV[lvl].faces) || []) if (inside(f.poly, x, z) && !f.holes.some(h => inside(h, x, z)) && (!best || f.area < best.area)) best = f;
+  return best;
+}
+/* v31 warm finish: board ceilings under a floor (a 12 mm liner), white ceilings with exposed joists (spanning the
+   room's short way, about 0.91 m apart) and, under the roof, white with rafters down the slope */
+const LINER = 0.012;
+function ceilings3() {
+  const JW = 0.105, JH = 0.15, JS = 0.91;
+  LV.forEach((L, i) => {
+    for (const f of L.faces) {
+      if (!f.anchored || !f.ceil || (f.floor === 'void' && f.ceil !== 'beams2')) continue;
+      const rs = rectsOf(f.poly, f.holes);
+      if (!rs.length) continue;
+      const flat = (x, z) => LV[i + 1] && onRects(FLOOR_RECTS[i + 1], x, z, 0);
+      const [cx, cz] = f.label;
+      if (f.ceil === 'wood') { hangPanel(i, f); continue; }
+      const sparse = f.ceil === 'beams2';                /* v38: the living's fewer, wider-spaced beams */
+      if (f.ceil !== 'beams' && !sparse) continue;
+      if (f.floor !== 'void') coveGlow(i, f);
+      const bb = bbox(f.poly);
+      if (flat(cx, cz)) {
+        const alongX = bb[2] - bb[0] <= bb[3] - bb[1], y = L.base + L.h - JH / 2;
+        const vacant = (x0, z0, x1, z1) => !flat((x0 + x1) / 2, (z0 + z1) / 2);   /* v36: none over the stair void */
+        const [p0, p1] = alongX ? [bb[1], bb[3]] : [bb[0], bb[2]];
+        const n = Math.max(1, Math.round((p1 - p0) / JS)), sp = (p1 - p0) / n;
+        for (let k = 0; k < n; k++) {
+          const p = p0 + sp * (k + 0.5);
+          for (const r of rs) {
+            if (alongX && (p < r[1] + 0.1 || p > r[3] - 0.1)) continue;
+            if (!alongX && (p < r[0] + 0.1 || p > r[2] - 0.1)) continue;
+            const l = alongX ? r[2] - r[0] : r[3] - r[1];
+            if (alongX ? vacant(r[0], p, r[2], p) : vacant(p, r[1], p, r[3])) continue;
+            if (alongX) mk(G.ceil[i], B(l, JH, JW, MAT.timber, 'x'), MAT.timber, (r[0] + r[2]) / 2, y, p);
+            else mk(G.ceil[i], B(JW, JH, l, MAT.timber, 'z'), MAT.timber, p, y, (r[1] + r[3]) / 2);
+          }
+        }
+      } else {
+        /* v38: on a grid shared by the whole level, so a rafter runs on unbroken from room to room (the living's
+           ran out at the stair opening's edge) */
+        const S = sparse ? 1.82 : JS;
+        for (const r of rs) {
+          const R = roofOver3(i, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2);
+          if (!R) continue;
+          for (let z = Math.ceil((r[1] + 0.1 - S / 2) / S) * S + S / 2; z < r[3] - 0.1; z += S) {
+            const yA = R.y(r[0], z), yB = R.y(r[2], z), l = r[2] - r[0];
+            const bm = mk(G.roof, B(Math.hypot(l, yB - yA), JH, JW, MAT.timber, 'x'), MAT.timber, (r[0] + r[2]) / 2, (yA + yB) / 2 - JH / 2, z);
+            bm.rotation.z = Math.atan2(yB - yA, l);
+          }
+        }
+      }
+    }
+  });
+}
+/* v36 (Toby 2026-10-24: "more variation in the ceiling", indirect lighting, the wood lowered ~5 cm like it hangs):
+   board-ceiling rooms get a white ceiling with a hanging board panel PANEL_DROP under it, PANEL_IN in from the walls
+   (none over the stair void), its edge lit (a warm wash on the ceiling round it); beam-ceiling rooms get a cove of
+   light round the ceiling's edge */
+const PANEL_IN = 0.4, PANEL_DROP = 0.05, PANEL_T = 0.03, GLOW_W = 0.32;
+let _glow = null;
+function glowMat() {
+  if (_glow) return _glow;
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64;
+  const x = c.getContext('2d'), gr = x.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, 'rgba(255,214,160,1)'); gr.addColorStop(0.25, 'rgba(255,214,160,0.62)'); gr.addColorStop(1, 'rgba(255,214,160,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 4, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return (_glow = new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 1.0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+}
+/* an orthogonal polygon (plan [x, z]) moved in by d on every side */
+function insetOrtho(P, d) {
+  const n = P.length; let A = 0;
+  for (let i = 0; i < n; i++) { const p = P[i], q = P[(i + 1) % n]; A += p[0] * q[1] - q[0] * p[1]; }
+  const sg = A > 0 ? 1 : -1, ln = [];
+  for (let i = 0; i < n; i++) {
+    const p = P[i], q = P[(i + 1) % n], dx = q[0] - p[0], dz = q[1] - p[1], L = Math.hypot(dx, dz) || 1;
+    ln.push({ p: [p[0] - dz / L * sg * d, p[1] + dx / L * sg * d], u: [dx / L, dz / L] });
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = ln[(i + n - 1) % n], b = ln[i], den = a.u[0] * b.u[1] - a.u[1] * b.u[0];
+    if (Math.abs(den) < 1e-9) { out.push(b.p); continue; }
+    const t = ((b.p[0] - a.p[0]) * b.u[1] - (b.p[1] - a.p[1]) * b.u[0]) / den;
+    out.push([a.p[0] + a.u[0] * t, a.p[1] + a.u[1] * t]);
+  }
+  return out;
+}
+/* a strip of light on the ceiling from p->q (plan), w wide toward side (nx, nz), bright at the p->q edge; yAt = the
+   ceiling height under a plan point */
+function glowStrip(g, p, q, nx, nz, w, yAt) {
+  const v = [[p[0], p[1]], [q[0], q[1]], [q[0] + nx * w, q[1] + nz * w], [p[0] + nx * w, p[1] + nz * w]];
+  const pos = [], uv = [[0, 1], [1, 1], [1, 0], [0, 0]];
+  for (const [x, z] of v) pos.push(x, yAt(x, z) - 0.004, z);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv.flat(), 2));
+  geo.setIndex([0, 1, 2, 0, 2, 3]);
+  const m = new THREE.Mesh(geo, glowMat()); m.renderOrder = 3; m.userData.keep = true; g.add(m);
+}
+function hangPanel(i, f) {
+  const L = LV[i], P = insetOrtho(f.poly, PANEL_IN);
+  const flat = LV[i + 1] && onRects(FLOOR_RECTS[i + 1], f.label[0], f.label[1], 0);
+  const over = (x, z) => !LV[i + 1] || !flat || onRects(FLOOR_RECTS[i + 1], x, z, 0);
+  const xs = P.map(p => p[0]), zs = P.map(p => p[1]);
+  if (flat) for (const r of FLOOR_RECTS[i + 1]) { xs.push(r[0], r[2]); zs.push(r[1], r[3]); }
+  const rs = gridRects(xs, zs, (x, z) => inside(P, x, z) && over(x, z));
+  if (!rs.length) return;
+  const yc = (x, z) => flat ? L.base + L.h : (roofOver3(i, x, z) || { y: () => L.base + L.h }).y(x, z);
+  const g = flat ? G.ceil[i] : G.roof;
+  if (flat) slabRects(g, rs, L.base + L.h - PANEL_DROP, PANEL_T, MAT.woodCeil, MAT.woodCeil, MAT.woodCeil);
+  else for (const r of rs) { const R = roofOver3(i, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2); if (R) slopedSlab(g, [r], -PANEL_DROP - PANEL_T, PANEL_T, MAT.woodCeil, MAT.woodCeil, () => MAT.woodCeil, R); }
+  /* the lit edge: round the panel's outline, out toward the walls */
+  const n = P.length; let A = 0;
+  for (let k = 0; k < n; k++) { const p = P[k], q = P[(k + 1) % n]; A += p[0] * q[1] - q[0] * p[1]; }
+  const sg = A > 0 ? 1 : -1;
+  for (let k = 0; k < n; k++) {
+    const p = P[k], q = P[(k + 1) % n], dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz);
+    if (len < 0.2) continue;
+    const nx = dz / len * sg, nz = -dx / len * sg;     /* outward */
+    if (!over((p[0] + q[0]) / 2 + nx * 0.1, (p[1] + q[1]) / 2 + nz * 0.1)) continue;
+    glowStrip(g, p, q, nx, nz, Math.min(GLOW_W, PANEL_IN - 0.08), yc);
+  }
+}
+function coveGlow(i, f) {
+  const L = LV[i], P = insetOrtho(f.poly, 0.07);
+  const flat = LV[i + 1] && onRects(FLOOR_RECTS[i + 1], f.label[0], f.label[1], 0);
+  const yc = (x, z) => flat ? L.base + L.h : (roofOver3(i, x, z) || { y: () => L.base + L.h }).y(x, z);
+  const n = P.length; let A = 0;
+  for (let k = 0; k < n; k++) { const p = P[k], q = P[(k + 1) % n]; A += p[0] * q[1] - q[0] * p[1]; }
+  const sg = A > 0 ? 1 : -1;
+  for (let k = 0; k < n; k++) {
+    const p = P[k], q = P[(k + 1) % n], dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz);
+    if (len < 0.3) continue;
+    glowStrip(flat ? G.ceil[i] : G.roof, p, q, -dz / len * sg, dx / len * sg, 0.28, yc);   /* inward */
+  }
+}
+/* v31: the model's structural beams (the builder's "about 3 m" beams in the big sloped space): girts along the
+   outside walls, ties across, braces in the corners; their own group, the Beams button shows / hides them */
+/* v38: plain ceilings the model asks for (finish.lids: the boiler room under the open stair) */
+function lids3() {
+  for (const d of (PLAN.model && PLAN.model.finish && PLAN.model.finish.lids) || []) {
+    const L = LV[d.level]; if (!L) continue;
+    slabRects(G.walls[d.level], [d.rect], L.base + d.y + 0.04, 0.04, MAT.plaster, MAT.ceiling, MAT.plaster);
+  }
+}
+function beams3() {
+  G.sbeam = new THREE.Group(); root.add(G.sbeam);
+  for (const b of (PLAN.model && PLAN.model.beams) || []) {
+    const L = LV[b.level]; if (!L) continue;
+    const dx = b.b[0] - b.a[0], dz = b.b[1] - b.a[1], l = Math.hypot(dx, dz);
+    if (b.z1 !== undefined && Math.abs(b.z1 - b.z) > 1e-4) {
+      /* staging: a sloped member (knee brace, wall brace): a -> b rising z -> z1; h in its vertical plane, w across */
+      const P0 = new V(b.a[0], L.base + b.z, b.a[1]), P1 = new V(b.b[0], L.base + b.z1, b.b[1]);
+      const dir = P1.clone().sub(P0), len = dir.length(); dir.normalize();
+      const side = new V(-dz, 0, dx); if (side.lengthSq() < 1e-9) side.set(1, 0, 0); side.normalize();
+      const up = new V().crossVectors(side, dir).normalize(), zx = new V().crossVectors(dir, up).normalize();
+      const mt = b.mat === 'steel' ? MAT.blackSteel : MAT.timber;   /* the exposed steel corner post */
+      const m3 = mk(G.sbeam, B(len, b.h, b.w, mt, 'x'), mt, 0, 0, 0);
+      m3.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(dir, up, zx));
+      m3.position.copy(P0).add(P1).multiplyScalar(0.5);
+      continue;
+    }
+    if (l < 0.05) continue;
+    mk(G.sbeam, B(l, b.h, b.w, MAT.timber, 'x'), MAT.timber, (b.a[0] + b.b[0]) / 2, L.base + b.z, (b.a[1] + b.b[1]) / 2, Math.atan2(-dz, dx));
+  }
+}
+function buildHouse3(plan) {
+  PLAN = plan; LV = plan.levels; STAIRS = [];
+  ROOFS3 = (plan.roofs || []).map(mkRoof3);
+  /* house 6 (v20): the model's carport, a low-pitch roof on posts outside the house; outside =
+     it clips no wall, sets no ceiling (roofFor / ceilAt3 / lights3 skip it) */
+  const cp = plan.model && plan.model.carport;
+  if (cp && cp.rect) ROOFS3.push(mkRoof3(Object.assign({ levels: [0], over: { n: 0, s: 0, e: 0, w: 0 } }, cp, { outside: 1 })));
+  for (const pt of (cp && cp.parts) || [])              /* v39: more pieces of the same roof plane (the 75's L) */
+    ROOFS3.push(mkRoof3(Object.assign({ levels: [0], over: { n: 0, s: 0, e: 0, w: 0 } }, cp, { pad: null, pads: null, drive: null, porch: null, parts: null }, pt, { outside: 1 })));
+  MAT.frame.color.set(STY && plan.model.finish.frame === 'bronze' ? 0x4a3a2a : 0x1b1d20);
+  root.add(G.ext); root.add(G.roof);
+  const FM = FLOORMAT3();
+  LV.forEach((L, i) => {
+    const gf = new THREE.Group(), gw = new THREE.Group(), gu = new THREE.Group(), gc = new THREE.Group(), gl = new THREE.Group();
+    G.floor[i] = gf; G.walls[i] = gw; G.furn[i] = gu; G.ceil[i] = gc; G.labels[i] = gl;
+    root.add(gf, gw, gu, gc, gl);
+    const th = i === 0 ? 0.3 : LV[i - 1].ct;
+    const rects = [];
+    for (const f of L.floors) {
+      const rs = rectsOf(f.poly, f.holes);
+      if (!rs.length) continue;
+      rects.push(...rs.map(r => r.concat([f.dz || 0])));
+      slabRects(gf, rs, L.base + (f.dz || 0), th, FM[f.mat] || MAT.pine, i > 0 ? MAT.ceiling : null, MAT.timber);
+    }
+    FLOOR_RECTS[i] = rects;
+  });
+  LV.forEach((L, i) => {
+    const GL = { walls: G.walls[i], furn: G.furn[i] };
+    for (const w of L.walls) wallRun(GL, w, i, L);
+    for (const f of L.furniture) { const p = makeProp(f, i); if (p) { p.position.y += L.base + (STY ? ((faceAt3(i, f.x, f.y) || {}).dz || 0) : 0); G.furn[i].add(p); } }
+  });
+  lineRooms3();
+  if (STY) accents3();
+  if (STY) piers3();
+  setupLabels3();
+  LV.forEach((L, i) => buildLabels(i));
+  buildStairs3(plan.stairs3 || []);
+  buildRoofs3(); buildChimney3(); buildSite3(); lights3(); decorate3();
+  if (STY) { ceilings3(); lids3(); }
+  if (PLAN.model && PLAN.model.beams && PLAN.model.beams.length) beams3();
+  if (IJH) buildIchijo7(plan);
+  parkSliders();
+  for (let i = 0; i < LV.length; i++) { mergeStatic(G.walls[i]); mergeStatic(G.furn[i]); mergeStatic(G.floor[i]); mergeStatic(G.ceil[i]); }
+  mergeStatic(G.ext); mergeStatic(G.roof);
+  if (G.sbeam) mergeStatic(G.sbeam);
+}
+
+/* ================================================ the Ichijo houses (8, 9) */
+/* The Plan B — Ichijo variants (house 7, Plan B — Ichijo itself, was deleted in v24): Ichijo
+   Komuten's limits with the catalogue fittings as user controls. ichijo.js derive() turns the
+   editable model (ref-model-f/g.json) into the one refplan.js builds (heights, the gym
+   floor, windows <= 2.2 m + transoms, door heights, fittings, the roof) and
+   postPlan() adds the outside stair / porch steps; the house-3 code builds it
+   and buildIchijo7 adds the ceilings, the L-shaped roof, the outside stair,
+   porch steps and the carport. The "Ichijo spec" panel (ichijo.js mountPanel)
+   rebuilds the house in place (rebuild7) and saves the model (h3dRefModelE). */
+let IJ = null, CATALOG = null, ICH = null, ICHP = null, MODEL7 = null;
+function buildIchijo7(plan) {
+  const info = ICH.info, I = info.opts, L0 = LV[0], L1 = LV[1];
+  const gy = PLAN.ground;
+  /* 2F ceilings: flat at h2; in the sloped zone the ceiling is the roof's own underside
+     (buildRoof7 draws it), closed off from the flat ceilings by a bulkhead */
+  if (L1) {
+    const Z = info.ceilings.zone, FL2 = L1.base, gc = G.ceil[1];
+    const inZ = (x, z) => Z && x > Z.rect[0] && x < Z.rect[2] && z > Z.rect[1] && z < Z.rect[3];
+    const polys = L1.faces.map(f => f.poly);
+    const xs = polys.flat().map(p => p[0]), zs = polys.flat().map(p => p[1]);
+    if (Z) { xs.push(Z.rect[0], Z.rect[2]); zs.push(Z.rect[1], Z.rect[3]); }
+    const flatR = gridRects(xs, zs, (x, z) => polys.some(p => inside(p, x, z)) && !inZ(x, z));
+    slabRects(gc, flatR, FL2 + I.h2 + 0.03, 0.03, MAT.ceiling, MAT.ceiling, MAT.white);
+    /* the roof over the sloped zone: the custom single plane, or (v22 roofMode 'flatMain+wing') the wing's own roof (zone: 1) */
+    const R = ROOFS3.find(r => r.custom || r.zone);
+    if (Z && R) {
+      const v = Z.view, h0 = FL2 + I.h2, hor = v === 'n' || v === 's';
+      /* the bulkhead along the zone's inner edge + the zone's sides along the slope, from the
+         flat ceiling up to the roof, wherever no outside wall stands there */
+      const lines = [[Z.inner, hor ? 'z' : 'x'], ...(hor ? [[Z.rect[0], 'x'], [Z.rect[2], 'x']] : [[Z.rect[1], 'z'], [Z.rect[3], 'z']])];
+      const Q = Quads(MAT.plaster);
+      for (const [c, ax] of lines) {
+        const onExt = L1.walls.some(w => w.kind === 'ext' && (ax === 'x' ? Math.abs(w.a[0] - c) < 0.01 && Math.abs(w.b[0] - c) < 0.01 : Math.abs(w.a[1] - c) < 0.01 && Math.abs(w.b[1] - c) < 0.01));
+        if (onExt) continue;
+        const [t0, t1] = ax === 'x' ? [Z.rect[1], Z.rect[3]] : [Z.rect[0], Z.rect[2]];
+        const P = (t, y) => ax === 'x' ? [c, y, t] : [t, y, c];
+        const yp = (t) => (ax === 'x' ? R.y(c, t) : R.y(t, c)) + 0.002;
+        for (const sg of [1, -1]) {
+          const nrm = ax === 'x' ? [sg, 0, 0] : [0, 0, sg];
+          quad(Q, P(t0, h0), P(t1, h0), P(t1, yp(t1)), P(t0, yp(t0)), nrm, (q) => [ax === 'x' ? q[2] : q[0], q[1]]);
+        }
+      }
+      const m = qMesh(Q); if (m) gc.add(m);
+    }
+  }
+  /* 1F ceiling where no 2F face is above (the 2 cm west strip: Plan B's 1F and 2F west walls differ) */
+  if (L1) {
+    const p0 = L0.faces.map(f => f.poly), p1 = L1.faces.map(f => f.poly);
+    const xs = p0.flat().map(p => p[0]).concat(p1.flat().map(p => p[0])), zs = p0.flat().map(p => p[1]).concat(p1.flat().map(p => p[1]));
+    const R = gridRects(xs, zs, (x, z) => p0.some(p => inside(p, x, z)) && !p1.some(p => inside(p, x, z)));
+    if (R.length) slabRects(G.ceil[0], R, L0.base + L0.h + 0.03, 0.03, MAT.ceiling, MAT.ceiling, MAT.white);
+  }
+  buildRoof7();
+  for (const e of PLAN.ichijo.outside) outsideStair7(e);
+  for (const e of PLAN.ichijo.porches) for (const t of e.treads) {
+    const b = bbox(t.poly), m = mk(G.ext, B(b[2] - b[0], t.top - gy, b[3] - b[1], MAT.pad), MAT.pad, (b[0] + b[2]) / 2, (gy + t.top) / 2, (b[1] + b[3]) / 2);
+    m.castShadow = false;
+  }
+  /* the carport (Plan B's north-east shade), standing on the ground, and its drive */
+  const c = PLAN.carport7;
+  if (c) {
+    _house = null;
+    const cl = clearOfHouse(c);
+    if (cl) {
+      const n0 = G.ext.children.length, k0 = COLL.length;
+      buildCarport2(Object.assign({}, cl, { top: c.top || 3.0 }));
+      for (let i = n0; i < G.ext.children.length; i++) G.ext.children[i].position.y += gy;
+      for (let i = k0; i < COLL.length; i++) { COLL[i].y0 += gy; COLL[i].y1 += gy; }
+      const C = CARPORT2;
+      mk(G.ext, B(C.x1 - C.x0, 0.05, C.z1 - C.z0, MAT.pad), MAT.pad, (C.x0 + C.x1) / 2, gy + 0.005, (C.z0 + C.z1) / 2).castShadow = false;
+      mk(G.ext, B(13.4, 0.04, 6.0, MAT.packed), MAT.packed, C.x1 + 6.7, gy, (C.z0 + C.z1) / 2).castShadow = false;
+    }
+  }
+}
+/* one mono-pitch roof over the L-shaped 2F (ROOFS3[0]: the plane): metal on
+   top, plaster under it inside the walls, cedar soffit outside, snow on it */
+function buildRoof7() {
+  const R = ROOFS3.find(r => r.custom), L1 = LV[1];
+  if (!R || !L1) return;
+  const t = Math.max(...L1.walls.filter(w => w.kind === 'ext').map(w => w.t)), o = R.over.n, th = R.th || 0.34;
+  const fr = L1.faces.flatMap(f => rectsOf(f.poly, []));
+  const grow = (d) => fr.map(r => [r[0] - d, r[1] - d, r[2] + d, r[3] + d]);
+  const outer = grow(t + o), walls = grow(t), snow = grow(t + o - 0.1);
+  const inR = (rs) => (x, z) => rs.some(r => x > r[0] && x < r[2] && z > r[1] && z < r[3]);
+  const xs = outer.concat(walls).flatMap(r => [r[0], r[2]]), zs = outer.concat(walls).flatMap(r => [r[1], r[3]]);
+  const all = gridRects(xs, zs, inR(outer)), inW = inR(walls);
+  slopedSlab(G.roof, all, 0, th, MAT.roofMetal, MAT.blackSteel, (q) => inW((q[0] + q[2]) / 2, (q[1] + q[3]) / 2) ? MAT.ceiling : MAT.cedar, R);
+  slopedSlab(G.roof, gridRects(snow.flatMap(r => [r[0], r[2]]), snow.flatMap(r => [r[1], r[3]]), inR(snow)), th, 0.22, MAT.roofSnow, MAT.roofSnow, null, R);
+}
+/* the outside stair (house-2 style: deck treads with snow, black steel stringers
+   and handrails) from the ground to a landing deck on posts at the 2F door */
+function outsideStair7(e) {
+  const g = new THREE.Group(), base = LV[e.level].base, gy = PLAN.ground;
+  const nf = e.treads.length - (e.landing ? 1 : 0), fl = e.treads.slice(0, nf);
+  const cen = (t) => t.poly.reduce((a, p) => [a[0] + p[0] / t.poly.length, a[1] + p[1] / t.poly.length], [0, 0]);
+  for (const t of fl) {
+    const b = bbox(t.poly);
+    mk(g, B(b[2] - b[0], 0.045, b[3] - b[1], MAT.deck), MAT.deck, (b[0] + b[2]) / 2, base + t.top - 0.0225, (b[1] + b[3]) / 2);
+    mk(g, RS(b[2] - b[0] - 0.06, 0.04, (b[3] - b[1]) * 0.8, 0.02, MAT.snow), MAT.snow, (b[0] + b[2]) / 2, base + t.top + 0.01, (b[1] + b[3]) / 2).castShadow = false;
+  }
+  if (fl.length > 1) {
+    const c0 = cen(fl[0]), c1 = cen(fl[fl.length - 1]), d = [c1[0] - c0[0], c1[1] - c0[1]], dl = Math.hypot(d[0], d[1]), u = [d[0] / dl, d[1] / dl], nrm = [-u[1], u[0]];
+    const P = fl.flatMap(t => t.poly), q = P.map(p => (p[0] - c0[0]) * nrm[0] + (p[1] - c0[1]) * nrm[1]), q0 = Math.min(...q), q1 = Math.max(...q);
+    const go = dl / (fl.length - 1), y0 = gy, y1 = base + fl[fl.length - 1].top;
+    const sA = -go / 2, sB = dl + go / 2, run = sB - sA, rise = y1 - y0 + (y1 - y0) / (fl.length - 1) * 0.5, sl = Math.hypot(run, rise), ang = Math.atan2(rise, run);
+    for (const qq of [q0 + 0.006, q1 - 0.006]) {
+      const mx = c0[0] + u[0] * (sA + sB) / 2 + nrm[0] * qq, mz = c0[1] + u[1] * (sA + sB) / 2 + nrm[1] * qq;
+      const st = new THREE.Mesh(B(sl, 0.26, 0.012), MAT.blackSteel);
+      st.position.set(mx, (y0 + y1) / 2 - 0.1, mz); st.rotation.order = 'YXZ'; st.rotation.y = Math.atan2(-u[1], u[0]); st.rotation.z = ang; st.castShadow = true; g.add(st);
+      const hr = new THREE.Mesh(CY(0.022, sl + 0.2, 12), MAT.blackSteel);
+      hr.position.set(mx, (y0 + y1) / 2 + 0.9, mz); hr.rotation.order = 'YXZ'; hr.rotation.y = Math.atan2(-u[1], u[0]); hr.rotation.z = ang - Math.PI / 2; g.add(hr);
+      for (let i = 0; i < fl.length; i += 3) { const c = cen(fl[i]); mk(g, CY(0.011, 0.92, 8), MAT.blackSteel, c[0] + nrm[0] * (qq - (c[0] - c0[0]) * nrm[0] - (c[1] - c0[1]) * nrm[1]), base + fl[i].top + 0.46, c[1] + nrm[1] * (qq - (c[0] - c0[0]) * nrm[0] - (c[1] - c0[1]) * nrm[1])); }
+    }
+  }
+  if (e.landing) {
+    const t = e.treads[nf], b = bbox(t.poly), H = base + t.top, w = b[2] - b[0], d = b[3] - b[1], cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2;
+    mk(g, B(w, 0.045, d, MAT.deck), MAT.deck, cx, H - 0.0225, cz);
+    mk(g, RS(w - 0.08, 0.04, d - 0.08, 0.02, MAT.snow), MAT.snow, cx, H + 0.012, cz).castShadow = false;
+    mk(g, B(w, 0.16, 0.06), MAT.blackSteel, cx, H - 0.125, b[1] + 0.03); mk(g, B(w, 0.16, 0.06), MAT.blackSteel, cx, H - 0.125, b[3] - 0.03);
+    for (const [sx, sz] of [[0, 1], [0, 3], [2, 1], [2, 3]]) { const px = b[sx] + (sx ? -0.05 : 0.05), pz = b[sz] + (sz === 3 ? -0.05 : 0.05); mk(g, B(0.1, H - 0.2 - gy, 0.1), MAT.blackSteel, px, (gy + H - 0.2) / 2, pz); addCollBox(px, pz, 0.1, 0.1, 0, gy, H - 0.2); }
+    /* rails on the sides away from the house and the flight */
+    const away = [[b[1], 'z'], [b[3], 'z'], [b[0], 'x']].filter(([c, ax]) => !houseAt(ax === 'z' ? cx : c - 0.25, ax === 'z' ? c + (c === b[1] ? -0.25 : 0.25) : cz));
+    for (const [c, ax] of away) {
+      const L = ax === 'z' ? w : d;
+      mk(g, ax === 'z' ? B(L, 0.04, 0.05) : B(0.05, 0.04, L), MAT.blackSteel, ax === 'z' ? cx : c + 0.03, H + 1.1, ax === 'z' ? c : cz);
+      const nb = Math.round(L / 0.11);
+      for (let i = 0; i <= nb; i++) { const tt = -L / 2 + 0.03 + (L - 0.06) * i / nb; mk(g, B(0.016, 1.08, 0.016), MAT.blackSteel, ax === 'z' ? cx + tt : c + 0.03, H + 0.56, ax === 'z' ? c : cz + tt); }
+    }
+  }
+  G.ext.add(g);
+}
+/* presets from the rooms (they follow wall drags): [name, x, z, yaw, pitch, level] */
+function views7() {
+  VIEWS7.length = 0;
+  const face = (li, re) => LV[li] && LV[li].faces.find(f => f.anchored && re.test(f.name));
+  const bb = (f) => bbox(f.poly);
+  const yawTo = (x, z, tx, tz) => Math.atan2(-(tx - x), -(tz - z));
+  const at = (f, fx, fz) => { const b = bb(f); return [b[0] + (b[2] - b[0]) * fx, b[1] + (b[3] - b[1]) * fz]; };
+  const onFloor = (li, x, z) => LV[li].faces.some(f => f.floor !== 'void' && inside(f.poly, x, z));
+  const view = (name, li, f, e, tg, pitch) => {
+    if (!f) return;
+    let [x, z] = at(f, e[0], e[1]);
+    const [tx, tz] = at(f, tg[0], tg[1]);
+    for (let i = 0; i < 12 && !onFloor(li, x, z); i++) { x += (tx - x) * 0.15; z += (tz - z) * 0.15; }
+    VIEWS7.push([name, +x.toFixed(3), +z.toFixed(3), +yawTo(x, z, tx, tz).toFixed(3), pitch, li]);
+  };
+  const all = LV.flatMap(L => L.faces.flatMap(f => f.poly)), B0 = bbox(all);
+  const cx = (B0[0] + B0[2]) / 2, cz = (B0[1] + B0[3]) / 2;
+  VIEWS7.push(['Outside — north-east', B0[2] + 9.5, B0[1] - 11.5, +yawTo(B0[2] + 9.5, B0[1] - 11.5, cx, cz).toFixed(3), 0.12, null, 2.4]);
+  VIEWS7.push(['Outside — south (view side, outside stair)', cx + 2.5, B0[3] + 13.5, +yawTo(cx + 2.5, B0[3] + 13.5, cx + 1.0, cz).toFixed(3), 0.1, null, 1.9]);
+  VIEWS7.push(['Doll-house from above', cx, B0[3] + 10.5, 0.0, -1.0, null, 19.0]);
+  /* v21: the genkan (wing's north face, by the inner corner) steps up west into the hall */
+  view('1F — Entrance', 0, face(0, /^entrance/i), [0.85, 0.55], [0.0, 0.5], -0.04);
+  view('1F — Gym (sunken floor)', 0, face(0, /^gym$/i), [0.93, 0.95], [0.08, 0.1], -0.05);
+  view('1F — Bath (hinoki tubs)', 0, face(0, /^bath$/i), [0.49, 0.1], [0.12, 0.8], -0.15);
+  /* v21: no stair hall any more: the hall runs south from the changing room to the stair foot */
+  view('1F — Hall + stair', 0, face(0, /^(stair )?hall$/i), [0.3, 0.04], [0.75, 0.97], -0.02);
+  const Z = ICH.info.zone, lv = face(1, /^living/i);
+  if (lv && Z) {
+    /* from the low side of the slope, looking up it at the view glass and its transoms ('e': from
+       the high end by the glass, looking back down the slope at the bulkhead, the south glass on the left) */
+    const E = { n: [0.12, 0.62], s: [0.12, 0.38], e: [0.89, 0.14], w: [0.62, 0.12] }[Z.view], Tg = { n: [1.0, 0.08], s: [1.0, 0.92], e: [0.17, 0.77], w: [0.08, 1.0] }[Z.view];
+    view('2F — Living (sloped ceiling)', 1, lv, E, Tg, Z.view === 'e' ? 0.42 : 0.24);
+  }
+  const din = face(1, /^dining/i), kit = face(1, /^kitchen/i);
+  if (din && kit) {
+    const kb = bb(kit), db = bb(din);
+    const x = db[0] + (db[2] - db[0]) * 0.55, z = (kb[1] + kb[3]) / 2 + 0.4;
+    VIEWS7.push(['2F — Kitchen', +x.toFixed(3), +z.toFixed(3), +yawTo(x, z, kb[0] + 0.3, (kb[1] + kb[3]) / 2).toFixed(3), -0.12, 1]);
+  }
+  /* bedrooms: from the corner nearest the door toward the opposite corner (any floor: house 9 has bedroom 3 on the 1F) */
+  const doorsOn = (li) => LV[li].walls.flatMap(w => {
+    const len = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1, u = [(w.b[0] - w.a[0]) / len, (w.b[1] - w.a[1]) / len];
+    return w.doors.filter(o => o.kind !== 'WINDOW').map(o => [w.a[0] + u[0] * (o.off + o.w / 2), w.a[1] + u[1] * (o.off + o.w / 2)]);
+  });
+  /* the largest axis-aligned rectangle inside a face (its main part) */
+  const bigRect = (P) => {
+    const xs = [...new Set(P.map(p => +p[0].toFixed(4)))].sort((a, b) => a - b), zs = [...new Set(P.map(p => +p[1].toFixed(4)))].sort((a, b) => a - b);
+    let best = null;
+    for (let i0 = 0; i0 < xs.length; i0++) for (let i1 = i0 + 1; i1 < xs.length; i1++) for (let j0 = 0; j0 < zs.length; j0++) for (let j1 = j0 + 1; j1 < zs.length; j1++) {
+      const A = (xs[i1] - xs[i0]) * (zs[j1] - zs[j0]);
+      if (best && A <= best[4]) continue;
+      let ok = true;
+      for (let i = i0; i < i1 && ok; i++) for (let j = j0; j < j1 && ok; j++) if (!inside(P, (xs[i] + xs[i + 1]) / 2, (zs[j] + zs[j + 1]) / 2)) ok = false;
+      if (ok) best = [xs[i0], zs[j0], xs[i1], zs[j1], A];
+    }
+    return best || bbox(P);
+  };
+  const fromDoor = (name, li, f) => {
+    const doors = doorsOn(li);
+    const b = bigRect(f.poly), cs = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    const near = (p) => Math.min(...cs.map(([i, j]) => Math.hypot(b[0] + (b[2] - b[0]) * i - p[0], b[1] + (b[3] - b[1]) * j - p[1])));
+    const dps = doors.filter(p => near(p) < 2.5 && (inside(f.poly, p[0], p[1]) || f.poly.some((q, k) => { const r = f.poly[(k + 1) % f.poly.length]; return Math.abs((r[0] - q[0]) * (p[1] - q[1]) - (r[1] - q[1]) * (p[0] - q[0])) < 0.2 * Math.hypot(r[0] - q[0], r[1] - q[1]) && p[0] > Math.min(q[0], r[0]) - 0.2 && p[0] < Math.max(q[0], r[0]) + 0.2 && p[1] > Math.min(q[1], r[1]) - 0.2 && p[1] < Math.max(q[1], r[1]) + 0.2; })));
+    const dp = dps[0] || [(b[0] + b[2]) / 2, b[3]];
+    const k = cs.map(([i, j]) => [Math.hypot(b[0] + (b[2] - b[0]) * i - dp[0], b[1] + (b[3] - b[1]) * j - dp[1]), i, j]).sort((p, q) => p[0] - q[0])[0];
+    const fb = bbox(f.poly), fr = (x, z) => [(x - fb[0]) / (fb[2] - fb[0]), (z - fb[1]) / (fb[3] - fb[1])];   /* view() takes fractions of the face's bbox */
+    const ex = b[0] + (b[2] - b[0]) * (k[1] ? 0.88 : 0.12), ez = b[1] + (b[3] - b[1]) * (k[2] ? 0.88 : 0.12);
+    const tx = b[0] + (b[2] - b[0]) * (k[1] ? 0.02 : 0.98), tz = b[1] + (b[3] - b[1]) * (k[2] ? 0.02 : 0.98);
+    view(name, li, f, fr(ex, ez), fr(tx, tz), -0.08);
+  };
+  for (let n = 1; n <= 4; n++) {
+    const re = new RegExp('^bedroom ' + n + '$', 'i'), li = LV.findIndex((L, i) => face(i, re)), f = li >= 0 ? face(li, re) : null;
+    if (f) fromDoor(FLOOR_NAMES[li] + ' — Bedroom ' + n, li, f);
+  }
+  /* v22 (house 7): the 1F wing is a den / guest bedroom, framed like a bedroom */
+  const den = face(0, /^den \/ guest bedroom$/i);
+  if (den) fromDoor(FLOOR_NAMES[0] + ' — Den / guest bedroom', 0, den);
+  const ba = face(1, /^bathroom 4$/i);
+  if (ba) view('2F — Bathroom 4 (unit shower)', 1, ba, [0.97, 0.62], [0.0, 0.45], -0.14);
+  /* v21: the flight climbs east along the wing's south wall (top tread at x 5.03): the camera
+     stands at the arrival, just past the top riser, looking north-west over the opening + living */
+  const st = (PLAN.stairs3 || []).find(s => s.id === 's1');
+  if (st) {
+    const cen = (t) => t.poly.reduce((a, p) => [a[0] + p[0] / t.poly.length, a[1] + p[1] / t.poly.length], [0, 0]);
+    const c0 = cen(st.treads[0]), c = cen(st.treads[st.treads.length - 1]);
+    const dl = Math.hypot(c[0] - c0[0], c[1] - c0[1]) || 1, u = [(c[0] - c0[0]) / dl, (c[1] - c0[1]) / dl];
+    let x = c[0] + u[0] * 0.6, z = c[1] + u[1] * 0.6 - 0.15;
+    for (let i = 0; i < 8 && !onFloor(1, x, z); i++) { x -= u[0] * 0.06; z -= u[1] * 0.06; }
+    VIEWS7.push(['2F — Top of the stairs', +x.toFixed(3), +z.toFixed(3), +(Math.PI / 4).toFixed(3), -0.3, 1]);
+  }
+  /* outside first, then floor by floor (house 8 / 9 have a bedroom on the 1F); sort is stable */
+  VIEWS7.sort((p, q) => (p[5] === null || p[5] === undefined ? -1 : p[5]) - (q[5] === null || q[5] === undefined ? -1 : q[5]));
+}
+/* the options panel: changes rebuild the house and are saved like the editor's */
+function bindIchijo7() {
+  const top = $('top');
+  let b = $('bIch');
+  if (!b) {
+    b = document.createElement('button'); b.id = 'bIch'; b.className = 'ac'; b.dataset.i18n = 'ich'; b.dataset.i18nTitle = 'icht';
+    b.textContent = T('ich'); b.title = T('icht');
+    const be = $('bEdit'); top.insertBefore(b, be ? be.nextSibling : null);
+  }
+  ICHP = IJ.mountPanel(document.body, {
+    model: () => MODEL7, cat: CATALOG, lang: () => LANG, info: () => ICH.info,
+    change: (fn) => { const m = JSON.parse(JSON.stringify(MODEL7)); m.ichijo = m.ichijo || {}; fn(m); rebuild7(m, true); },
+    closeBtn: () => { ICHP.show(false); b.classList.remove('on'); },
+  });
+  const show = (v) => { ICHP.show(v); b.classList.toggle('on', v); if (v) { ICHP.render(); placeIchijo7(); } };
+  b.onclick = () => show(ICHP.el.hidden);
+  show(!(Math.min(innerWidth, innerHeight) < 500));
+}
+function placeIchijo7() {
+  if (!ICHP) return;
+  const t = Math.round($('top').getBoundingClientRect().bottom + 6);
+  ICHP.el.style.top = t + 'px'; ICHP.el.style.right = '8px'; ICHP.el.style.maxHeight = 'calc(100vh - ' + (t + 120) + 'px)';
+}
+function teardown7() {
+  const kill = (g) => {
+    if (!g) return;
+    g.traverse(o => {
+      if (o.isSprite && o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
+      else if ((o.isMesh || o.isLineSegments) && o.geometry && !o.userData.gltf) o.geometry.dispose();
+    });
+    root.remove(g);
+  };
+  for (const k of ['floor', 'walls', 'furn', 'ceil', 'labels']) { for (const g of G[k]) kill(g); G[k].length = 0; }
+  for (const g of [G.ext, G.roof]) { g.traverse(o => { if ((o.isMesh || o.isLineSegments) && o.geometry && !o.userData.gltf) o.geometry.dispose(); }); g.clear(); }
+  COLL.length = 0; SLIDERS.length = 0; FLOOR_RECTS.length = 0; LABELS3.length = 0;
+  _house = null; CARPORT2 = null; STAIRS = [];
+}
+function rebuild7(model, save) {
+  const t0 = performance.now();
+  MODEL7 = model; window.__model = model;
+  if (save) {
+    try { localStorage.setItem(REF.key, JSON.stringify(model)); } catch (e) { /* private mode */ }
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    MODEL_SRC = 'edited';
+    const sb = $('srcBadge'); if (sb) { sb.hidden = false; sb.textContent = T('srcEdited'); }
+    const bo = $('bOrig'); if (bo) bo.hidden = false;
+  }
+  ICH = IJ.derive(model, CATALOG, LANG);
+  const plan = IJ.postPlan(toPlan(ICH.model), ICH);
+  teardown7();
+  buildHouse3(plan);
+  views7(); fillJump();
+  const a3 = plan.levels.map(L => L.faces.filter(f => f.floor !== 'void').reduce((s, f) => s + f.area, 0));
+  $('areaInfo').textContent = a3.map((v, i) => floorName(i) + ' ' + v.toFixed(1) + 'm²').join(' · ');
+  if (!st.fly) { const h = supportAt(camera.position.x, camera.position.z, st.h === undefined || st.h === null ? LV[st.floor].base : st.h); if (h !== null) { st.h = h; camera.position.y = h + EYE; } }
+  Object.assign(window, { LV, PLAN, ROOFS3, ICH, FLOOR_RECTS });
+  if (ICHP) ICHP.render();
+  window.__rebuildMs = Math.round(performance.now() - t0);
+  window.__rebuilds = (window.__rebuilds || 0) + 1;
+}
+
+/* house 4 presets (the revised plan; model coordinates: x, z as the editor draws them, the main
+   block centred. The names use the editor's compass for plan b: north at the bottom, so
+   model -z (the view side) = south, +x = west, -x = east) */
+const VIEWS4 = [
+  ['Outside — north-west', 12.5, 13.5, 0.68, 0.04, null, 2.0],
+  ['Outside — south-east (view side, roof high)', -11.0, -13.5, -2.41, 0.08, null, 2.2],
+  ['Outside — west (carport, front door)', 15.5, 3.2, 1.45, 0.04, null, 1.1],
+  ['Doll-house from above', 0.9, 0.0, 0.0, -1.5703, null, 15.4],
+  ['1F — Entrance', 5.91, 2.34, 1.57, -0.02, 0],             /* v21: inside the compact genkan, looking into the changing + rest room */
+  ['1F — Gym', 0.5, 2.94, 0.64, -0.02, 0],
+  ['1F — Changing + rest room', 3.66, 1.64, 1.43, -0.1, 0],
+  ['1F — Bath (hot tubs)', 5.15, -1.27, 0.6, -0.12, 0],
+  ['1F — Sauna', 2.355, -1.285, 0.53, -0.2, 0],
+  ['2F — Living (view glass, stove)', -1.25, -0.4, 0.75, 0.12, 1],
+  ['2F — Dining + loft stair', 3.75, 0.40, 0.98, 0.05, 1],
+  ['2F — Kitchen', 3.15, -3.05, -2.3, -0.05, 1],
+  ['2F — Master bedroom', -1.275, 0.385, 2.36, -0.05, 1],
+  ['2F — Ensuite', -0.545, 1.285, -2.62, -0.15, 1],
+  ['2F — Den / office 2', 3.96, 2.14, -1.4, -0.12, 1],          /* v21: a closed room now: toward its window */
+  ['Loft — Hall, top of the stairs', 2.272, -3.264, 3.14, -0.35, 2],
+  ['Loft — Bedroom A + ensuite', 3.15, -3.15, -2.1, -0.15, 2],
+  ['Loft — Den / office 1', 1.45, -2.3, 0.75, -0.1, 2],
+];
+/* house 5 presets (Plan B compact; model coordinates: x east, z south, the box centred) */
+const VIEWS5 = [
+  ['Outside — north-east (entrance, carport)', 9.5, -13.0, 2.5, 0.12, null, 1.8],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 18.4],
+];
+/* house 6 presets (Plan C, L-shaped: model x, z with the L's bounding square centred; v17: its texts call
+   the x = +6.37 facade SOUTH (the view), so model -z = east, +x = south, +z = west, -x = north) */
+const VIEWS6 = [
+  ['Outside — south-east (view side)', 15.0, -17.0, 2.43, 0.1, null, 1.8],
+  ['Outside — carport + entrance (inner corner)', -6.6, -12.9, -2.593, 0.02, null, 1.5],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 21.0],
+  ['1F — Entrance (genkan)', -0.55, 1.75, -0.33, -0.06, 0],
+  ['2F — Living wing', 1.55, -2.1, -0.62, 0.0, 1],
+];
+/* house 12 presets (Ideal — compact: model x east, z south, the house centred; the carport in the north-east corner) */
+const VIEWS12 = [
+  ['Outside — south-east (view side)', 13.5, 17.0, 0.67, 0.08, null, 2.2],
+  ['Outside — carport + entrance (north-east)', 14.5, -12.5, 2.25, 0.02, null, 1.8],
+  ['Outside — west (snow side)', -18.0, 3.0, -1.4, 0.06, null, 2.6],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 21.0],
+  ['1F — Entrance (genkan)', 0.625, -1.341, 2.4, -0.06, 0],
+  ['1F — Gym', -0.95, 4.85, 0.8, -0.02, 0],
+  ['1F — Bath (hinoki tubs)', -5.575, -4.341, 3.142, -0.2, 0],
+  ['1F — Guest bedroom', 4.325, 2.659, -2.05, -0.06, 0],
+  ['2F — Living (glass on three sides)', 1.1, 4.85, -0.97, 0.06, 1],
+  ['2F — Dining + kitchen', 0.8, 4.85, 0.49, 0.0, 1],
+  ['2F — Master bedroom 1', -4.25, -1.95, 0.71, 0.0, 1],
+  ['2F — Master bedroom 2', 0.3, -1.75, 0.67, 0.0, 1],
+];
+/* house 13 presets (Ideal — 75 tsubo): house 12's, moved with the plan's stretch (gen_model_j.py INS_X / INS_Y) */
+const VIEWS17 = [
+  ['Outside — south-east (view side)', 13.500, 17.000, 0.67, 0.08, null, 2.2],
+  ['Outside — carport + entrance (north-east)', 14.500, -12.500, 2.25, 0.02, null, 1.8],
+  ['Outside — west (snow side)', -18.000, 3.000, -1.4, 0.06, null, 2.6],
+  ['Doll-house from above', 0.000, 0.000, 0.0, -1.5703, null, 21.0],
+  ['1F — Entrance (genkan)', 0.777, -1.365, 2.4, -0.06, 0],
+  ['1F — Gym', -0.918, 5.357, 0.8, -0.02, 0],
+  ['1F — Bath (hinoki tubs)', -5.611, -4.883, 3.142, -0.2, 0],
+  ['1F — Guest bedroom', 4.218, 2.633, -2.05, -0.06, 0],
+  ['2F — Living (glass on three sides)', 1.194, 5.357, -0.97, 0.06, 1],
+  ['2F — Dining + kitchen', 0.910, 5.357, 0.49, 0.0, 1],
+  ['2F — Master bedroom 1', -4.280, -2.009, 0.71, 0.0, 1],
+  ['2F — Master bedroom 2', 0.347, -1.850, 0.67, 0.0, 1],
+];
+const VIEWS13 = [
+  ['Outside — south-east (view side)', 13.5, 17.0, 0.67, 0.08, null, 2.2],
+  ['Outside — carport + entrance (north-east)', 14.5, -12.5, 2.25, 0.02, null, 1.8],
+  ['Outside — west (snow side)', -18.0, 3.0, -1.4, 0.06, null, 2.6],
+  ['Doll-house from above', 0.0, 0.0, 0.0, -1.5703, null, 21.0],
+  ['1F — Entrance (genkan)', 0.7, -1.416, 2.4, -0.06, 0],
+  ['1F — Gym', -0.875, 5.275, 0.8, -0.02, 0],
+  ['1F — Bath (hinoki tubs)', -5.5, -4.766, 3.142, -0.2, 0],
+  ['1F — Guest bedroom', 4.4, 2.734, -2.05, -0.06, 0],
+  ['2F — Living (glass on three sides)', 1.175, 5.275, -0.97, 0.06, 1],
+  ['2F — Dining + kitchen', 0.875, 5.275, 0.49, 0.0, 1],
+  ['2F — Master bedroom 1', -4.175, -2.025, 0.71, 0.0, 1],
+  ['2F — Master bedroom 2', 0.375, -1.825, 0.67, 0.0, 1],
+];
+/* Collapse single-material static meshes into one mesh per material. */
+function mergeStatic(group) {
+  const buckets = new Map(), victims = [];
+  group.updateWorldMatrix(true, true);
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  group.traverse(o => {
+    if (!o.isMesh || o === group || Array.isArray(o.material) || o.renderOrder !== 0 || o.material.transparent) return;
+    if (o.userData.keep || !o.geometry.attributes.uv || !o.geometry.attributes.normal) return;
+    let pp = o.parent, skip = false;
+    while (pp && pp !== group) { if (pp.userData.keep) skip = true; pp = pp.parent; }
+    if (skip) return;
+    const key = o.material.uuid + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0);
+    if (!buckets.has(key)) buckets.set(key, { mat: o.material, cs: o.castShadow, rs: o.receiveShadow, g: [] });
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    if (g.groups.length) g.clearGroups();
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    buckets.get(key).g.push(g);
+    victims.push(o);
+  });
+  for (const o of victims) if (o.parent) o.parent.remove(o);
+  for (const b of buckets.values()) {
+    const merged = b.g.length === 1 ? b.g[0] : mergeGeometries(b.g, false);
+    if (!merged) { for (const g of b.g) group.add(new THREE.Mesh(g, b.mat)); continue; }
+    const m = new THREE.Mesh(merged, b.mat);
+    m.castShadow = b.cs; m.receiveShadow = b.rs;
+    group.add(m);
+  }
+}
+
+/* ------------------------------------------------------------------ presets */
+/* [name, x, z, yaw, pitch, level|null(fly), y(optional)] — yaw 0 looks north (-z).
+   pitch = where the centre of the view points; up to +-SHIFT it is lens shift.
+   Framed for the default 72deg (wide-axis) lens. */
+/* house 2 presets (plan2.json coordinates) */
+const VIEWS2 = [
+  ['Outside — south-east (living end: roof high)', 13.0, 22.0, 0.57, 0.02, null, 2.8],
+  ['Outside — north-west (bedroom end: roof low)', -15.5, -17.0, -2.40, -0.16, null, 6.0],
+  ['Outside — south elevation', 0.0, 24.0, 0.0, 0.04, null, 3.2],
+  ['Outside — north-east yard', 17.0, -14.0, 2.30, -0.06, null, 4.5],
+  ['Doll-house from above', 0.0, 17.0, 0.0, -0.92, null, 23.0],
+  ['Site from above (fences, carport)', -1.8, 14.6, 0.0, -1.2, null, 40.0],
+  ['Outside — carport (north-east)', 14.0, -9.5, 2.19, -0.04, null, 2.4],
+  ['Outside — stair up to the 2F door', 10.5, 16.0, 0.72, 0.02, null, 2.3],
+  ['1F — Gym', -3.3, -0.5, 2.30, 0.08, 0],
+  ['1F — Entrance', 0.4, 6.4, 0.95, -0.02, 0],
+  ['1F — Stair hall', 6.7, 2.8, 1.85, 0.12, 0],
+  ['1F — Bath + tubs', -1.7, -3.6, 1.35, -0.10, 0],
+  ['1F — Wash room', -2.3, 2.7, -0.6, -0.05, 0],
+  ['2F — Living, looking west to the bedrooms', 6.55, 5.95, 1.62, 0.24, 1],
+  ['2F — Dining, looking east (roof rises)', -1.6, 3.4, -1.45, 0.18, 1],
+  ['2F — Kitchen + dining', 1.2, 2.7, 2.35, 0.02, 1],
+  ['2F — Top of the stairs', 3.75, 5.85, 1.57, -0.30, 1],
+  ['2F — Door out to the stair landing', -0.45, 4.9, 3.14, -0.04, 1],
+  ['2F — Bedroom 1 (lowest ceiling)', -7.35, -5.9, -1.25, 0.1, 1],
+  ['2F — Bedroom 2', 0.5, -4.2, 0.75, 0.18, 1],
+  ['2F — Bedroom 3', -2.5, 0.5, -0.9, 0.05, 1],
+  ['2F — Bedroom 4', -4.6, 4.2, 2.45, 0.14, 1],
+];
+const VIEWS7 = [];   /* house 7: computed from the rooms after every build (views7) */
+const VIEWS = IJH ? VIEWS7 : HOUSE === 12 ? VIEWS12 : HOUSE === 13 ? VIEWS13 : HOUSE === 17 ? VIEWS17 : HOUSE === 6 ? VIEWS6 : HOUSE === 5 ? VIEWS5 : HOUSE === 4 ? VIEWS4 : VIEWS2;
+
+/* ---------------------------------------------------------------- controls */
+const st = {
+  yaw: 0, pitch: -0.05, fly: false, floor: 0, speed: 3, fov: FOV.def,
+  fmode: 'all', roof: true, labels: false, orbit: false, quality: 1, beams: true,
+  az: 0.84, el: 0.5, rad: 24, locked: false
+};
+const ORBIT_T = IJH ? new V(-0.3, 4.5, 0.1) : HOUSE === 4 ? new V(0.9, 3.8, 0) : HOUSE === 5 || HOUSE === 6 || HOUSE === 12 || HOUSE === 13 || HOUSE === 17 ? new V(0, 4.0, 0) : new V(0, 3, 0);
+const act = new Set();
+const KEYMAP = {
+  KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right',
+  KeyE: 'up', KeyQ: 'dn', PageUp: 'up', PageDown: 'dn', Space: 'up',
+  ArrowLeft: 'lookl', ArrowRight: 'lookr', ArrowUp: 'lookup', ArrowDown: 'lookdn',
+  KeyJ: 'lookl', KeyL: 'lookr', KeyI: 'lookup', KeyK: 'lookdn',
+  KeyZ: 'wide', KeyX: 'narrow'
+};
+function goView(v) {
+  const fl = v[5];
+  st.floor = fl === null ? 0 : fl;
+  st.fly = fl === null;
+  const fh = fl === null ? null : (H3 ? floorAt3(v[1], v[2], fl) : LV[fl].base);   /* house 3: sunken entrance / porch */
+  const y = v[6] !== undefined ? v[6] : (fl === null ? 2.2 : fh + EYE);
+  camera.position.set(v[1], y, v[2]);
+  st.h = fh;
+  st.yaw = v[3]; st.pitch = v[4];
+  st.roof = v[0].indexOf('Doll') !== 0;
+  st.orbit = false; syncUI();
+  expo = indoors() ? 1.3 : 0.9;
+}
+function curLevel() {
+  let b = 0;
+  LV.forEach((L, i) => { if (camera.position.y >= L.base - 0.9) b = i; });
+  return b;
+}
+function applyVis() {
+  const cl = curLevel();
+  LV.forEach((L, i) => {
+    const on = (st.fmode === 'all') || (st.fmode === i) || (typeof st.fmode === 'number' && i < st.fmode);
+    G.floor[i].visible = on; G.walls[i].visible = on; G.furn[i].visible = on;
+    G.labels[i].visible = on && st.labels && (st.fmode !== 'all' ? i === st.fmode : (i === cl || camera.position.y > LV[LV.length - 1].base + 4));
+    G.ceil[i].visible = on && st.roof && (st.fmode === 'all' || i < st.fmode);
+  });
+  G.roof.visible = st.roof && st.fmode === 'all';
+  if (G.sbeam) G.sbeam.visible = st.beams && LV.length > 1 && G.walls[1].visible;
+  if (G.rdep) G.rdep.visible = G.furn[LV.length - 1].visible;
+}
+function fadeLabels() {
+  const p = camera.position;
+  for (const g of G.labels) if (g.visible) for (const s of g.children) {
+    const d = p.distanceTo(s.position);
+    s.material.opacity = d < 2.2 ? 0 : Math.min(.92, (d - 2.2) * 0.8);
+  }
+}
+const onRects = (rs, x, z, m) => (rs || []).some(r => x > r[0] - m && x < r[2] + m && z > r[1] - m && z < r[3] + m);
+function stairHeights(x, z) {
+  const out = [];
+  for (const s of STAIRS) {
+    const base = LV[s.level].base, H = stairRise(s);
+    if (s.name === 'stairsCircle') {
+      const dx = x - s.x, dz = z - s.y, r = Math.hypot(dx, dz);
+      if (r > s.w / 2 + 0.05 || r < 0.1) continue;
+      const n = s.treads || 16, d = (s.rot || Math.PI * 2) / n, th = Math.atan2(dx, dz), TAU = Math.PI * 2;
+      for (let i = 1; i <= n; i++) {
+        const thc = Math.PI + (n - i) * d;
+        const diff = ((th - thc) % TAU + TAU * 1.5) % TAU - Math.PI;
+        if (Math.abs(diff) <= d / 2 + 1e-6) out.push(base + i * H / n);
+      }
+    } else if (s.name === 'landing') {
+      const ca = Math.cos(s.a), sa = Math.sin(s.a), dx = x - s.x, dz = z - s.y;
+      const lx = dx * ca + dz * sa, ly = -dx * sa + dz * ca;
+      if (Math.abs(lx) > s.w / 2 + 0.05 || Math.abs(ly) > s.d / 2 + 0.05) continue;
+      out.push(landingTop(s));
+    } else {
+      const ca = Math.cos(s.a), sa = Math.sin(s.a), dx = x - s.x, dz = z - s.y;
+      const lx = dx * ca + dz * sa, ly = -dx * sa + dz * ca;
+      if (Math.abs(lx) > s.w / 2 || Math.abs(ly) > s.d / 2 + 0.05) continue;
+      out.push(base + H * Math.max(0, Math.min(1, (s.d / 2 - ly) / s.d)));
+    }
+  }
+  return out;
+}
+/* what would you be standing on at (x,z), given you're at height cur now */
+function supportAt(x, z, cur) {
+  const c = [];
+  if (H3) {
+    /* house 3: each floor rect carries its own level (sunken entrance + porch); outside = the ground */
+    for (let i = 0; i < LV.length; i++) {
+      let h = null;
+      for (const r of FLOOR_RECTS[i] || []) if (x > r[0] - 0.06 && x < r[2] + 0.06 && z > r[1] - 0.06 && z < r[3] + 0.06) h = h === null ? (r[4] || 0) : Math.max(h, r[4] || 0);
+      if (h !== null) c.push(LV[i].base + h);
+    }
+    c.push(PLAN.ground);
+    c.push(...stairHeights3(x, z));
+  } else {
+    c.push(0);                                       /* the ground / 1F is everywhere */
+    for (let i = 1; i < LV.length; i++) if (onRects(FLOOR_RECTS[i], x, z, 0.06)) c.push(LV[i].base);
+    c.push(...stairHeights(x, z));
+  }
+  /* highest thing within a step of where you are: walking into a flight from
+     its foot climbs it; walking off the top of one lands on the floor */
+  let best = null;
+  for (const h of c) if (Math.abs(h - cur) <= 0.42 && (best === null || h > best)) best = h;
+  return best;
+}
+function blocked(x, y, z) {
+  const r = 0.28, lo = y - EYE + 0.35, hi = y - EYE + 1.72;
+  for (const c of COLL) {
+    if (hi < c.y0 || lo > c.y1) continue;
+    if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return true;
+  }
+  return false;
+}
+/* v34 (Toby 2026-10-23): looking round turns the camera on the spot in every mode, flying exactly as walking (v33's
+   turning round the middle of the house is gone); the doll-house views look straight down from over the house's middle
+   instead, so turning there spins the picture round the centre of the screen */
+const PITCH_MAX = Math.PI / 2 - 0.0005;
+function lookTurn(a) { st.yaw += a; }
+function move(dt) {
+  const sp = st.speed * (act.has('run') ? 2.5 : 1) * dt;
+  let fx = 0, fz = 0, uy = 0;
+  if (act.has('fwd')) fz -= 1;
+  if (act.has('back')) fz += 1;
+  if (act.has('left')) fx -= 1;
+  if (act.has('right')) fx += 1;
+  if (act.has('up')) uy += 1;
+  if (act.has('dn')) uy -= 1;
+  const look = 1.35 * dt * (camera.fov / 60);          /* camera.fov = actual vertical fov */
+  const turn = (act.has('lookl') ? look : 0) - (act.has('lookr') ? look : 0);
+  if (turn) lookTurn(turn);
+  if (act.has('lookup')) st.pitch = Math.min(PITCH_MAX, st.pitch + look);
+  if (act.has('lookdn')) st.pitch = Math.max(-PITCH_MAX, st.pitch - look);
+  if (act.has('wide')) setFov(st.fov + 40 * dt);
+  if (act.has('narrow')) setFov(st.fov - 40 * dt);
+
+  if (st.orbit) {
+    st.rad = Math.max(6, Math.min(70, st.rad + fz * sp * 2.2));
+    st.az += fx * sp * 0.12;
+    st.el = Math.max(0.05, Math.min(1.45, st.el + uy * sp * 0.06));
+    return;
+  }
+  if (!fx && !fz && !uy) return;
+  const len = Math.hypot(fx, fz) || 1;
+  const s = Math.sin(st.yaw), c = Math.cos(st.yaw);
+  let dx = (-s * (-fz) + c * fx) / len * sp;
+  let dz = (-c * (-fz) - s * fx) / len * sp;
+  if (st.fly) {
+    const p = camera.position;
+    p.x += dx; p.z += dz; p.y += uy * sp;
+    p.y = Math.max(0.3, Math.min(60, p.y));
+  } else {
+    const p = camera.position;
+    if (st.h === undefined || st.h === null) st.h = LV[st.floor].base;
+    const tryGo = (nx, nz) => {
+      const h = supportAt(nx, nz, st.h);
+      if (h === null || blocked(nx, h + EYE, nz)) return false;
+      p.x = nx; p.z = nz; st.h = h; return true;
+    };
+    if (dx || dz) tryGo(p.x + dx, p.z + dz) || tryGo(p.x + dx, p.z) || tryGo(p.x, p.z + dz);
+    if (uy) {
+      const n = Math.max(0, Math.min(LV.length - 1, st.floor + (uy > 0 ? 1 : -1)));
+      if (n !== st.floor) { st.floor = n; st.h = LV[n].base; act.delete('up'); act.delete('dn'); }
+    }
+    let fl = 0; LV.forEach((L, i) => { if (st.h >= L.base - 0.3) fl = i; });
+    if (fl !== st.floor && !uy) st.floor = fl;
+    p.y = st.h + EYE;
+    syncFloorLabel();
+  }
+}
+let _lastFl = -1;
+function syncFloorLabel() { if (_lastFl !== st.floor) { _lastFl = st.floor; syncUI(); } }
+function setFov(v) {
+  st.fov = Math.max(FOV.min, Math.min(FOV.max, v));
+  applyLens();
+  fovEl.value = Math.round(st.fov); fovv.textContent = Math.round(st.fov) + '°';
+}
+/* three's camera.fov is VERTICAL: derive it from st.fov (wide axis) and the
+   aspect, then turn the pitch within +-SHIFT into a vertical lens shift (an
+   off-axis frustum: row y / column z of the projection). updateProjectionMatrix
+   rebuilds a centred frustum, so this runs every frame (frame()) as well as
+   on fov / resize changes. Returns the part of st.pitch the shift took up. */
+/* v45: past +-SHIFT the shift fades out (0 looking straight up / down), so the straight-down doll-house view is a
+   true top view and turning it spins the picture round its centre (it was a 66 deg tilt + a 24 deg shift: a
+   keystoned picture that swung as it turned). The centre of the view still points at st.pitch. */
+function lensShift(p) {
+  const a = Math.abs(p);
+  return a <= SHIFT ? p : Math.sign(p) * SHIFT * Math.max(0, (Math.PI / 2 - a) / (Math.PI / 2 - SHIFT));
+}
+function applyLens() {
+  const half = st.fov * Math.PI / 360;
+  camera.fov = camera.aspect >= 1 ? 2 * Math.atan(Math.tan(half) / camera.aspect) * 180 / Math.PI : st.fov;
+  camera.updateProjectionMatrix();
+  const shift = st.orbit ? 0 : lensShift(st.pitch);
+  if (shift) {
+    camera.projectionMatrix.elements[9] += Math.tan(shift) / Math.tan(camera.fov * Math.PI / 360);
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();   /* GTAO reads it */
+  }
+  return shift;
+}
+
+/* --------------------------------------------------------------- UI wiring */
+const $ = (id) => document.getElementById(id);
+const fovEl = $('fov'), fovv = $('fovv'), hud = $('hud');
+function syncUI() {
+  $('bWalk').textContent = st.fly ? T('fly') : T('walk');
+  $('bWalk').classList.toggle('on', st.fly);
+  $('bFloors').textContent = st.fmode === 'all' ? T('floors') : T('upto')(floorName(st.fmode));
+  $('bFloors').classList.toggle('on', st.fmode !== 'all');
+  $('bCeil').classList.toggle('on', !st.roof);
+  $('bLbl').classList.toggle('on', st.labels);
+  const bbm = $('bBeam'); if (bbm) { bbm.hidden = !G.sbeam; bbm.classList.toggle('on', st.beams); }
+  $('bMouse').classList.toggle('on', st.locked);
+  $('bQual').textContent = st.quality ? T('qhi') : T('qlo');
+  $('bQual').classList.toggle('on', !!st.quality);
+  $('look').querySelector('[data-h=orbit]').classList.toggle('on', st.orbit);
+  applyVis();
+}
+function bindPad() {
+  document.querySelectorAll('[data-h]').forEach(b => {
+    const h = b.dataset.h;
+    const on = (e) => {
+      e.preventDefault();
+      if (h === 'lvl') { st.pitch = 0; return; }
+      if (h === 'orbit') { st.orbit = !st.orbit; if (st.orbit) { st.rad = 24; st.az = 0.84; st.el = 0.45; } syncUI(); return; }
+      act.add(h); b.classList.add('on');
+    };
+    const off = () => { act.delete(h); b.classList.remove('on'); };
+    b.addEventListener('pointerdown', on);
+    b.addEventListener('pointerup', off);
+    b.addEventListener('pointerleave', off);
+    b.addEventListener('pointercancel', off);
+  });
+}
+function bindUI() {
+  const jump = $('jump');
+  fillJump();
+  jump.value = 0;
+  for (const b of document.querySelectorAll('#bLang button[data-l]')) b.onclick = () => { LANG = b.dataset.l; try { localStorage.setItem(LANG_KEY, LANG); } catch (e) { /* */ } applyLang(); };
+  jump.addEventListener('change', () => { goView(VIEWS[+jump.value]); jump.blur(); });
+
+  $('bWalk').onclick = () => {
+    st.fly = !st.fly;
+    if (!st.fly) {
+      let best = 0;
+      LV.forEach((L, i) => { if (camera.position.y >= L.base - 0.8) best = i; });
+      st.floor = best; st.h = LV[best].base; camera.position.y = LV[best].base + EYE;
+    }
+    syncUI();
+  };
+  $('bFloors').onclick = () => {
+    st.fmode = st.fmode === 'all' ? 0 : (st.fmode === LV.length - 1 ? 'all' : st.fmode + 1);
+    syncUI();
+  };
+  $('bCeil').onclick = () => { st.roof = !st.roof; syncUI(); };
+  $('bLbl').onclick = () => { st.labels = !st.labels; syncUI(); };
+  if ($('bBeam')) $('bBeam').onclick = () => { st.beams = !st.beams; syncUI(); };
+  $('bQual').onclick = () => { st.quality = st.quality ? 0 : 1; syncUI(); };
+  $('bHelp').onclick = () => $('help').classList.add('show');
+  $('bMouse').onclick = () => { canvas.requestPointerLock(); };
+  $('bWide').onclick = () => setFov(FOV.wide);
+  $('bNarrow').onclick = () => setFov(FOV.narrow);
+  fovEl.oninput = () => setFov(+fovEl.value);
+  $('spd').oninput = (e) => { st.speed = +e.target.value * 0.75; };
+  $('help').onclick = (e) => { if (e.target.id === 'help') $('help').classList.remove('show'); };
+  /* house switcher = index.html's #top .seg buttons bH<n>: each house is its own page load
+     (?house=n); a button with data-href opens that address instead (Plan A, another app) */
+  for (const b of document.querySelectorAll('#top .seg button[id^="bH"]')) {
+    const h = +b.id.slice(2);
+    b.classList.toggle('on', h === HOUSE);
+    b.onclick = () => { if (h !== HOUSE) location.href = b.dataset.href || (location.pathname + '?house=' + h); };
+  }
+  const bp = $('bPlans');                              /* v21: every floor plan on one page */
+  if (bp) bp.onclick = () => { location.href = 'plans.html'; };
+  const bo = $('bOrig');
+  if (bo) { bo.hidden = !(H3 && MODEL_SRC !== 'original'); bo.onclick = () => { location.href = location.pathname + '?house=' + HOUSE + '&orig=1'; }; }
+  if (HOUSE === 2) bindRoof();
+  if (IJH) bindIchijo7();
+
+  /* drag = grab the view and pull it (drag right -> the scene follows right). v45 (Toby 2026-11-05: panning left /
+     right spun round a point off the centre of the view): a drag turns OR tilts, whichever way it starts (its first
+     8 px) - a sideways drag no longer drifts the tilt by the hand's wobble, which moved the turning point off the
+     middle (the doll-house view: no longer straight down) */
+  let dragging = false, px = 0, py = 0, dAxis = '', dSx = 0, dSy = 0;
+  canvas.addEventListener('pointerdown', (e) => {
+    dragging = true; px = e.clientX; py = e.clientY; dAxis = ''; dSx = 0; dSy = 0; canvas.classList.add('look');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  const end = () => { dragging = false; canvas.classList.remove('look'); };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('pointermove', (e) => {
+    if (st.locked || !dragging) return;
+    let dx = e.clientX - px, dy = e.clientY - py; px = e.clientX; py = e.clientY;
+    if (!dAxis) {                                    /* which way: decided on the first 8 px */
+      dSx += dx; dSy += dy;
+      if (Math.hypot(dSx, dSy) < 8) return;
+      dAxis = Math.abs(dSx) >= Math.abs(dSy) ? 'x' : 'y'; dx = dSx; dy = dSy;
+    }
+    if (dAxis === 'x') dy = 0; else dx = 0;
+    const k = (camera.fov / 60) * 0.0042;           /* by the actual vertical fov */
+    if (st.orbit) { st.az -= dx * 0.005; st.el = Math.max(0.05, Math.min(1.45, st.el + dy * 0.004)); return; }
+    lookTurn(dx * k); st.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, st.pitch + dy * k));
+  });
+  document.addEventListener('pointerlockchange', () => { st.locked = document.pointerLockElement === canvas; syncUI(); });
+  document.addEventListener('mousemove', (e) => {
+    if (!st.locked) return;
+    st.yaw -= e.movementX * 0.0022;
+    st.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, st.pitch - e.movementY * 0.0022));
+  });
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); setFov(st.fov + e.deltaY * 0.05); }, { passive: false });
+  let pinch = 0;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 2 || !pinch) return;
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    setFov(st.fov * (pinch / d)); pinch = d; e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('touchend', () => { pinch = 0; });
+
+  addEventListener('keydown', (e) => {
+    if (e.target && e.target.tagName === 'SELECT') return;
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') act.add('run');
+    const a = KEYMAP[e.code];
+    if (a) { act.add(a); e.preventDefault(); return; }
+    if (e.code === 'KeyF') $('bWalk').onclick();
+    if (e.code === 'KeyG') $('bQual').onclick();
+    if (e.code === 'KeyC') $('bCeil').onclick();
+    if (e.code === 'KeyT') $('bLbl').onclick();
+    if (e.code === 'KeyO') { st.orbit = !st.orbit; syncUI(); }
+    const first = (lv) => VIEWS.find(v => v[5] === lv);   /* first preset on that floor */
+    if (e.code === 'Digit1' && first(0)) goView(first(0));
+    if (e.code === 'Digit2' && first(1)) goView(first(1));
+    if (e.code === 'Digit3' && first(2)) goView(first(2));
+    if (e.code === 'Digit0') goView(VIEWS[0]);
+    if (e.code === 'Slash') $('help').classList.add('show');
+    if (e.code === 'Escape') $('help').classList.remove('show');
+  });
+  addEventListener('keyup', (e) => {
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') act.delete('run');
+    const a = KEYMAP[e.code]; if (a) act.delete(a);
+  });
+  addEventListener('blur', () => act.clear());
+}
+
+function fillJump() {
+  const jump = $('jump'), keep = jump.value;
+  jump.innerHTML = '';
+  VIEWS.forEach((v, i) => { const o = document.createElement('option'); o.value = i; o.textContent = NM(v[0]); jump.appendChild(o); });
+  if (keep !== '') jump.value = keep;
+}
+/* every UI string from TXT: [data-i18n] = text, [data-i18n-title] = tooltip */
+function applyLang() {
+  document.documentElement.lang = LANG;
+  for (const b of document.querySelectorAll('#bLang button[data-l]')) b.classList.toggle('on', b.dataset.l === LANG);
+  document.querySelectorAll('[data-i18n]').forEach(e => { const v = T(e.dataset.i18n); if (typeof v === 'string') e.textContent = v; });
+  document.querySelectorAll('[data-i18n-title]').forEach(e => { const v = T(e.dataset.i18nTitle); if (typeof v === 'string') e.title = v; });
+  document.querySelectorAll('[data-en]').forEach(e => { e.textContent = (LANG === 'ja' && e.dataset.ja) || e.dataset.en; });
+  const hb = $('helpBody'); if (hb) hb.innerHTML = T('help');
+  const geo = $('helpGeo'); if (geo) geo.textContent = T('geo' + HOUSE);
+  document.title = T('doc' + HOUSE);
+  const bo = $('bOrig'); if (bo && HOUSE >= 5) bo.title = T('origt' + HOUSE);
+  const sb = $('srcBadge'); if (sb) { sb.hidden = !(H3 && MODEL_SRC !== 'original'); sb.textContent = MODEL_SRC === 'link' ? T('srcLink') : T('srcEdited'); }
+  if (LV.length) {
+    fillJump();
+    for (let i = 0; i < LV.length; i++) if (G.labels[i]) buildLabels(i);
+    syncUI();
+    if (HOUSE === 2 && ROOF) { roofReadout(); bindRoofTip(); }
+    placeHud(); if (HOUSE === 2) placeRoofPanel();
+    if (IJH && ICHP) { ICH.info = IJ.derive(MODEL7, CATALOG, LANG).info; ICHP.render(); placeIchijo7(); }
+  }
+}
+
+/* house 2: roof sliders + readout */
+function roofReadout() {
+  const f = (v) => v.toFixed(1);
+  $('roofRead').textContent = T('roofread')(f(LV[0].h), f(ROOF.hBed), f(ROOF.hLiv), Math.round(ROOF.pitch));
+  $('hLivV').textContent = f(ROOF.hLiv) + ' m'; $('hBedV').textContent = f(ROOF.hBed) + ' m';
+}
+function placeRoofPanel() {
+  const rp = $('roofp'); if (rp) rp.style.top = Math.round($('top').getBoundingClientRect().bottom + 6) + 'px';
+}
+/* the top bar wraps on narrow screens (more so with the house switcher): keep the HUD line under it */
+function placeHud() { hud.style.top = Math.round($('top').getBoundingClientRect().bottom + 4) + 'px'; }
+function bindRoof() {
+  const rp = $('roofp'), liv = $('hLiv'), bed = $('hBed');
+  rp.hidden = false;
+  bindRoofTip();
+  liv.value = ROOF.hLiv; bed.value = ROOF.hBed;
+  const upd = () => {
+    ROOF.hLiv = +liv.value; ROOF.hBed = +bed.value; roofReadout();
+    if (_rdPending) return;
+    _rdPending = true;
+    requestAnimationFrame(() => { _rdPending = false; rebuildRoof(); });
+  };
+  liv.oninput = upd; bed.oninput = upd;
+  for (const el of [liv, bed]) el.addEventListener('keydown', (e) => e.stopPropagation());
+  roofReadout(); placeRoofPanel();
+}
+function bindRoofTip() {
+  const d = T('dirs');
+  $('roofp').title = T('rooftip')(ROOF.axis ? (ROOF.sLiv < ROOF.sBed ? d.ns : d.sn) : (ROOF.sLiv > ROOF.sBed ? d.ew : d.we));
+}
+
+/* ------------------------------------------------------------ post + loop */
+function setupComposer() {
+  const w = innerWidth, h = innerHeight;
+  const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 0 });
+  composer = new EffectComposer(renderer, rt);
+  composer.addPass(new RenderPass(scene, camera));
+  gtaoPass = new GTAOPass(scene, camera, w, h, undefined, { radius: 0.45, distanceExponent: 1.4, thickness: 1.2, scale: 1.1, samples: 12, distanceFallOff: 1.0 });
+  gtaoPass.blendIntensity = 0.9;
+  /* GTAO draws its depth/normal g-buffer with an opaque override material, so
+     clear interior glass (shower screens, balustrades) became a solid surface
+     there: the AO of the room behind it vanished and a noisy dark halo ran
+     round its edges -- a shower screen read as a white slab. Glass doesn't
+     occlude: hide it for that pass (restoreVisibility puts it back). */
+  const NO_AO = new Set([MAT.glassIn, MAT.doorGhost, MAT.ghostNo, MAT.ghostNeeds].filter(Boolean));   /* looked up per frame: house 2's 2F walls are rebuilt by the roof sliders */
+  const hideForGBuffer = gtaoPass.overrideVisibility;
+  gtaoPass.overrideVisibility = function () { hideForGBuffer.call(this); scene.traverse(o => { if (o.isMesh && NO_AO.has(o.material)) o.visible = false; }); };
+  composer.addPass(gtaoPass);
+  composer.addPass(new OutputPass());
+  smaaPass = new SMAAPass(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+  composer.addPass(smaaPass);
+}
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; applyLens();              /* vertical fov follows the aspect */
+  placeHud();
+  if (HOUSE === 2) placeRoofPanel();
+  if (IJH) placeIchijo7();
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
+}
+let last = performance.now();
+const EUL = new THREE.Euler(0, 0, 0, 'YXZ');
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!window.__pause) frame(dt);
+  requestAnimationFrame(loop);
+}
+let expo = 0.9;
+function indoors() {
+  const p = camera.position;
+  return LV.some(L => p.y > L.base - 0.3 && p.y < L.base + L.h + 0.2 && L.rooms.some(r => inside(r.poly, p.x, p.z)));
+}
+function frame(dt) {
+  move(dt);
+  const target = indoors() ? 1.3 : 0.9;
+  expo += (target - expo) * Math.min(1, dt * 2.5);
+  renderer.toneMappingExposure = expo;
+  const shift = applyLens();                         /* 0 in orbit */
+  if (st.orbit) {
+    st.az += dt * 0.08;
+    camera.position.set(
+      ORBIT_T.x + st.rad * Math.cos(st.el) * Math.sin(st.az),
+      ORBIT_T.y + st.rad * Math.sin(st.el),
+      ORBIT_T.z + st.rad * Math.cos(st.el) * Math.cos(st.az));
+    camera.lookAt(ORBIT_T);
+  } else {
+    EUL.set(st.pitch - shift, st.yaw, 0); camera.quaternion.setFromEuler(EUL);   /* only pitch beyond the shift tilts */
+  }
+  applyVis(); fadeLabels();
+  const p = camera.position;
+  hud.textContent = (st.orbit ? T('hudOrbit') : (st.fly ? T('hudFly') : T('hudWalk') + ' · ' + floorName(st.floor)))
+    + '  ·  ' + Math.round(st.fov) + '°';
+  if (st.quality && composer) composer.render(dt); else renderer.render(scene, camera);
+}
+
+/* -------------------------------------------------------------------- init */
+let MODEL_SRC = 'original';     /* original | edited (Ichijo houses: the spec panel's saved settings, refplan.js loadModel) */
+const MARKS = window.__marks = {};
+const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
+const texturesReady = new Promise((res) => { LM.onLoad = res; });
+applyLang();   /* static UI text + titles before the house loads */
+loadMsg(T('loading'));
+const planReady = MOVED ? new Promise(() => {})   /* index.html is sending this ?house to another app: build nothing */
+  : IJH ? Promise.all([import('./ichijo.js?v=9'), loadModel(REF.url, REF.key)]).then(async ([ij, { model, from }]) => {
+    IJ = ij; CATALOG = await ij.loadCatalog('catalog.json?v=2');
+    MODEL_SRC = from; MODEL7 = model; window.__model = model;
+    ICH = ij.derive(model, CATALOG, LANG);
+    return ij.postPlan(toPlan(ICH.model), ICH);
+  })
+  : H3 ? loadModel(REF.url, null).then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
+  : fetch('plan2.json?v=8').then(r => r.json());
+planReady.then(async (plan) => {
+  let t = performance.now();
+  STY = !!(H3 && plan.model && plan.model.finish && plan.model.finish.style === 'warm');
+  buildMaterials(); t = mark('materials', t);
+  setupLights();
+  await Promise.all([setupEnv(), loadModels()]); t = mark('env+models', t);
+  if (IJH) CEIL7 = (x, z, lvl) => LV[lvl].base + ICH.info.ceilAt(lvl, x, z);
+  if (H3) buildHouse3(plan); else buildHouse(plan);
+  t = mark('house', t); _built = true;
+  setupComposer(); t = mark('composer', t);
+  await Promise.race([texturesReady, new Promise(r => setTimeout(r, 20000))]); t = mark('textures', t);
+  console.log('build ms', JSON.stringify(MARKS));
+  const a = plan.levels.map(L => L.rooms.reduce((s, r) => s + r.area, 0));
+  const a3 = H3 ? plan.levels.map(L => L.faces.filter(f => f.floor !== 'void').reduce((s, f) => s + f.area, 0)) : a;
+  $('areaInfo').textContent = a3.map((v, i) => floorName(i) + ' ' + v.toFixed(H3 ? 1 : 0) + 'm²').join(' · ');
+  if ((navigator.hardwareConcurrency || 8) <= 4 || Math.min(screen.width, screen.height) < 500) st.quality = 0;
+  if (IJH) views7();
+  bindPad(); bindUI(); applyLang(); resize();
+  addEventListener('resize', resize);
+  goView(VIEWS[0]);
+  setFov(FOV.def);
+  Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, SLIDERS, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });
+  Object.assign(window, { __house: HOUSE, ROOF, rebuildRoof, roofReadout, PLAN, ROOFS3, MODEL_SRC });
+  if (IJH) Object.assign(window, { rebuild7, ICH, CATALOG, IJ, VIEWS7 });
+  window.__roofInfo = () => ROOF && { axis: ROOF.axis ? 'z' : 'x', living: ROOF.living, bedrooms: ROOF.bedrooms, delta: ROOF.delta, sBed: ROOF.sBed, sLiv: ROOF.sLiv, hBed: ROOF.hBed, hLiv: ROOF.hLiv, pitch: +ROOF.pitch.toFixed(2), ms: ROOF.ms };
+  $('load').style.display = 'none';
+  window.__ready = true;
+  requestAnimationFrame(loop);
+}).catch(e => {
+  document.getElementById('load').innerHTML = '<div style="color:#f88">' + T('failed') + e + '</div>';
+  console.error(e);
+});
