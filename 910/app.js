@@ -77,7 +77,7 @@ const REFS = {
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
   13: { url: '../ref-model-k.json?v=12', key: 'h3dRefModelK' },
   /* STAGING house 17 = Ideal — 75 tsubo on the 910 grid with LIXIL / YKK AP windows (2026-11-05, plan o) */
-  17: { url: 'ref-model-o.json?v=d4750ea9', key: 'h3dRefModelO' },
+  17: { url: 'ref-model-o.json?v=a3a88604', key: 'h3dRefModelO' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', ichijo: true },
 };
@@ -107,7 +107,7 @@ const TXT = {
     h13: '理想プラン（75坪）', h13t: "「理想プラン（コンパクト）」を約75坪に拡大：主寝室・クローゼット・バスルーム・書斎・リビング・キッチン・浴室・ジムを広く", origt13: '「理想プラン（75坪）」の最初の間取りを表示（編集はそのまま残ります）',
     h17: '75坪・910グリッド案', h17t: '75坪プランを尺モジュール（910mm）の通り芯に合わせ、窓はすべてLIXIL TWの実寸。南面に大開口、南東の角はガラス', origt17: '',
     doc17: '倶知安 住宅計画 75坪・910グリッド案 — 3D',
-    geo17: "75坪・910グリッド案\n通り芯 16×13グリッド（14.56m×11.83m）、主棟 9グリッド＋東ウイング 7×5.5グリッド、延床約252.6m²（約76坪）。\n屋根：西に下がる片流れ 1.4寸、西の軒 450mm。\n窓：すべて LIXIL TW（トリプルガラス）の規格寸法、耐風圧S-3以上（LIXILのサイズ別性能表）。南面全体と南東のガラスの角は、1階・2階とも同じ2枚建引違い窓 1,690×2,430 を910の柱の間に配置（全高でS-3を満たすLIXILの最大幅）、2階は外側にガラス手すり。グレートルームの北面は窓なし。主寝室・WIC・バスルーム・書斎はそれぞれ同じ大きさ。南東の角は角形鋼管の隅柱 150×150 と集成材の方杖（断面検討済み、計算書あり）、軒桁は地盤から6.81 m（軒高7 m以下）。窓の一覧と計算書は図面ページ。",
+    geo17: "75坪・910グリッド案\n通り芯 16×13グリッド（14.56m×11.83m）、主棟 9グリッド＋東ウイング 7×5.5グリッド、延床約252.6m²（約76坪）。\n屋根：西に下がる片流れ 1.4寸、西の軒 450mm。\n窓：規格寸法、トリプルガラス、耐風圧S-3以上（メーカーのサイズ別性能表）。南面全体と南東のガラスの角は 1,690×2,430 の大開口を910の柱の間に配置：リビング・書斎・ゲスト寝室はFIX窓（YKK AP APW 430）、ジム・ダイニング・主寝室はLIXIL TW 2枚建引違い窓（2階は外側にガラス手すり）。グレートルームの北面は窓なし。主寝室・WIC・バスルーム・書斎はそれぞれ同じ大きさ。南東の角は角形鋼管の隅柱 150×150 と集成材の方杖（断面検討済み、計算書あり）、軒桁は地盤から6.81 m（軒高7 m以下）。窓の一覧と計算書は図面ページ。",
     doc13: '倶知安 住宅計画 理想プラン（75坪） — 3D',
     geo13: "理想プラン（75坪）\n「理想プラン（コンパクト）」を約75坪に拡大。\n1階：玄関、スキー/ギア室、ホール、ジム47.8m²、浴室12.4m²（シャワー2つ・ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー付き）、洗濯室、トイレ、階段下の機械室、書斎1 9.7m²（二段ベッド付き）、ゲスト寝室12.6m²。\n2階：3面にガラスのあるリビング27.2m²、アイランドのあるダイニング・キッチン26.9m²、主寝室1・2（各15.0m²、それぞれ5.3m²のウォークインクローゼットと6.2m²のバスルーム付き）、書斎2 9.6m²（二段ベッド付き）、トイレ。",
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
@@ -152,7 +152,7 @@ const TXT = {
     h13: 'Ideal — 75 tsubo', h13t: "“Ideal — compact” enlarged to about 75 tsubo: bigger master bedrooms, closets, bathrooms, dens, living, kitchen, bath and gym", origt13: 'Show “Ideal — 75 tsubo” as first drawn (your edits stay saved)',
     h17: '75 tsubo · 910 grid', h17t: '75 tsubo plan on the 910 mm (shaku) grid; every window a real LIXIL TW size; big south glass, glass south-east corner', origt17: '',
     doc17: 'Kutchan house — 75 tsubo on the 910 grid — 3D',
-    geo17: "75 tsubo on the 910 grid\nGrid 16 x 13 modules (14.56 x 11.83 m): main block 9 modules + east wing 7 x 5.5; about 252.6 m² (76 tsubo).\nRoof: one plane falling west at 1.4/10, 450 mm west eave.\nWindows: all LIXIL TW (triple glazing), catalogue sizes, wind grade S-3 or better (LIXIL's size tables). Big glass along the whole south side and the glass south-east corner: the same 1,690 × 2,430 2-panel sliding window between the 910 posts on both floors (the widest LIXIL unit rated S-3 at full height), with a glass guard outside on the 2F; no windows in the great room's north wall. Master bedrooms, walk-in closets, ensuites and studies matched in pairs. The south-east corner: steel corner post 150 × 150 + glulam knee braces (sized; see the calculations); eave beam 6.81 m above ground (7 m eave rule). Window list and calculations on the floor plans page.",
+    geo17: "75 tsubo on the 910 grid\nGrid 16 x 13 modules (14.56 x 11.83 m): main block 9 modules + east wing 7 x 5.5; about 252.6 m² (76 tsubo).\nRoof: one plane falling west at 1.4/10, 450 mm west eave.\nWindows: catalogue sizes, triple glazing, wind grade S-3 or better (the makers' size tables). Big 1,690 × 2,430 glass between the 910 posts along the whole south side and the glass south-east corner: fixed (YKK AP APW 430) in the living, studies and guest room; LIXIL TW 2-panel sliding in the gym, dining and master bedrooms (a glass guard outside on the 2F); no windows in the great room's north wall. Master bedrooms, walk-in closets, ensuites and studies matched in pairs. The south-east corner: steel corner post 150 × 150 + glulam knee braces (sized; see the calculations); eave beam 6.81 m above ground (7 m eave rule). Window list and calculations on the floor plans page.",
     doc13: 'Kutchan house — Ideal — 75 tsubo — 3D',
     geo13: "Ideal — 75 tsubo\n“Ideal — compact” enlarged to about 75 tsubo.\n1F: entrance, ski / gear room, hall, gym 47.8 m², bath 12.4 m² (two showers, two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger, laundry, WC, boiler room under the stairs, den 1 9.7 m² (office with a bunk bed), guest bedroom 12.6 m².\n2F: living 27.2 m² with glass on three sides, dining + kitchen 26.9 m² with an island, master bedrooms 1 and 2 (15.0 m² each), each with a 5.3 m² walk-in closet and a 6.2 m² bathroom, den 2 9.6 m² (office with a bunk bed), WC.",
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
