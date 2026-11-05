@@ -391,8 +391,11 @@ export function toPlan(model) {
         if (!rf.levels.includes(li)) continue;
         const [x0, y0r, x1, y1r] = rf.rect;
         const cutsAt = [];
-        if (Math.abs(fr.u[0]) > 1e-6) for (const X of [x0, x1]) cutsAt.push((X - w.a[0]) / fr.u[0]);
-        if (Math.abs(fr.u[1]) > 1e-6) for (const Y of [y0r, y1r]) cutsAt.push((Y - w.a[1]) / fr.u[1]);
+        /* v45: only where this roof's edge actually crosses the wall (a wall the roof does not reach was cut too,
+           splitting any window there in two: plan k's 2F west window, 2026-11-05) */
+        const onRoof = (c) => { const p = add(w.a, mul(fr.u, c)); return p[0] > x0 - 0.3 && p[0] < x1 + 0.3 && p[1] > y0r - 0.3 && p[1] < y1r + 0.3; };
+        if (Math.abs(fr.u[0]) > 1e-6) for (const X of [x0, x1]) { const c = (X - w.a[0]) / fr.u[0]; if (onRoof(c)) cutsAt.push(c); }
+        if (Math.abs(fr.u[1]) > 1e-6) for (const Y of [y0r, y1r]) { const c = (Y - w.a[1]) / fr.u[1]; if (onRoof(c)) cutsAt.push(c); }
         for (const c of cutsAt) {
           if (!(c > 0.02 && c < fr.L - 0.02)) continue;
           const k = runs.findIndex(r => c > r.s0 + 0.02 && c < r.s1 - 0.02);
