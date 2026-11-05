@@ -21,7 +21,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toPlan, loadModel, expandStack, childLeaf } from './refplan.js?v=12';
+import { toPlan, loadModel, expandStack, childLeaf } from './refplan.js?v=13';
 
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
@@ -49,7 +49,7 @@ const HOUSE = APP_HOUSES.includes(+_qHouse) ? +_qHouse : APP_HOUSES[0];
 const ASSETS = (document.documentElement.dataset.assets || '') + 'assets/';   /* plan-b/: '../assets/' */
 /* Houses 4-9 are built from a model (ref-model-<plan>.json) through refplan.js (v44, Toby
    2026-11-05: the plan editor is gone; "the editor's ?plan=x" below = that model's plan letter). House 4 = the
-   revision of Tsuchiya Kensetsu's reference house (Toby 2026-10-10: gym + onsen 1F,
+   revision of a builder's reference house (Toby 2026-10-10: gym + onsen 1F,
    LDK + 1 bedroom 2F, 2 loft bedrooms; v12: an ensuite bedroom + a den on 2F and in
    the loft; ref-model-b.json, the editor's ?plan=b). House 5 =
    Plan B compact (Toby 2026-10-10: the compact, cheaper version of Plan B, an
@@ -77,7 +77,7 @@ const REFS = {
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
   13: { url: '../ref-model-k.json?v=12', key: 'h3dRefModelK' },
   /* STAGING house 17 = Ideal — 75 tsubo on the 910 grid with LIXIL / YKK AP windows (2026-11-05, plan o) */
-  17: { url: 'ref-model-o.json?v=0a3bfed0', key: 'h3dRefModelO' },
+  17: { url: 'ref-model-o.json?v=e6143a8c', key: 'h3dRefModelO' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', ichijo: true },
 };
@@ -107,7 +107,7 @@ const TXT = {
     h13: '理想プラン（75坪）', h13t: "「理想プラン（コンパクト）」を約75坪に拡大：主寝室・クローゼット・バスルーム・書斎・リビング・キッチン・浴室・ジムを広く", origt13: '「理想プラン（75坪）」の最初の間取りを表示（編集はそのまま残ります）',
     h17: '75坪・910グリッド案', h17t: '75坪プランを尺モジュール（910mm）の通り芯に合わせ、窓はすべてLIXIL TWの実寸。南面に大開口、南東の角はガラス', origt17: '',
     doc17: '倶知安 住宅計画 75坪・910グリッド案 — 3D',
-    geo17: "75坪・910グリッド案\n通り芯 16×13グリッド（14.56m×11.83m）、主棟 9グリッド＋東ウイング 7×5.5グリッド、延床約252.6m²（約76坪）。\n屋根：西に下がる片流れ 1.4寸、西の軒 450mm。\n窓：すべて LIXIL TW（トリプルガラス）の規格寸法。南面は全面に大開口（1,690幅の単体窓を910の柱の間に並べる：耐風圧S-3のため連窓は使わない）、南東の角はガラス、グレートルームの北面は窓なし。主寝室・WIC・バスルーム・書斎はそれぞれ同じ大きさ。南東の角は黒い鋼管の隅柱と方杖（門型フレーム、構造設計者が断面を決定）、軒桁は地盤から6.81 m（軒高7 m以下）。窓の一覧は図面ページ。",
+    geo17: "75坪・910グリッド案\n通り芯 16×13グリッド（14.56m×11.83m）、主棟 9グリッド＋東ウイング 7×5.5グリッド、延床約252.6m²（約76坪）。\n屋根：西に下がる片流れ 1.4寸、西の軒 450mm。\n窓：すべて LIXIL TW（トリプルガラス）の規格寸法、耐風圧S-3以上（LIXILのサイズ別性能表）。南面全体と南東のガラスの角は、1階・2階とも同じ2枚建引違い窓 1,690×2,430 を910の柱の間に配置（全高でS-3を満たすLIXILの最大幅）、2階は外側にガラス手すり。グレートルームの北面は窓なし。主寝室・WIC・バスルーム・書斎はそれぞれ同じ大きさ。南東の角は角形鋼管の隅柱 150×150 と集成材の方杖（断面検討済み、計算書あり）、軒桁は地盤から6.81 m（軒高7 m以下）。窓の一覧と計算書は図面ページ。",
     doc13: '倶知安 住宅計画 理想プラン（75坪） — 3D',
     geo13: "理想プラン（75坪）\n「理想プラン（コンパクト）」を約75坪に拡大。\n1階：玄関、スキー/ギア室、ホール、ジム47.8m²、浴室12.4m²（シャワー2つ・ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー付き）、洗濯室、トイレ、階段下の機械室、書斎1 9.7m²（二段ベッド付き）、ゲスト寝室12.6m²。\n2階：3面にガラスのあるリビング27.2m²、アイランドのあるダイニング・キッチン26.9m²、主寝室1・2（各15.0m²、それぞれ5.3m²のウォークインクローゼットと6.2m²のバスルーム付き）、書斎2 9.6m²（二段ベッド付き）、トイレ。",
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
@@ -152,7 +152,7 @@ const TXT = {
     h13: 'Ideal — 75 tsubo', h13t: "“Ideal — compact” enlarged to about 75 tsubo: bigger master bedrooms, closets, bathrooms, dens, living, kitchen, bath and gym", origt13: 'Show “Ideal — 75 tsubo” as first drawn (your edits stay saved)',
     h17: '75 tsubo · 910 grid', h17t: '75 tsubo plan on the 910 mm (shaku) grid; every window a real LIXIL TW size; big south glass, glass south-east corner', origt17: '',
     doc17: 'Kutchan house — 75 tsubo on the 910 grid — 3D',
-    geo17: "75 tsubo on the 910 grid\nGrid 16 x 13 modules (14.56 x 11.83 m): main block 9 modules + east wing 7 x 5.5; about 252.6 m² (76 tsubo).\nRoof: one plane falling west at 1.4/10, 450 mm west eave.\nWindows: all LIXIL TW (triple glazing), catalogue sizes. Big glass along the whole south side (1,690 single units between the 910 posts — no joined units, the house needs wind grade S-3), the glass south-east corner, no windows in the great room's north wall. Master bedrooms, walk-in closets, ensuites and studies matched in pairs. The south-east corner: black steel corner post + timber knee braces (portal frame, to be sized by the structural engineer); eave beam 6.81 m above ground (7 m eave rule). Window list on the floor plans page.",
+    geo17: "75 tsubo on the 910 grid\nGrid 16 x 13 modules (14.56 x 11.83 m): main block 9 modules + east wing 7 x 5.5; about 252.6 m² (76 tsubo).\nRoof: one plane falling west at 1.4/10, 450 mm west eave.\nWindows: all LIXIL TW (triple glazing), catalogue sizes, wind grade S-3 or better (LIXIL's size tables). Big glass along the whole south side and the glass south-east corner: the same 1,690 × 2,430 2-panel sliding window between the 910 posts on both floors (the widest LIXIL unit rated S-3 at full height), with a glass guard outside on the 2F; no windows in the great room's north wall. Master bedrooms, walk-in closets, ensuites and studies matched in pairs. The south-east corner: steel corner post 150 × 150 + glulam knee braces (sized; see the calculations); eave beam 6.81 m above ground (7 m eave rule). Window list and calculations on the floor plans page.",
     doc13: 'Kutchan house — Ideal — 75 tsubo — 3D',
     geo13: "Ideal — 75 tsubo\n“Ideal — compact” enlarged to about 75 tsubo.\n1F: entrance, ski / gear room, hall, gym 47.8 m², bath 12.4 m² (two showers, two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger, laundry, WC, boiler room under the stairs, den 1 9.7 m² (office with a bunk bed), guest bedroom 12.6 m².\n2F: living 27.2 m² with glass on three sides, dining + kitchen 26.9 m² with an island, master bedrooms 1 and 2 (15.0 m² each), each with a 5.3 m² walk-in closet and a 6.2 m² bathroom, den 2 9.6 m² (office with a bunk bed), WC.",
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
@@ -240,7 +240,7 @@ Object.assign(JA_NAMES, {                              /* house 7 presets */
   '1F — Den / guest bedroom': '1F — 書斎・客間',                     /* v22 (house 7) */
   'Outside — north-east (entrance, carport)': '外観 — 北東（玄関・カーポート）',
   'Outside — carport + entrance (north-east)': '外観 — カーポート・玄関（北東）', 'Outside — west (snow side)': '外観 — 西（落雪側）',
-  '1F — Guest bedroom': '1F — ゲスト寝室', '2F — Living (glass on three sides)': '2F — リビング（3面ガラス）',
+  '1F — Guest bedroom': '1F — ゲスト寝室', '2F — Living (glass on three sides)': '2F — リビング（3面ガラス）', '2F — Living (glass corner)': '2F — リビング（ガラスの角）',
   '2F — Dining + kitchen': '2F — ダイニング・キッチン', '2F — Master bedroom 1': '2F — 主寝室1', '2F — Master bedroom 2': '2F — 主寝室2',
   /* house 4: the editor's compass (north at the bottom of plan b) */
   'Outside — north-west': '外観 — 北西', 'Outside — south-east (view side, roof high)': '外観 — 南東（眺望側・屋根が高い側）',
@@ -528,7 +528,7 @@ function buildMaterials() {
   MAT.heater = std({ color: 0x2b2b2b, roughness: 0.7, metalness: 0.3 });
   MAT.stones = std({ color: 0x55524e, roughness: 0.95, envMapIntensity: 0.5 });
   if (H3) {
-    /* houses 4-9 (ref models): the Tsuchiya brochure's finishes, loosely --
+    /* houses 4-9 (ref models): a builder brochure's finishes, loosely --
        pale knotty red pine floors, walnut-stained pine joinery, warm exposed
        timber, a black kitchen, grey stone-look porcelain in the wet rooms */
     MAT.pine = pbr('wood_floor', 1.69, { env: IN, rough: 0.8, color: [2.3, 2.12, 1.8],
@@ -1181,6 +1181,16 @@ function opening(G, o, w, lvl, L, c) {
     const Hm = tp(sm) - bot, pg = new THREE.PlaneGeometry(W - 0.04, Hm - 0.04);
     const gl = put(g ? shear(pg, false) : pg, o.frost ? MAT.glassFrost : (STY && !ext ? MAT.glassIn : MAT.glass), sm, q, (bot + tp(sm)) / 2, false);   /* v36: inside glass (the bath) doesn't mirror the sky */
     gl.renderOrder = 2;
+    if (ext && o.rail) {
+      /* staging v7: glass guard outside a floor-level window on an upper floor (o.rail = its top over the floor):
+         clear glass from the sill up, a slim black top rail, side brackets fixed into the wall at the jambs */
+      const gq = n1 + 0.06, rt = L.base + o.rail;
+      const gg = put(new THREE.PlaneGeometry(W - 0.02, rt - 0.03 - bot), MAT.glass, sm, gq, (bot + rt - 0.03) / 2, false);
+      gg.renderOrder = 2;
+      put(B(W + 0.02, 0.035, 0.05), MAT.blackSteel, sm, gq, rt - 0.0175, true);
+      for (const x of [s + 0.02, e - 0.02]) put(B(0.03, rt - bot, 0.03), MAT.blackSteel, x, gq, (bot + rt) / 2, true);
+      for (const x of [s + 0.02, e - 0.02]) put(B(0.03, 0.03, gq - n1 + 0.015), MAT.blackSteel, x, (n1 + gq) / 2, rt - 0.12, false);
+    }
     if (o.kind === 'WINDOW' && bot > L.base + 0.05) {
       /* oak sill board inside (none on a transom: c.upper), metal flashing outside */
       const qa = (ext ? n0 : n0) - 0.03, qb = q - fd / 2;
@@ -2940,7 +2950,7 @@ function buildSite3() {
 function setupLabels3() {
   LABELS3.length = 0;
   LV.forEach((L, i) => { for (const f of L.faces) if (f.anchored && f.name && f.floor !== 'void') LABELS3.push([i, f.label[0], f.label[1], f.name, f.ja]); });
-  /* staging: the model's notes in the 3D (the portal frame to be sized by the structural engineer), at their own height */
+  /* staging: the model's notes in the 3D (the corner frame's sizes), at their own height */
   for (const n of (PLAN.model && PLAN.model.notes3) || []) LABELS3.push([n.level, n.at[0], n.at[1], n.en, n.ja, n.z, 1]);   /* always on top */
 }
 const LIT3 = HOUSE === 4 ? /bedroom|living|hall|entrance|gym|changing|bath|sauna|lounge|den/i : /bedroom|living|hall|corridor|entrance|gym|changing|bath|sauna|lounge|kitchen|den/i;
@@ -3664,7 +3674,7 @@ const VIEWS17 = [
   ['1F — Gym', -0.918, 5.357, 0.8, -0.02, 0],
   ['1F — Bath (hinoki tubs)', -5.611, -4.883, 3.142, -0.2, 0],
   ['1F — Guest bedroom', 4.218, 2.633, -2.05, -0.06, 0],
-  ['2F — Living (glass on three sides)', 1.194, 5.357, -0.97, 0.06, 1],
+  ['2F — Living (glass corner)', 1.194, 5.357, -0.97, 0.06, 1],
   ['2F — Dining + kitchen', 0.910, 5.357, 0.49, 0.0, 1],
   ['2F — Master bedroom 1', -4.280, -2.009, 0.71, 0.0, 1],
   ['2F — Master bedroom 2', 0.347, -1.850, 0.67, 0.0, 1],

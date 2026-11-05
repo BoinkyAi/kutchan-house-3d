@@ -1243,10 +1243,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
-       "size": "1690 x 2430"
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
+       "size": "1690 x 2430",
+       "rail": 1.1
       },
       {
        "id": "w227",
@@ -1255,10 +1256,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
-       "size": "1690 x 2430"
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
+       "size": "1690 x 2430",
+       "rail": 1.1
       }
      ]
     },
@@ -1335,10 +1337,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430",
+       "rail": 1.1,
        "stack": [
         {
          "h": 1.57,
@@ -1356,10 +1359,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430",
+       "rail": 1.1,
        "stack": [
         {
          "h": 1.57,
@@ -1392,10 +1396,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
-       "size": "1690 x 2430"
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
+       "size": "1690 x 2430",
+       "rail": 1.1
       },
       {
        "id": "w218",
@@ -1404,10 +1409,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
-       "size": "1690 x 2430"
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
+       "size": "1690 x 2430",
+       "rail": 1.1
       },
       {
        "id": "w219",
@@ -1416,10 +1422,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
-       "size": "1690 x 2430"
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
+       "size": "1690 x 2430",
+       "rail": 1.1
       },
       {
        "id": "w220",
@@ -1428,10 +1435,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430",
+       "rail": 1.1,
        "stack": [
         {
          "h": 0.77,
@@ -1449,10 +1457,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430",
+       "rail": 1.1,
        "stack": [
         {
          "h": 0.77,
@@ -1470,10 +1479,11 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430",
+       "rail": 1.1,
        "stack": [
         {
          "h": 1.17,
