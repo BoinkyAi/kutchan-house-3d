@@ -32,7 +32,7 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w113",
+       "id": "w111",
        "type": "window",
        "at": 0.52,
        "w": 1.69,
@@ -45,7 +45,7 @@
        "frosted": true
       },
       {
-       "id": "w114",
+       "id": "w112",
        "type": "window",
        "at": 2.795,
        "w": 1.69,
@@ -82,7 +82,7 @@
        "side": -1
       },
       {
-       "id": "w111",
+       "id": "w109",
        "type": "window",
        "at": 0.59,
        "w": 0.64,
@@ -95,7 +95,7 @@
        "frosted": true
       },
       {
-       "id": "w112",
+       "id": "w110",
        "type": "window",
        "at": 1.885,
        "w": 0.78,
@@ -132,7 +132,7 @@
        "solid": 1
       },
       {
-       "id": "w118",
+       "id": "w116",
        "type": "window",
        "at": 1.43,
        "w": 1.69,
@@ -159,7 +159,7 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w110",
+       "id": "w108",
        "type": "window",
        "at": 1.885,
        "w": 1.235,
@@ -192,9 +192,9 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430"
       },
       {
@@ -204,9 +204,9 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430"
       },
       {
@@ -228,37 +228,25 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430"
       },
       {
        "id": "w105",
        "type": "window",
-       "at": 6.435,
-       "w": 0.78,
-       "sill": 0.04,
-       "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 07424",
-       "size": "780 x 2430"
-      },
-      {
-       "id": "w106",
-       "type": "window",
        "at": 4.615,
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
+       "style": "slide",
+       "panes": 2,
+       "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430"
       },
       {
-       "id": "w107",
+       "id": "w106",
        "type": "window",
        "at": 2.795,
        "w": 1.69,
@@ -270,7 +258,7 @@
        "size": "1690 x 2430"
       },
       {
-       "id": "w108",
+       "id": "w107",
        "type": "window",
        "at": 0.975,
        "w": 1.69,
@@ -280,18 +268,6 @@
        "panes": 2,
        "product": "LIXIL TW 引違い窓 テラス 2枚建 16524",
        "size": "1690 x 2430"
-      },
-      {
-       "id": "w109",
-       "type": "window",
-       "at": 0.065,
-       "w": 0.78,
-       "sill": 0.04,
-       "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 07424",
-       "size": "780 x 2430"
       }
      ]
     },
@@ -309,7 +285,7 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w115",
+       "id": "w113",
        "type": "window",
        "at": 7.8,
        "w": 1.69,
@@ -322,7 +298,7 @@
        "frosted": true
       },
       {
-       "id": "w116",
+       "id": "w114",
        "type": "window",
        "at": 5.07,
        "w": 1.69,
@@ -334,7 +310,7 @@
        "size": "1690 x 970"
       },
       {
-       "id": "w117",
+       "id": "w115",
        "type": "window",
        "at": 1.43,
        "w": 1.69,
@@ -1261,7 +1237,7 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w229",
+       "id": "w225",
        "type": "window",
        "at": 0.975,
        "w": 1.69,
@@ -1273,7 +1249,7 @@
        "size": "1690 x 2430"
       },
       {
-       "id": "w231",
+       "id": "w227",
        "type": "window",
        "at": 5.98,
        "w": 1.69,
@@ -1300,7 +1276,7 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w232",
+       "id": "w228",
        "type": "window",
        "at": 0.52,
        "w": 1.69,
@@ -1312,7 +1288,7 @@
        "size": "1690 x 1370"
       },
       {
-       "id": "w233",
+       "id": "w229",
        "type": "window",
        "at": 4.615,
        "w": 1.235,
@@ -1353,7 +1329,7 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w227",
+       "id": "w223",
        "type": "window",
        "at": 1.43,
        "w": 1.69,
@@ -1374,7 +1350,7 @@
        ]
       },
       {
-       "id": "w228",
+       "id": "w224",
        "type": "window",
        "at": 3.25,
        "w": 1.69,
@@ -1410,67 +1386,43 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w219",
+       "id": "w217",
        "type": "window",
-       "at": 12.805,
+       "at": 11.44,
        "w": 1.69,
        "sill": 0.04,
-       "head": 2.27,
+       "head": 2.47,
        "style": "fix",
        "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16522",
-       "size": "1690 x 2230"
+       "product": "LIXIL TW FIX窓 テラス 16524",
+       "size": "1690 x 2430"
+      },
+      {
+       "id": "w218",
+       "type": "window",
+       "at": 8.71,
+       "w": 1.69,
+       "sill": 0.04,
+       "head": 2.47,
+       "style": "fix",
+       "panes": 1,
+       "product": "LIXIL TW FIX窓 テラス 16524",
+       "size": "1690 x 2430"
+      },
+      {
+       "id": "w219",
+       "type": "window",
+       "at": 6.89,
+       "w": 1.69,
+       "sill": 0.04,
+       "head": 2.47,
+       "style": "fix",
+       "panes": 1,
+       "product": "LIXIL TW FIX窓 テラス 16524",
+       "size": "1690 x 2430"
       },
       {
        "id": "w220",
-       "type": "window",
-       "at": 11.895,
-       "w": 0.78,
-       "sill": 0.04,
-       "head": 2.27,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 07422",
-       "size": "780 x 2230"
-      },
-      {
-       "id": "w221",
-       "type": "window",
-       "at": 9.62,
-       "w": 1.69,
-       "sill": 0.04,
-       "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
-       "size": "1690 x 2430"
-      },
-      {
-       "id": "w222",
-       "type": "window",
-       "at": 7.8,
-       "w": 1.69,
-       "sill": 0.04,
-       "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 16524",
-       "size": "1690 x 2430"
-      },
-      {
-       "id": "w223",
-       "type": "window",
-       "at": 6.89,
-       "w": 0.78,
-       "sill": 0.04,
-       "head": 2.47,
-       "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 テラス 07424",
-       "size": "780 x 2430"
-      },
-      {
-       "id": "w224",
        "type": "window",
        "at": 4.16,
        "w": 1.69,
@@ -1491,7 +1443,7 @@
        ]
       },
       {
-       "id": "w225",
+       "id": "w221",
        "type": "window",
        "at": 1.885,
        "w": 1.69,
@@ -1503,16 +1455,16 @@
        "size": "1690 x 2430",
        "stack": [
         {
-         "h": 0.97,
+         "h": 0.77,
          "band": 0.4,
          "style": "fix",
          "panes": 1,
-         "product": "LIXIL TW FIX窓 マド 16509"
+         "product": "LIXIL TW FIX窓 マド 16507"
         }
        ]
       },
       {
-       "id": "w226",
+       "id": "w222",
        "type": "window",
        "at": 0.065,
        "w": 1.69,
@@ -1548,7 +1500,7 @@
      "off": -0.024,
      "ops": [
       {
-       "id": "w230",
+       "id": "w226",
        "type": "window",
        "at": 8.71,
        "w": 1.69,
@@ -1560,7 +1512,7 @@
        "size": "1690 x 1370"
       },
       {
-       "id": "w234",
+       "id": "w230",
        "type": "window",
        "at": 4.615,
        "w": 1.69,
@@ -1573,7 +1525,7 @@
        "frosted": true
       },
       {
-       "id": "w235",
+       "id": "w231",
        "type": "window",
        "at": 0.975,
        "w": 1.235,

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja" class="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>倶知安 住宅計画 — 計算書</title>
+<script>(function () { var q = new URLSearchParams(location.search).get('lang'), l = 'ja';
+  try { if (localStorage.getItem('h3dLang26') === 'en') l = 'en'; } catch (e) {}
+  if (q === 'en' || q === 'ja') l = q;
+  document.documentElement.className = l; document.documentElement.lang = l; })();</script>
+<style>
+  :root{--fg:#1f2a33;--mut:#5d6b78;--ac:#1d6fa5;--bd:#d9dee3;--bg:#f6f5f2}
+  *{box-sizing:border-box}
+  html.en .ja,html.ja .en{display:none}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif}
+  header{background:#11161c;color:#e8eef5;padding:16px 17px 14px 20px}
+  .bar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  header h1{margin:0;font-size:22px;line-height:1.45;min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+  .bar .lang{flex:none}
+  .lang{display:inline-flex;white-space:nowrap}
+  .lang button{background:#1b2430;color:#e8eef5;border:1px solid #2c3a4a;border-radius:0;margin:0 0 0 -1px;padding:6px 11px;
+    font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;cursor:pointer;white-space:nowrap}
+  .lang button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+  .lang button:last-child{border-radius:0 8px 8px 0}
+  .lang button:hover{border-color:#5ac8fa}
+  .lang button.on{background:#5ac8fa;color:#04121c;border-color:#5ac8fa;font-weight:700}
+  main{max-width:1500px;margin:0 auto;padding:6px 16px 40px}
+  section{background:#fff;border:1px solid var(--bd);border-radius:12px;margin:18px 0;padding:16px 18px}
+  .head{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;margin:0 0 8px}
+  h2{margin:0;font-size:21px}
+  h2 a{color:inherit;text-decoration:none}
+  h2 a:hover{text-decoration:underline}
+  .b3d{display:inline-flex;align-items:center;min-height:48px;padding:0 26px;border-radius:10px;background:var(--ac);color:#fff;font-size:17px;font-weight:700;text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+  .b3d:hover{background:#155a87}
+  .b3d:focus-visible{outline:3px solid #8cc4ea;outline-offset:2px}
+  .what{margin:0 0 10px;color:var(--mut)}
+  dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:14px;max-width:640px}
+  dt{color:var(--mut)}
+  dd{margin:0;font-weight:600}
+  dd small{font-weight:400;color:var(--mut);font-size:13px}
+  .floors{display:grid;grid-template-columns:repeat(auto-fit,minmax(560px,1fr));gap:12px;margin-top:14px}
+  @media (max-width:640px){.floors{grid-template-columns:1fr}}
+  figure{margin:0;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:#f4f2ee}
+  figure img{display:block;width:100%;height:auto}
+  figcaption{font-size:13px;font-weight:600;padding:4px 10px;background:#fff;border-top:1px solid var(--bd)}
+  h3{margin:18px 0 8px;font-size:17px}
+  .tw{overflow-x:auto}
+  table.win{border-collapse:collapse;font-size:13px;min-width:760px}
+  table.win th,table.win td{border-bottom:1px solid var(--bd);padding:5px 9px;text-align:left;vertical-align:top}
+  table.win th{color:var(--mut);font-weight:600;white-space:nowrap}
+  table.win td:nth-child(4),table.win td:nth-child(5){white-space:nowrap}
+  .note{color:var(--mut);font-size:13px;margin:10px 0 0}
+  pre.calc{background:#f4f2ee;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-x:auto}
+  ol.calc,ul.calc{margin:6px 0 10px 18px;padding:0;font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar"><h1><span class="en">Kutchan house — calculations</span><span class="ja" lang="ja">倶知安 住宅計画 — 計算書</span></h1>
+  <span id="bLang" class="lang"><button type="button" data-l="en" lang="en">EN</button><button type="button" data-l="ja" lang="ja" class="on">日本語</button></span></div>
+</header>
+<main>
+<section id="calcs">
+  <div class="head"><h2><span class="en">Calculations — 75 tsubo · 910 grid</span><span class="ja" lang="ja">計算書 — 75坪・910グリッド案</span></h2>
+  <a class="edit" href="plans.html"><span class="en">← Floor plans</span><span class="ja" lang="ja">← 間取り図</span></a></div>
+  <p class="what"><span class="en">The numbers behind the structure table on the floor plans page, so anyone can check them. Preliminary sizing (allowable stress, Japanese loads); the building permit still needs a licensed structural engineer's calculation.</span><span class="ja" lang="ja">間取り図ページの構造表の根拠となる計算です。どなたでも確認できるよう、式と数値をすべて載せています。概略検討（許容応力度、日本の荷重）であり、確認申請には構造設計者の構造計算が必要です。</span></p>
+  <h3><span class="en">1. How we approached it</span><span class="ja" lang="ja">1. 考え方</span></h3>
+  <ol class="calc">
+    <li><span class="en">A Japanese timber house resists earthquakes and wind with braced walls. The south-east corner of the living room is glass on both faces, so there is no braced wall there. We use frames instead: a post and the beam over the glass, made stiff at the corner with knee braces (short diagonal struts), and we brace the walls that are solid.</span><span class="ja" lang="ja">日本の木造住宅は耐力壁で地震や風に抵抗します。リビングの南東の角は両面ともガラスで耐力壁がないため、柱と窓上の梁を方杖（短い斜材）で固めた門型フレームとし、壁のある部分には筋交いを入れています。</span></li>
+    <li><span class="en">Kutchan has heavy snow (design depth 230 cm). In heavy-snow areas 35% of the snow counts in the earthquake weight, so the earthquake load (32.0 kN on the living wing's upper floor) is bigger than the wind load (18.2 kN): the earthquake governs.</span><span class="ja" lang="ja">倶知安町は多雪区域（垂直積雪量230 cm）です。多雪区域では地震時の重量に積雪の35%を加えるため、リビング棟2階の地震力（32.0 kN）が風荷重（18.2 kN）を上回り、地震で決まります。</span></li>
+    <li><span class="en">Each wall line of the wing (south, east, north) takes half of that load: 16.0 kN. On a line, the frames and braced walls share it in proportion to their strength (they reach their limits together; Japanese wall quantities are added up the same way).</span><span class="ja" lang="ja">リビング棟の各通り（南・東・北）がその半分 16.0 kN を負担します。同じ通りの門型フレームと耐力壁は耐力の比で分担します（壁量計算と同じく耐力を足し合わせる考え方）。</span></li>
+    <li><span class="en">Target: every member at most 60% of its allowed strength (the allowed strengths already include the code's safety margins). Result: at most 53%.</span><span class="ja" lang="ja">目標：すべての部材で許容耐力の60%以下（許容耐力には安全率が含まれています）。結果：最大53%。</span></li>
+    <li><span class="en">Windows: the wind pressure on the glass needs grade S-3. LIXIL's joint between two windows is not rated that wide, so the big glass is single 1,690-wide windows with a post between them; the posts are checked for snow, floor and wind.</span><span class="ja" lang="ja">窓：ガラスにかかる風圧から耐風圧S-3が必要です。LIXILの連窓はその幅でS-3を満たさないため、幅1,690の単体窓を柱で区切って並べ、その柱を雪・床・風で検討しています。</span></li>
+  </ol>
+  <h3><span class="en">2. Loads</span><span class="ja" lang="ja">2. 荷重</span></h3>
+  <div class="tw"><table class="win"><thead><tr><th><span class="en">Item</span><span class="ja" lang="ja">項目</span></th><th><span class="en">Value</span><span class="ja" lang="ja">数値</span></th><th><span class="en">Source / formula</span><span class="ja" lang="ja">根拠・式</span></th></tr></thead><tbody><tr><td><span class="en">Design snow</span><span class="ja" lang="ja">積雪荷重</span></td><td>230 cm × 30 N/m²/cm = <b>6.90 kN/m²</b></td><td><span class="en">Kutchan 230 cm (Hokkaido government list); heavy-snow area 30 N/m² per cm; roof under 30° → shape factor 1.0</span><span class="ja" lang="ja">倶知安町 垂直積雪量230 cm（北海道）、多雪区域 30 N/m²/cm、勾配30°以下 → 屋根形状係数1.0</span></td></tr>
+<tr><td><span class="en">Roof dead load</span><span class="ja" lang="ja">屋根の固定荷重</span></td><td>1.0 kN/m²</td><td><span class="en">metal roof, insulation, rafters, ceiling</span><span class="ja" lang="ja">金属屋根・断熱材・垂木・天井</span></td></tr>
+<tr><td><span class="en">Seismic</span><span class="ja" lang="ja">地震</span></td><td>Z 0.9, C0 0.2, Rt 1.0</td><td><span class="en">Kutchan zone factor 0.9; wood house T = 0.03 h</span><span class="ja" lang="ja">倶知安町 地震地域係数0.9、木造 T = 0.03h</span></td></tr>
+<tr><td><span class="en">Wind</span><span class="ja" lang="ja">風</span></td><td>V0 34 m/s, <span class="en">terrain III</span><span class="ja" lang="ja">地表面粗度区分III</span></td><td><span class="en">Kutchan basic wind speed 34 m/s</span><span class="ja" lang="ja">倶知安町 基準風速34 m/s</span></td></tr>
+<tr><td><span class="en">Glulam</span><span class="ja" lang="ja">集成材</span></td><td>E95-F270: Fb 27.0, Fc 21.6, E 9,500 N/mm²</td><td><span class="en">short-term allowable = 2/3 F, long-term = 1.1/3 F</span><span class="ja" lang="ja">短期許容 = 2/3 F、長期 = 1.1/3 F</span></td></tr>
+<tr><td><span class="en">Steel</span><span class="ja" lang="ja">鋼材</span></td><td>STKR400: F 235 N/mm²</td><td><span class="en">short-term allowable = F</span><span class="ja" lang="ja">短期許容 = F</span></td></tr>
+<tr><td><span class="en">Braced walls</span><span class="ja" lang="ja">耐力壁</span></td><td>1.96 kN/m × <span class="en">wall multiplier</span><span class="ja" lang="ja">壁倍率</span></td><td><span class="en">45×90 braces both ways 4.0 + plywood → 5.0 (the code's cap)</span><span class="ja" lang="ja">筋交い45×90たすき掛け4.0＋構造用合板 → 5.0（上限）</span></td></tr></tbody></table></div>
+  <h3><span class="en">3. Sideways load on the living wing's upper floor</span><span class="ja" lang="ja">3. リビング棟2階の水平力</span></h3>
+  <pre class="calc">roof area incl. eaves      A = 40.84 m²
+weight at the roof         W = A × (DL + 0.35 S) + upper half of the walls
+                             = 40.84 × (1.0 + 0.35 × 6.90) + 16.9 = 156.4 kN
+Ai (upper floor)           Ai = 1 + (1/√α − α)·2T/(1+3T),  α = 0.682, T = 0.21 s  →  Ai = 1.136
+shear coefficient          C = Z·Rt·Ai·C0 = 0.9 × 1.0 × 1.136 × 0.2 = 0.2045
+earthquake                 Q = C × W = 32.0 kN      (wind: 18.2 kN → the earthquake governs)
+per wall line (½)          Q_line = 16.0 kN</pre>
+  <h3><span class="en">4. The wall lines (each element's capacity, then the share)</span><span class="ja" lang="ja">4. 各通りの耐力と負担</span></h3>
+  <pre class="calc">knee brace geometry        post height to the beam H = 2.52 m, brace legs d = 0.75 m (45°), post below the brace L1 = H − d = 1.77 m
+brace force per kN of post shear   KB = H / (d·cos45°) = 4.75
+one brace joint            8 drift pins Ø12 × 10.5 kN = 84.0 kN  →  post shear 84.0 / 4.75 = 17.68 kN
+
+corner post  steel □150×150×9   Z = 225.2 cm³, I = 1,688.8 cm⁴, A = 50.76 cm²
+             bending (both ways, ×1.3): V = 235 × Z / 1.3 / L1 = 23.00 kN;  joint 17.68 kN  →  17.68 kN
+pier posts   glulam 120×240     Z = 1,152.0 cm³: V = 18.0 × Z / L1 = 11.72 kN
+             fin pier (1 brace): min(11.72, 17.68) = 11.72 kN;  mid pier (2 braces): min(11.72, 35.36) = 11.72 kN
+braced wall, east (1.365 m)     1.365 × 5.0 × 1.96 = 13.4 kN
+braced walls, north (2 × 1.82 m)  3.64 × 5.0 × 1.96 = 35.7 kN
+
+SOUTH line   16.0 / (11.72 + 11.72 + 17.68) = <b>39%</b>
+EAST line    16.0 / (13.4 + 17.68) = <b>52%</b>
+NORTH line   16.0 / 35.7 = <b>45%</b></pre>
+  <h3><span class="en">5. Members at their share</span><span class="ja" lang="ja">5. 各部材の検定</span></h3>
+  <pre class="calc">corner post   V = 52% × 17.68 = 9.11 kN, M = V × L1 = 16.12 kNm
+              bending 1.3 × M / Z / 235 + axial N/A/fc (N = 6 m² × (DL + 0.35 S) = 20.5 kN, fc = 162.8 N/mm²) = <b>42%</b>
+              sway δ = V·L1³/(3EI) → 1/518
+pier posts    V = 4.56 kN, M / Z / 18.0 = <b>39%</b>, sway 1/393
+knee brace    F = 43.3 kN (the largest), glulam 120×120, length 1,061 mm, λ = 30.6, η = 0.994
+              F / (η × 14.4 × 120 × 120) = <b>21%</b>;  joint F / (8 × 10.5) = <b>52%</b>
+head beam     glulam 150×300, span 3.53 m, brace push 30.6 kN at 0.75 m:
+              M = 18.1 kNm → M / Z / 18.0 = <b>45%</b>
+hold-downs    uplift at the braced wall ends T = 14.1 kN / 30 kN = <b>47%</b></pre>
+  <h3><span class="en">6. Posts between the big windows, beams over the 1F glass</span><span class="ja" lang="ja">6. 大開口の間の柱、1階の窓上の梁</span></h3>
+  <pre class="calc">post glulam 120×180 (120 along the wall: 1,820 − 120 = 1,700 clear for the 1,690 window; 180 into the wall), braced at the window head
+loads per post   roof 5.28 m² (half the wing + eave, 1.82 wide); 1F posts also the 2F floor 4.55 m² and the 2F glass wall
+2F post          long term N = 31.8 kN, snow N = 42.7 kN, wind on 1.82 m of glass (1,405 Pa, 2.52 m) → <b>32%</b>
+1F post          N + floor 11.4 + wall 2.3 kN, wind 1,227 Pa over 3.0 m → <b>45%</b>
+beam over the 1F glass where a 2F post lands mid-span: glulam 150×360
+                 M = P·L/4 + w·L²/8 = 17.0 kNm (long term) → <b>53%</b></pre>
+  <h3><span class="en">7. Ground floor under the corner</span><span class="ja" lang="ja">7. 角の下の1階</span></h3>
+  <pre class="calc">1F weight W = 244.8 kN → Q = Z × Rt × 1.0 × C0 × W / 2 = 22.0 kN per direction
+east–west   den 1 north wall 3.64 m + guest room north wall 1.365 m, × 5.0 × 1.96 = 49.0 kN → <b>45%</b>
+north–south guest room east walls 2 × 1.82 m + den 1 | guest wall 3.64 m = 71.3 kN → <b>31%</b></pre>
+  <h3><span class="en">8. Wind on the glass → window grade</span><span class="ja" lang="ja">8. ガラスの風圧 → 窓の耐風圧等級</span></h3>
+  <pre class="calc">告示1458 method: W = q̂ × Ĉf,  q̂ = 0.6 Er² V0²,  Er = 1.7 (H/ZG)^α  (H = average of the height 8.966 m and the eave 6.805 m = 7.89 m, terrain III: ZG 450, α 0.20)
+q̂ = 0.6 × 0.757² × 34² = 398 N/m²
+pushing in, 2F glass (z ≈ 8 m):  Ĉpe = Cpe × Gpe = 1.006 × 3.031, minus the inside −0.5 → W = <b>1,411 Pa</b>
+pushing in, 1F glass (z ≤ 5 m):  0.833 × 3.10 + 0.5 → W = 1,226 Pa
+suction:  −1.8 (general) / −2.2 (corner zones) → 716 / 875 Pa
+→ the windows need wind grade <b>S-3</b> (1,600 Pa); S-2 (1,200 Pa) is not enough on the 2F.
+LIXIL's 15 mm joint between two TW fixed windows (連窓方立180°) is rated about 4,000 mm wide at S-1, 3,046 at S-2, 2,284 at S-3 (full height)
+→ two 1,690 windows joined (3,395) do not reach S-3 → single windows with a post between them.</pre>
+  <p class="note"><span class="en">Legal note: the 告示1458 window check is required by law only for buildings over 13 m; for this house it is our design basis for picking the window grade.</span><span class="ja" lang="ja">法的には告示1458の帳壁の検討は高さ13 m超の建築物が対象です。本計画では窓の等級を決める設計の根拠として用いています。</span></p>
+  <h3><span class="en">9. Kutchan roof / snow / height checks</span><span class="ja" lang="ja">9. 倶知安町の屋根・落雪・高さの検討</span></h3>
+  <pre class="calc">PASS Art.6 west snow (pitch 1.40/10, L 15.8, H 6.8, V 3.50 m/s, D 4.0) -&gt; needs 4.450 m &lt;= 4.650 (margin +0.200)
+PASS Art.7 east (road): H 9.0 -&gt; 1.3 + 0.4 = 1.700 &lt;= 1.931 (margin +0.231)
+PASS Art.7 north: H 9.0 -&gt; 1.3 + 0.4 = 1.700 &lt;= 5.400 (margin +3.700)
+PASS Art.7 south: H 9.0 -&gt; 1.3 + 0.4 = 1.700 &lt;= 6.051 (margin +4.351)
+PASS height 8.966 m &lt;= 12
+PASS 1 m wall setback (W 4.650 E 1.931 N 5.400 S 6.051)
+PASS north-side slope: worst roof corner x +1.18: 8.041 &lt;= 5 + 1.25 x 5.017 = 11.271 (margin +3.230)
+PASS eave &lt;= 7 m: eave beam top 6.805 m above ground; walls west of x -3.83 top out at &lt;= 6.999 m (above the beam = roof framing)
+PASS road slope (8 m road, s 1.531): 8.966 &lt;= 13.828</pre>
+  <p class="note"><span class="en">House 4.65 m from the west line and 5.4 m from the north line (lot 9: 21.369 × 23.509 m). Art.6 = snow sliding off the roof must land on our lot (Kutchan guideline formula 1); Art.7 = gaps on the other sides; eave ≤ 7 m = the shadow rule (posts stop under the eave beam, above it is roof framing).</span><span class="ja" lang="ja">西境界から4.65 m、北境界から5.4 m（9号地 21.369 × 23.509 m）。第6条＝屋根の落雪が敷地内に収まること（倶知安町の指導要綱 式1）、第7条＝その他の面の離れ、軒高7 m以下＝日影規制（柱は軒桁まで、その上は小屋組）。</span></p>
+  <h3><span class="en">10. What a structural engineer still has to do</span><span class="ja" lang="ja">10. 構造設計者に残る検討</span></h3>
+  <ul class="calc">
+    <li><span class="en">The whole-house wall quantity and balance checks (壁量計算, 四分割法, N値) and the permit calculation</span><span class="ja" lang="ja">建物全体の壁量計算・四分割法・N値計算と確認申請用の構造計算</span></li>
+    <li><span class="en">Roof framing (rafters / purlins) under 6.9 kN/m² of snow, the foundation, and every connection detail</span><span class="ja" lang="ja">積雪6.9 kN/m²を受ける小屋組（垂木・母屋）、基礎、各接合部の詳細</span></li>
+    <li><span class="en">Lining up the 1F and 2F posts where possible (where a 2F post lands on a beam, that beam is checked in section 6)</span><span class="ja" lang="ja">1階と2階の柱の位置をできるだけ揃えること（2階の柱が梁に乗る箇所は6.で検討）</span></li>
+  </ul>
+</section>
+</main>
+<script>
+(function () {
+  var R = document.documentElement, B = document.querySelectorAll('#bLang button');
+  function set(l, keep) {
+    R.className = l; R.lang = l;
+    document.title = l === 'ja' ? '倶知安 住宅計画 — 計算書' : 'Kutchan house — calculations';
+    for (var i = 0; i < B.length; i++) B[i].classList.toggle('on', B[i].getAttribute('data-l') === l);
+    if (keep) try { localStorage.setItem('h3dLang26', l); } catch (e) {}
+  }
+  for (var i = 0; i < B.length; i++) B[i].onclick = function () { set(this.getAttribute('data-l'), true); };
+  set(R.className === 'en' ? 'en' : 'ja', false);
+})();
+</script>
+</body>
+</html>
