@@ -1,5 +1,5 @@
 {
- "version": 11,
+ "version": 12,
  "title": "Ideal — 75 tsubo",
  "ja": "理想プラン（75坪）",
  "source": "Ideal — 75 tsubo: the Ideal — compact plan (Toby's own Floor Plan Creator design) enlarged to about 75 tsubo: bigger master suites, dens, living + dining + kitchen, bath and gym; the guest bedroom, WCs, ski room, boiler room and stair as in the compact plan. L-shaped, 2 storeys: a main block + a wing to the east along the south (view) side; carport over two cars in the L's inner corner by the front door. 1F: gym, bath (2 shower stalls, 2 hinoki tubs), sauna, changing + rest room with a lounger, laundry, WC, ski / gear room, entrance, hall + stair, boiler room under the stair, den 1 (office + bunk), guest bedroom. 2F: two master bedrooms, each with a walk-in closet + ensuite; WC; den 2 (office + bunk); dining + kitchen with an island, open to the living in the wing (glass on three sides). One roof plane falling west. Windows = standard YKK APW 430 / 431 columns in Toby's openings.",
@@ -1261,7 +1261,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 0.57,
          "band": 0.15,
          "style": "fix"
         }
@@ -1277,7 +1277,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 0.97,
+         "h": 0.57,
          "band": 0.15,
          "style": "fix"
         }
@@ -1373,7 +1373,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.37,
+         "h": 0.77,
          "band": 0.4,
          "style": "fix"
         }
@@ -1389,7 +1389,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.37,
+         "h": 0.77,
          "band": 0.4,
          "style": "fix"
         }
@@ -1483,7 +1483,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.37,
+         "h": 0.77,
          "band": 0.4,
          "style": "fix"
         }
@@ -1499,7 +1499,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.37,
+         "h": 0.77,
          "band": 0.4,
          "style": "fix"
         }
@@ -1515,7 +1515,7 @@
        "style": "fix",
        "stack": [
         {
-         "h": 1.37,
+         "h": 0.77,
          "band": 0.4,
          "style": "fix"
         }
@@ -1528,14 +1528,7 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "stack": [
-        {
-         "h": 0.57,
-         "band": 0.15,
-         "style": "fix"
-        }
-       ]
+       "style": "fix"
       },
       {
        "id": "o36",
@@ -1544,14 +1537,7 @@
        "w": 1.69,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "stack": [
-        {
-         "h": 0.57,
-         "band": 0.15,
-         "style": "fix"
-        }
-       ]
+       "style": "fix"
       },
       {
        "id": "o37",
@@ -1560,14 +1546,7 @@
        "w": 0.78,
        "sill": 0.04,
        "head": 2.47,
-       "style": "fix",
-       "stack": [
-        {
-         "h": 0.57,
-         "band": 0.15,
-         "style": "fix"
-        }
-       ]
+       "style": "fix"
       },
       {
        "id": "o38",
@@ -2787,11 +2766,11 @@
     "n": 0.4,
     "s": 0.4,
     "e": 0.0,
-    "w": 0.6
+    "w": 0.45
    },
    "x0": -7.313,
-   "h0": 5.8968,
-   "k": 0.24,
+   "h0": 5.913,
+   "k": 0.15,
    "th": 0.34,
    "low": "w"
   },
@@ -2815,8 +2794,8 @@
     "w": 0.0
    },
    "x0": -7.313,
-   "h0": 5.8968,
-   "k": 0.24,
+   "h0": 5.913,
+   "k": 0.15,
    "th": 0.34,
    "low": "w"
   }
@@ -2922,7 +2901,7 @@
   "drive": [
    7.313,
    -8.955,
-   8.813,
+   9.113,
    0.553
   ],
   "porch": [
@@ -3327,7 +3306,7 @@
     ],
     "y": [
      -0.585,
-     8.25
+     7.5409
     ],
     "mat": "sstone"
    }

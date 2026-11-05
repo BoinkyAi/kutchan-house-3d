@@ -1,19 +1,20 @@
 <!doctype html>
-<html lang="ja" data-houses="6 12 13 5 4">
+<html lang="ja" data-houses="13">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>倶知安 住宅計画 — 3Dウォークスルー</title>
-<script>/* old links to houses that now live in the other two apps (1 + 2: kutchan-house-plan-a, 7-9: kutchan-house-ichijo):
-   invisible redirects only, nothing on the pages links the apps to each other */
+<script>/* old links to houses that now live in the other apps (1, 2, 4, 5, 6, 12: kutchan-house-plan-a, 7-9: kutchan-house-ichijo):
+   invisible redirects only, nothing on the pages links the apps to each other. v44 (Toby 2026-11-05): this app = the 75 tsubo plan only */
 (function () {
   var q = new URLSearchParams(location.search), h = q.get('house'), l = q.get('lang'), u = null;
   var OWN = 'https://boinkyai.github.io/kutchan-house-plan-a/', ICH = 'https://boinkyai.github.io/kutchan-house-ichijo/';
   if (h === '1') u = OWN; else if (h === '2') u = OWN + '?house=2';
+  else if (h === '4' || h === '5' || h === '6' || h === '12') u = OWN + 'other-plans/?house=' + h;
   else if (h === '7') u = ICH; else if (h === '8' || h === '9') u = ICH + '?house=' + h;
   if (!u) return;
   if (l === 'en' || l === 'ja') u += (u.indexOf('?') < 0 ? '?' : '&') + 'lang=' + l;
-  window.H3D_LEAVING = true; location.replace(u + location.hash);
+  window.H3D_LEAVING = true; location.replace(u);
 })();</script>
 <style>
   :root{ --ui:#11161c; --ui2:#1b2430; --fg:#e8eef5; --ac:#5ac8fa; --bd:#2c3a4a; }
@@ -85,11 +86,8 @@
 <div id="top" class="panel">
   <span id="bLang" class="lang"><button type="button" data-l="en" lang="en">EN</button><button type="button" data-l="ja" lang="ja" class="on">日本語</button></span>
   <span class="t" data-en="Kutchan house" data-ja="倶知安 住宅計画">倶知安 住宅計画</span>
-  <span class="seg"><button id="bH4" data-i18n="h4" data-i18n-title="h4t">予算プラン</button><button id="bH5" data-i18n="h5" data-i18n-title="h5t">中間プラン</button><button id="bH6" data-i18n="h6" data-i18n-title="h6t">理想プラン</button><button id="bH12" data-i18n="h12" data-i18n-title="h12t">理想プラン（コンパクト）</button><button id="bH13" data-i18n="h13" data-i18n-title="h13t">理想プラン（75坪）</button></span>
-  <button id="bEdit" class="ac" data-i18n="edit" data-i18n-title="editt" hidden>間取りを編集</button>
+  <span class="seg"><button id="bH13" data-i18n="h13" data-i18n-title="h13t">理想プラン（75坪）</button></span>
   <button id="bPlans" data-i18n="plans" data-i18n-title="planst">図面一覧</button>
-  <span id="srcBadge" class="badge" hidden></span>
-  <button id="bOrig" data-i18n="origb" data-i18n-title="origt" hidden>元の図面を表示</button>
   <span class="sub" id="areaInfo"></span>
   <select id="jump" data-i18n-title="jumpt"></select>
   <button id="bWalk" data-i18n-title="walkt">歩行</button>
@@ -137,6 +135,6 @@
 <script type="importmap">
 {"imports":{"three":"./three.module.min.js","three/addons/":"./jsm/"}}
 </script>
-<script type="module" src="app.js?v=43"></script>
+<script type="module" src="app.js?v=44"></script>
 </body>
 </html>

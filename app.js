@@ -21,7 +21,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { toPlan, loadModel, expandStack, childLeaf } from './refplan.js?v=10';
+import { toPlan, loadModel, expandStack, childLeaf } from './refplan.js?v=11';
 
 const V = THREE.Vector3;
 const FLOOR_NAMES = ['1F', '2F', '3F'];
@@ -46,8 +46,8 @@ const APP_HOUSES = (document.documentElement.dataset.houses || '6 5 4').trim().s
 const MOVED = !!window.H3D_LEAVING;
 const HOUSE = APP_HOUSES.includes(+_qHouse) ? +_qHouse : APP_HOUSES[0];
 const ASSETS = (document.documentElement.dataset.assets || '') + 'assets/';   /* plan-b/: '../assets/' */
-/* Houses 4-9 are built from an editable model (ref-model-<plan>.json, or the plan
-   editor's saved copy / a shared #m= link) through refplan.js. House 4 = the
+/* Houses 4-9 are built from a model (ref-model-<plan>.json) through refplan.js (v44, Toby
+   2026-11-05: the plan editor is gone; "the editor's ?plan=x" below = that model's plan letter). House 4 = the
    revision of Tsuchiya Kensetsu's reference house (Toby 2026-10-10: gym + onsen 1F,
    LDK + 1 bedroom 2F, 2 loft bedrooms; v12: an ensuite bedroom + a den on 2F and in
    the loft; ref-model-b.json, the editor's ?plan=b). House 5 =
@@ -68,15 +68,15 @@ const H3 = (HOUSE >= 4 && HOUSE <= 9) || HOUSE === 12 || HOUSE === 13;   /* hous
    renders (styleMaterials), per-room ceilings and the toggled structural beams (model.beams) */
 let STY = false;
 const REFS = {
-  4: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB', edit: 'edit.html?plan=b' },
-  5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC', edit: 'edit.html?plan=c' },
-  6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD', edit: 'edit.html?plan=d' },
+  4: { url: 'ref-model-b.json?v=5', key: 'h3dRefModelB' },
+  5: { url: 'ref-model-c.json?v=5', key: 'h3dRefModelC' },
+  6: { url: 'ref-model-d.json?v=7', key: 'h3dRefModelD' },
   /* house 12 = Ideal — compact (Toby's own 65-tsubo FPC plan, 2026-10-20; ref/gen_model_j.py): its roof falls west (axis x) */
-  12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ', edit: 'edit.html?plan=j' },
+  12: { url: 'ref-model-j.json?v=10', key: 'h3dRefModelJ' },
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
-  13: { url: 'ref-model-k.json?v=11', key: 'h3dRefModelK', edit: 'edit.html?plan=k' },
-  8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', edit: 'edit.html?plan=f', ichijo: true },
-  9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', edit: 'edit.html?plan=g', ichijo: true },
+  13: { url: 'ref-model-k.json?v=12', key: 'h3dRefModelK' },
+  8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', ichijo: true },
+  9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', ichijo: true },
 };
 const REF = REFS[HOUSE] || null;
 const IJH = !!(REFS[HOUSE] && REFS[HOUSE].ichijo);   /* an Ichijo house (8, 9) */
@@ -92,7 +92,7 @@ if (_qLang === 'en' || _qLang === 'ja') LANG = _qLang;
 const TXT = {
   ja: {
     title: '倶知安 住宅計画',
-    h2: 'プランB', h2t: 'L字型の2階建て、2階は片流れ屋根', doc2: '倶知安 住宅計画 — トビアスの自作プラン — プランB',
+    h2: 'プランB', h2t: 'L字型の2階建て、2階は片流れ屋根', doc2: '倶知安 住宅計画 — その他のプラン — プランB',
     geo2: "プランB\n1階：玄関、階段ホール（北側出入口）、ジム、浴室（浴槽）、サウナ、洗面室、洗濯室、トイレ、機械室。\n2階：リビング、ダイニング、キッチン、寝室4室、バスルーム4室、廊下、外部階段への出入口。",
     h4: '予算プラン', h4t: "10.9×7.3mの箱型2階建て＋ロフト",
     h5: '中間プラン', h5t: "13.65×9.1mの箱型2階建て＋ロフト、長辺が眺望側",
@@ -104,7 +104,6 @@ const TXT = {
     h13: '理想プラン（75坪）', h13t: "「理想プラン（コンパクト）」を約75坪に拡大：主寝室・クローゼット・バスルーム・書斎・リビング・キッチン・浴室・ジムを広く", origt13: '「理想プラン（75坪）」の最初の間取りを表示（編集はそのまま残ります）',
     doc13: '倶知安 住宅計画 理想プラン（75坪） — 3D',
     geo13: "理想プラン（75坪）\n「理想プラン（コンパクト）」を約75坪に拡大。\n1階：玄関、スキー/ギア室、ホール、ジム47.8m²、浴室12.4m²（シャワー2つ・ひのき浴槽2つ）とサウナ3.7m²、脱衣・休憩室（ラウンジャー付き）、洗濯室、トイレ、階段下の機械室、書斎1 9.7m²（二段ベッド付き）、ゲスト寝室12.6m²。\n2階：3面にガラスのあるリビング27.2m²、アイランドのあるダイニング・キッチン26.9m²、主寝室1・2（各15.0m²、それぞれ5.3m²のウォークインクローゼットと6.2m²のバスルーム付き）、書斎2 9.6m²（二段ベッド付き）、トイレ。",
-    edit: '間取りを編集', editt: '壁・扉・窓・家具を動かして間取りを変更（3Dにも反映されます）',
     srcEdited: '編集した間取り', srcLink: '共有リンクの間取り', origb: '元の図面を表示', origt: 'この間取りの最初の状態を表示（編集はそのまま残ります）', loft: 'ロフト',
     jumpt: '部屋へ移動', walk: '歩行', fly: '飛行', walkt: '歩行＝床の上を移動／飛行＝自由に移動',
     floors: '全フロア', upto: (f) => f + 'まで', floorst: '上の階から順に切断表示', roof: '屋根', rooft: '屋根を外す（C）',
@@ -135,7 +134,7 @@ const TXT = {
   },
   en: {
     title: 'Kutchan house',
-    h2: 'Plan B', h2t: 'L-shaped two-storey house, the 2F under one sloped roof', doc2: "Kutchan house — Toby's own plans — Plan B",
+    h2: 'Plan B', h2t: 'L-shaped two-storey house, the 2F under one sloped roof', doc2: "Kutchan house — other plans — Plan B",
     geo2: "Plan B\n1F: entrance, stair hall with a north door, gym, bath with soaking tubs, sauna, wash room, laundry, WC, boiler room.\n2F: living, dining, kitchen, 4 bedrooms, 4 bathrooms, hall, door to the outside stair.",
     h4: 'Budget plan', h4t: "10.9 × 7.3 m two-storey box with a loft",
     h5: 'Mid tier plan', h5t: "13.65 × 9.1 m two-storey box with a loft, long side facing the view",
@@ -147,7 +146,6 @@ const TXT = {
     h13: 'Ideal — 75 tsubo', h13t: "“Ideal — compact” enlarged to about 75 tsubo: bigger master bedrooms, closets, bathrooms, dens, living, kitchen, bath and gym", origt13: 'Show “Ideal — 75 tsubo” as first drawn (your edits stay saved)',
     doc13: 'Kutchan house — Ideal — 75 tsubo — 3D',
     geo13: "Ideal — 75 tsubo\n“Ideal — compact” enlarged to about 75 tsubo.\n1F: entrance, ski / gear room, hall, gym 47.8 m², bath 12.4 m² (two showers, two hinoki tubs) with a 3.7 m² sauna, changing + rest room with a lounger, laundry, WC, boiler room under the stairs, den 1 9.7 m² (office with a bunk bed), guest bedroom 12.6 m².\n2F: living 27.2 m² with glass on three sides, dining + kitchen 26.9 m² with an island, master bedrooms 1 and 2 (15.0 m² each), each with a 5.3 m² walk-in closet and a 6.2 m² bathroom, den 2 9.6 m² (office with a bunk bed), WC.",
-    edit: 'Edit plan', editt: 'Move walls, doors, windows and furniture (the 3D follows)',
     srcEdited: 'Edited plan', srcLink: 'Shared plan', origb: 'Show original', origt: 'Show this plan as first drawn (your edits stay saved)', loft: 'Loft',
     jumpt: 'Jump to a room', walk: 'Walk', fly: 'Fly', walkt: 'Walk = stay on the floor. Fly = free movement',
     floors: 'All floors', upto: (f) => 'Up to ' + f, floorst: 'Cut the house away floor by floor', roof: 'Roof', rooft: 'Take the roof off (C)',
@@ -3972,8 +3970,6 @@ function bindUI() {
     b.classList.toggle('on', h === HOUSE);
     b.onclick = () => { if (h !== HOUSE) location.href = b.dataset.href || (location.pathname + '?house=' + h); };
   }
-  const be = $('bEdit');
-  if (be) { be.hidden = !H3; be.onclick = () => { location.href = REF.edit + (location.hash || ''); }; }
   const bp = $('bPlans');                              /* v21: every floor plan on one page */
   if (bp) bp.onclick = () => { location.href = 'plans.html'; };
   const bo = $('bOrig');
@@ -4165,7 +4161,7 @@ function frame(dt) {
 }
 
 /* -------------------------------------------------------------------- init */
-let MODEL_SRC = 'original';     /* houses 4-9: original | edited | link (refplan.js loadModel) */
+let MODEL_SRC = 'original';     /* original | edited (Ichijo houses: the spec panel's saved settings, refplan.js loadModel) */
 const MARKS = window.__marks = {};
 const mark = (k, t0) => { MARKS[k] = Math.round(performance.now() - t0); return performance.now(); };
 const texturesReady = new Promise((res) => { LM.onLoad = res; });
@@ -4178,7 +4174,7 @@ const planReady = MOVED ? new Promise(() => {})   /* index.html is sending this 
     ICH = ij.derive(model, CATALOG, LANG);
     return ij.postPlan(toPlan(ICH.model), ICH);
   })
-  : H3 ? loadModel(REF.url, REF.key).then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
+  : H3 ? loadModel(REF.url, null).then(({ model, from }) => { MODEL_SRC = from; window.__model = model; return toPlan(model); })
   : fetch('plan2.json?v=8').then(r => r.json());
 planReady.then(async (plan) => {
   let t = performance.now();

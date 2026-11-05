@@ -576,43 +576,21 @@ export function itemToProp(it) {
   return p;
 }
 
-/* --------------------------------------------------- share links (#m=...) */
-export async function packModel(m) {
-  const txt = JSON.stringify(m);
-  const bytes = new TextEncoder().encode(txt);
-  const cs = new CompressionStream('deflate-raw');
-  const buf = await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer();
-  let s = '';
-  const b = new Uint8Array(buf);
-  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-export async function unpackModel(s) {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
-  const bin = atob(b64), b = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
-  const ds = new DecompressionStream('deflate-raw');
-  const txt = await new Response(new Blob([b]).stream().pipeThrough(ds)).text();
-  return JSON.parse(txt);
-}
-/* the model to show: a shared link (#m=) wins, then the editor's saved copy
-   (localStorage[storeKey]: one per built-in plan; v23: no default key, plan a's
-   'h3dRefModel' went with it), then the original. A saved
-   copy whose "version" differs from the built-in file's was made from an
-   older drawing of the plan: it is discarded (same version: kept) */
+/* the model to show: the published plan file. v44 (Toby 2026-11-05): the plan editor and its
+   share links (#m=) are gone; only the Ichijo spec panel still keeps its settings in
+   localStorage[storeKey] (pass no key = always the published file). A saved copy whose
+   "version" differs from the file's was made from an older drawing: discarded */
 export async function loadModel(defaultUrl, storeKey) {
-  const hash = location.hash.match(/[#&]m=([^&]+)/);
-  if (hash) { try { return { model: await unpackModel(hash[1]), from: 'link' }; } catch (e) { console.warn('bad #m', e); } }
   let orig = null;
   try { const r = await fetch(defaultUrl); if (r.ok) orig = await r.json(); } catch (e) { console.warn('fetch', defaultUrl, e); }
   const q = new URLSearchParams(location.search);
   if (!q.has('orig') && storeKey) {
     try {
-      const key = storeKey, s = localStorage.getItem(key);
+      const s = localStorage.getItem(storeKey);
       if (s) {
         const m = JSON.parse(s);
         if (m && (!orig || m.version === orig.version)) return { model: m, from: 'edited' };
-        localStorage.removeItem(key);
+        localStorage.removeItem(storeKey);
       }
     } catch (e) { /* private mode */ }
   }
