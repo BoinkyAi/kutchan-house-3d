@@ -39,8 +39,8 @@
        "sill": 1.3,
        "head": 2.27,
        "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 マド 16509",
+       "panes": 2,
+       "product": "LIXIL TW 縦すべり出し窓 TF (片開き+FIX) 16509",
        "size": "1690 x 970",
        "frosted": true
       },
@@ -134,14 +134,14 @@
       {
        "id": "w116",
        "type": "window",
-       "at": 1.43,
-       "w": 1.69,
+       "at": 0.52,
+       "w": 0.78,
        "sill": 1.2,
        "head": 2.17,
        "style": "fix",
        "panes": 1,
-       "product": "LIXIL TW FIX窓 マド 16509",
-       "size": "1690 x 970"
+       "product": "LIXIL TW FIX窓 マド 07409",
+       "size": "780 x 970"
       }
      ]
     },
@@ -289,8 +289,8 @@
        "type": "window",
        "at": 7.8,
        "w": 1.69,
-       "sill": 1.3,
-       "head": 2.27,
+       "sill": 1.5,
+       "head": 2.47,
        "style": "fix",
        "panes": 1,
        "product": "LIXIL TW FIX窓 マド 16509",
@@ -903,7 +903,7 @@
      "id": "f6",
      "kind": "saunaHeater",
      "x": -2.8708,
-     "y": -3.9516,
+     "y": -3.73,
      "w": 0.6,
      "d": 0.6,
      "a": 0.0
@@ -931,9 +931,9 @@
     {
      "id": "f9",
      "kind": "vanity",
-     "x": -1.3458,
+     "x": -1.365,
      "y": -5.5737,
-     "w": 1.996,
+     "w": 1.69,
      "d": 0.6,
      "a": 0.0
     },
@@ -979,7 +979,7 @@
      "id": "f14",
      "kind": "shelves",
      "x": 0.1705,
-     "y": -4.095,
+     "y": -3.855,
      "w": 1.122,
      "d": 0.35,
      "a": 0.0,
@@ -1161,7 +1161,7 @@
      "id": "f33",
      "kind": "wardrobe",
      "x": 6.2774,
-     "y": 1.365,
+     "y": 1.66,
      "w": 1.3,
      "d": 0.6,
      "a": -1.570796
@@ -1169,20 +1169,20 @@
     {
      "id": "f34",
      "kind": "desk",
-     "x": 5.228,
-     "y": 5.5786,
-     "w": 1.2,
+     "x": 6.91,
+     "y": 5.33,
+     "w": 1.0,
      "d": 0.55,
-     "a": 0.0
+     "a": 1.5708
     },
     {
      "id": "f35",
      "kind": "chair",
-     "x": 5.228,
-     "y": 5.0201,
+     "x": 6.44,
+     "y": 5.33,
      "w": 0.44,
      "d": 0.4,
-     "a": 3.141593
+     "a": -1.5708
     },
     {
      "id": "f36",
@@ -1294,11 +1294,11 @@
        "type": "window",
        "at": 4.615,
        "w": 1.235,
-       "sill": 1.2,
-       "head": 2.17,
+       "sill": 1.3,
+       "head": 2.27,
        "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 マド 11909",
+       "panes": 2,
+       "product": "LIXIL TW 縦すべり出し窓 TF (片開き+FIX) 11909",
        "size": "1235 x 970",
        "frosted": true
       }
@@ -1344,11 +1344,11 @@
        "rail": 1.1,
        "stack": [
         {
-         "h": 1.57,
+         "h": 1.17,
          "band": 0.4,
          "style": "fix",
          "panes": 1,
-         "product": "LIXIL TW FIX窓 マド 16515"
+         "product": "LIXIL TW FIX窓 マド 16511"
         }
        ]
       },
@@ -1366,11 +1366,11 @@
        "rail": 1.1,
        "stack": [
         {
-         "h": 1.57,
+         "h": 1.17,
          "band": 0.4,
          "style": "fix",
          "panes": 1,
-         "product": "LIXIL TW FIX窓 マド 16515"
+         "product": "LIXIL TW FIX窓 マド 16511"
         }
        ]
       }
@@ -1529,8 +1529,8 @@
        "sill": 1.3,
        "head": 2.27,
        "style": "fix",
-       "panes": 1,
-       "product": "LIXIL TW FIX窓 マド 16509",
+       "panes": 2,
+       "product": "LIXIL TW 縦すべり出し窓 TF (片開き+FIX) 16509",
        "size": "1690 x 970",
        "frosted": true
       },
@@ -2032,7 +2032,7 @@
      "id": "f47",
      "kind": "shower",
      "x": -6.6289,
-     "y": 2.3917,
+     "y": 2.215,
      "w": 1.2,
      "d": 0.9,
      "a": 3.141593
@@ -2282,11 +2282,11 @@
     {
      "id": "f73",
      "kind": "tv",
-     "x": 6.8673,
-     "y": 3.6231,
-     "w": 1.0,
+     "x": 6.55,
+     "y": 1.22,
+     "w": 0.9,
      "d": 0.25,
-     "a": 1.570796
+     "a": 0.0
     },
     {
      "id": "f74",
@@ -2313,8 +2313,8 @@
      "id": "f76",
      "kind": "railing",
      "x": 2.275,
-     "y": 1.365,
-     "w": 1.461,
+     "y": 1.6255,
+     "w": 1.299,
      "d": 0.05,
      "a": 1.570796,
      "h": 1.1
@@ -3292,7 +3292,7 @@
     0.9974
    ],
    "z": 2.67,
-   "w": 0.12,
+   "w": 0.15,
    "h": 0.3
   },
   {
@@ -3412,10 +3412,26 @@
     5.774
    ],
    "z": 0.0,
-   "z1": 4.5599,
+   "z1": 2.52,
    "w": 0.15,
    "h": 0.15,
    "mat": "steel"
+  },
+  {
+   "kind": "strut",
+   "level": 1,
+   "a": [
+    7.139,
+    5.774
+   ],
+   "b": [
+    7.139,
+    5.774
+   ],
+   "z": 2.82,
+   "z1": 4.5599,
+   "w": 0.12,
+   "h": 0.12
   },
   {
    "kind": "knee",
@@ -3425,10 +3441,10 @@
     5.7907
    ],
    "b": [
-    6.2786,
+    5.9286,
     5.7907
    ],
-   "z": 1.7346,
+   "z": 1.3846,
    "z1": 2.5554,
    "w": 0.12,
    "h": 0.12
@@ -3441,10 +3457,10 @@
     5.7907
    ],
    "b": [
-    2.2029,
+    2.5529,
     5.7907
    ],
-   "z": 1.7346,
+   "z": 1.3846,
    "z1": 2.5554,
    "w": 0.12,
    "h": 0.12
@@ -3457,10 +3473,10 @@
     5.7907
    ],
    "b": [
-    2.5071,
+    2.1571,
     5.7907
    ],
-   "z": 1.7346,
+   "z": 1.3846,
    "z1": 2.5554,
    "w": 0.12,
    "h": 0.12
@@ -3473,10 +3489,10 @@
     5.7907
    ],
    "b": [
-    4.3179,
+    4.6679,
     5.7907
    ],
-   "z": 1.7346,
+   "z": 1.3846,
    "z1": 2.5554,
    "w": 0.12,
    "h": 0.12
@@ -3490,9 +3506,9 @@
    ],
    "b": [
     7.1532,
-    4.9136
+    4.5636
    ],
-   "z": 1.7346,
+   "z": 1.3846,
    "z1": 2.5554,
    "w": 0.12,
    "h": 0.12
@@ -3548,7 +3564,7 @@
    "kind": "eave",
    "level": 1,
    "a": [
-    -3.58,
+    -4.55,
     -5.7907
    ],
    "b": [
@@ -3605,78 +3621,84 @@
    ],
    "z": 2.05,
    "en": "Knee-braced corner frame: steel post 150×150×9 + glulam knee braces 120×120 (sized; engineer confirms for the permit)",
-   "ja": "方杖付き門型フレーム：鋼管柱 150×150×9＋集成材の方杖 120×120（概略検討済み、確認申請は構造設計者が確認）"
+   "ja": "方杖付き門型フレーム：角形鋼管柱 □150×150×9＋集成材の方杖 120×120（概略検討済み、確認申請は構造設計者が確認）"
   }
  ],
  "structure": {
   "snow_kN_m2": 6.9,
   "wind_q_kN_m2": 0.99,
-  "W_top_kN": 156.4,
-  "Ai": 1.136,
-  "Q2_seismic_kN": 32.0,
+  "W_top_kN": 160.4,
+  "Ai": 1.157,
+  "Q2_seismic_kN": 33.4,
   "Q2_wind_kN": 18.2,
-  "Q_line_kN": 16.0,
-  "V_post_kN": 9.1,
-  "M_post_kNm": 16.1,
-  "F_kneebrace_kN": 43.3,
+  "Q_line_kN": 16.7,
+  "Q_E_kN": 18.7,
+  "share_E": 0.56,
+  "F_kneebrace_kN": 33.4,
   "lines": {
-   "S": 0.39,
-   "E": 0.52,
-   "N": 0.45
+   "S": 0.45,
+   "E": 0.46,
+   "E_stiff_wall": 0.6,
+   "N": 0.47
   },
   "corner_post": {
    "size": "steel square tube 150x150x9 (STKR400)",
-   "ratio": 0.42,
-   "drift": "1/518"
+   "ratio": 0.39,
+   "drift": "1/244"
   },
   "pier_post": {
    "size": "glulam 120x240 (E95-F270)",
-   "ratio": 0.39,
-   "drift": "1/393"
+   "ratio": 0.41,
+   "drift": "1/338"
   },
   "knee_brace": {
-   "size": "glulam 120x120, 45 deg, 0.75 m legs",
-   "ratio": 0.21,
-   "joint": "steel plates + 8 drift pins dia 12 each end",
-   "joint_ratio": 0.52
+   "size": "glulam 120x120, 45 deg, 1.1 m legs",
+   "ratio": 0.19,
+   "joint": "steel plates + 10 drift pins dia 12 each end",
+   "joint_ratio": 0.42
   },
   "head_beam": {
-   "size": "glulam 150x300 (the girt, 2.52-2.82 m)",
-   "ratio": 0.45
+   "size": "glulam 150x300 (2.52-2.82 m)",
+   "ratio": 0.21,
+   "deflection": "1/5406"
   },
   "braced_wall": {
-   "size": "45x90 braces both ways + structural plywood (multiplier 5.0), 1.37 m",
-   "capacity_kN": 13.4,
-   "ratio": 0.52,
-   "uplift_kN": 14.1
+   "size": "structural plywood outside + 45x90 braces both ways (multiplier 6.5), 1.37 m",
+   "capacity_kN": 17.4,
+   "ratio": 0.46,
+   "ratio_stiff": 0.6,
+   "uplift_kN": 16.5
   },
   "north_wall": {
    "capacity_kN": 35.7,
-   "ratio": 0.45
+   "ratio": 0.47
   },
   "eave": {
    "beam_top_over_2F": 2.82,
    "above_ground": 6.805
   },
   "first_floor": {
-   "demand_kN": 22.0,
-   "east_capacity_kN": 71.3,
-   "south_capacity_kN": 49.0,
-   "east_ratio": 0.31,
-   "south_ratio": 0.45
+   "demand_kN": 45.5,
+   "east_capacity_kN": 118.8,
+   "south_capacity_kN": 92.5,
+   "east_ratio": 0.38,
+   "south_ratio": 0.49
   },
   "holddowns": {
-   "size": "30 kN hold-downs at the frame posts and the braced wall ends",
-   "ratio": 0.47
+   "size": "40 kN at the east braced wall ends, 30 kN at the frame posts and the north wall",
+   "ratio": 0.43,
+   "ratio_stiff": 0.53
   },
   "window_posts": {
    "size": "glulam 120x180 (120 along the wall, 180 into it)",
-   "ratio_2F": 0.32,
-   "ratio_1F": 0.45
+   "ratio_2F": 0.29,
+   "ratio_1F": 0.39
   },
   "header_1F": {
    "size": "glulam 150x360",
-   "ratio": 0.53
-  }
+   "ratio": 0.42
+  },
+  "max_ratio": 0.6,
+  "max_ratio_std": 0.49
  }
 }

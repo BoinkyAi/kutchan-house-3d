@@ -77,7 +77,7 @@ const REFS = {
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
   13: { url: '../ref-model-k.json?v=12', key: 'h3dRefModelK' },
   /* STAGING house 17 = Ideal — 75 tsubo on the 910 grid with LIXIL / YKK AP windows (2026-11-05, plan o) */
-  17: { url: 'ref-model-o.json?v=e6143a8c', key: 'h3dRefModelO' },
+  17: { url: 'ref-model-o.json?v=2c07724b', key: 'h3dRefModelO' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', ichijo: true },
 };
@@ -3673,8 +3673,8 @@ const VIEWS17 = [
   ['1F — Entrance (genkan)', 0.777, -1.365, 2.4, -0.06, 0],
   ['1F — Gym', -0.918, 5.357, 0.8, -0.02, 0],
   ['1F — Bath (hinoki tubs)', -5.611, -4.883, 3.142, -0.2, 0],
-  ['1F — Guest bedroom', 4.218, 2.633, -2.05, -0.06, 0],
-  ['2F — Living (glass corner)', 1.194, 5.357, -0.97, 0.06, 1],
+  ['1F — Guest bedroom', 5.3, 2.6, -2.4, -0.06, 0],              /* v8: inside the guest room (its wall moved to x 4.55) */
+  ['2F — Living (glass corner)', 1.7, 1.8, -2.2, 0.06, 1],       /* v8: from the north-west, looking at the glass corner */
   ['2F — Dining + kitchen', 0.910, 5.357, 0.49, 0.0, 1],
   ['2F — Master bedroom 1', -4.280, -2.009, 0.71, 0.0, 1],
   ['2F — Master bedroom 2', 0.347, -1.850, 0.67, 0.0, 1],

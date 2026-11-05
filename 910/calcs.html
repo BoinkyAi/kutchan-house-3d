@@ -48,7 +48,7 @@
   table.win{border-collapse:collapse;font-size:13px;min-width:760px}
   table.win th,table.win td{border-bottom:1px solid var(--bd);padding:5px 9px;text-align:left;vertical-align:top}
   table.win th{color:var(--mut);font-weight:600;white-space:nowrap}
-  table.win td:nth-child(4),table.win td:nth-child(5){white-space:nowrap}
+  table.win td:nth-child(5),table.win td:nth-child(6),table.win td:nth-child(7){white-space:nowrap}
   .note{color:var(--mut);font-size:13px;margin:10px 0 0}
   pre.calc{background:#f4f2ee;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-x:auto}
   ol.calc,ul.calc{margin:6px 0 10px 18px;padding:0;font-size:14px;line-height:1.6}
@@ -67,79 +67,122 @@
   <h3><span class="en">1. How we approached it</span><span class="ja" lang="ja">1. 考え方</span></h3>
   <ol class="calc">
     <li><span class="en">A Japanese timber house resists earthquakes and wind with braced walls. The south-east corner of the living room is glass on both faces, so there is no braced wall there. We use frames instead: a post and the beam over the glass, made stiff at the corner with knee braces (short diagonal struts), and we brace the walls that are solid.</span><span class="ja" lang="ja">日本の木造住宅は耐力壁で地震や風に抵抗します。リビングの南東の角は両面ともガラスで耐力壁がないため、柱と窓上の梁を方杖（短い斜材）で固めた門型フレームとし、壁のある部分には筋交いを入れています。</span></li>
-    <li><span class="en">Kutchan has heavy snow (design depth 230 cm). In heavy-snow areas 35% of the snow counts in the earthquake weight, so the earthquake load (32.0 kN on the living wing's upper floor) is bigger than the wind load (18.2 kN): the earthquake governs.</span><span class="ja" lang="ja">倶知安町は多雪区域（垂直積雪量230 cm）です。多雪区域では地震時の重量に積雪の35%を加えるため、リビング棟2階の地震力（32.0 kN）が風荷重（18.2 kN）を上回り、地震で決まります。</span></li>
-    <li><span class="en">Each wall line of the wing (south, east, north) takes half of that load: 16.0 kN. On a line, the frames and braced walls share it in proportion to their strength (they reach their limits together; Japanese wall quantities are added up the same way).</span><span class="ja" lang="ja">リビング棟の各通り（南・東・北）がその半分 16.0 kN を負担します。同じ通りの門型フレームと耐力壁は耐力の比で分担します（壁量計算と同じく耐力を足し合わせる考え方）。</span></li>
-    <li><span class="en">Target: every member at most 60% of its allowed strength (the allowed strengths already include the code's safety margins). Result: at most 53%.</span><span class="ja" lang="ja">目標：すべての部材で許容耐力の60%以下（許容耐力には安全率が含まれています）。結果：最大53%。</span></li>
+    <li><span class="en">Kutchan has heavy snow (design depth 230 cm). In heavy-snow areas 35% of the snow counts in the earthquake weight, so the earthquake load (33.4 kN on the living wing's upper floor) is bigger than the wind load (18.2 kN): the earthquake governs.</span><span class="ja" lang="ja">倶知安町は多雪区域（垂直積雪量230 cm）です。多雪区域では地震時の重量に積雪の35%を加えるため、リビング棟2階の地震力（33.4 kN）が風荷重（18.2 kN）を上回り、地震で決まります。</span></li>
+    <li><span class="en">The wing's load goes to its wall lines: east–west half to the south line and half to the north line (16.7 kN each); north–south 56% to the east line (18.7 kN, from where the weight sits; the dining side has no 2F wall). On a line, the frames and the braced walls move together, so each takes load in proportion to its stiffness: a small frame model gives the frames' stiffness, and a braced wall reaches its allowed load at a sway of 1/120 (the Japanese wall-multiplier rule). Because a stiffer wall would take more, the east wall is also checked at 1/200.</span><span class="ja" lang="ja">リビング棟の水平力は各通りが負担します。東西方向は南通りと北通りが半分ずつ（各 16.7 kN）、南北方向は東通りが56%（18.7 kN、重量の位置から。ダイニング側は2階に壁なし）。同じ通りの門型フレームと耐力壁は一緒に変形するため、剛性の比で分担します。フレームの剛性は簡単なフレームモデルで求め、耐力壁は層間変形角1/120で許容耐力に達するもの（壁倍率の考え方）としています。壁が硬いほど負担が増えるため、東面の耐力壁は1/200でも確認しています。</span></li>
+    <li><span class="en">Target: every member at most 60% of its allowed strength (the allowed strengths already include the code's safety margins). Result: at most 60% (the east braced wall in the stiffer case; 49% by the standard rule).</span><span class="ja" lang="ja">目標：すべての部材で許容耐力の60%以下（許容耐力には安全率が含まれています）。結果：最大60%（東面の耐力壁を硬めに見た場合。標準の考え方では49%）。</span></li>
     <li><span class="en">Windows: the wind pressure on the glass needs grade S-3. By LIXIL's own size tables the widest window that reaches S-3 at full height is the 1,690-wide 2-panel sliding window (with 4 mm triple glass), and joining two windows is not rated that wide, so the big glass is single 1,690 sliding windows with a post between them; the posts are checked for snow, floor and wind.</span><span class="ja" lang="ja">窓：ガラスにかかる風圧から耐風圧S-3が必要です。LIXILのサイズ別性能表では、全高でS-3を満たす最も幅の広い窓は幅1,690の2枚建引違い窓（ガラス 4-A-1.3-A-4）で、連窓もその幅ではS-3を満たさないため、幅1,690の引違い窓を柱で区切って並べ、その柱を雪・床・風で検討しています。</span></li>
   </ol>
   <h3><span class="en">2. Loads</span><span class="ja" lang="ja">2. 荷重</span></h3>
-  <div class="tw"><table class="win"><thead><tr><th><span class="en">Item</span><span class="ja" lang="ja">項目</span></th><th><span class="en">Value</span><span class="ja" lang="ja">数値</span></th><th><span class="en">Source / formula</span><span class="ja" lang="ja">根拠・式</span></th></tr></thead><tbody><tr><td><span class="en">Design snow</span><span class="ja" lang="ja">積雪荷重</span></td><td>230 cm × 30 N/m²/cm = <b>6.90 kN/m²</b></td><td><span class="en">Kutchan 230 cm (Hokkaido government list); heavy-snow area 30 N/m² per cm; roof under 30° → shape factor 1.0</span><span class="ja" lang="ja">倶知安町 垂直積雪量230 cm（北海道）、多雪区域 30 N/m²/cm、勾配30°以下 → 屋根形状係数1.0</span></td></tr>
+  <div class="tw"><table class="win"><thead><tr><th><span class="en">Item</span><span class="ja" lang="ja">項目</span></th><th><span class="en">Value</span><span class="ja" lang="ja">数値</span></th><th><span class="en">Source / formula</span><span class="ja" lang="ja">根拠・式</span></th></tr></thead><tbody><tr><td><span class="en">Design snow</span><span class="ja" lang="ja">積雪荷重</span></td><td>230 cm × 30 N/m²/cm = <b>6.90 kN/m²</b></td><td><span class="en">Kutchan 230 cm (Hokkaido government list); heavy-snow area 30 N/m² per cm; roof shape factor √cos(1.5β) = 0.99 at 1.4/10, 1.0 used</span><span class="ja" lang="ja">倶知安町 垂直積雪量230 cm（北海道）、多雪区域 30 N/m²/cm、屋根形状係数 √cos(1.5β) = 0.99（1.4寸）→ 1.0を採用</span></td></tr>
 <tr><td><span class="en">Roof dead load</span><span class="ja" lang="ja">屋根の固定荷重</span></td><td>1.0 kN/m²</td><td><span class="en">metal roof, insulation, rafters, ceiling</span><span class="ja" lang="ja">金属屋根・断熱材・垂木・天井</span></td></tr>
+<tr><td><span class="en">Walls</span><span class="ja" lang="ja">壁</span></td><td>0.45 / 0.75 kN/m²</td><td><span class="en">glazed / solid (the windowless north wall)</span><span class="ja" lang="ja">ガラス面／壁（窓のない北面）</span></td></tr>
 <tr><td><span class="en">Seismic</span><span class="ja" lang="ja">地震</span></td><td>Z 0.9, C0 0.2, Rt 1.0</td><td><span class="en">Kutchan zone factor 0.9; wood house T = 0.03 h</span><span class="ja" lang="ja">倶知安町 地震地域係数0.9、木造 T = 0.03h</span></td></tr>
 <tr><td><span class="en">Wind</span><span class="ja" lang="ja">風</span></td><td>V0 34 m/s, <span class="en">terrain III</span><span class="ja" lang="ja">地表面粗度区分III</span></td><td><span class="en">Kutchan basic wind speed 34 m/s</span><span class="ja" lang="ja">倶知安町 基準風速34 m/s</span></td></tr>
-<tr><td><span class="en">Glulam</span><span class="ja" lang="ja">集成材</span></td><td>E95-F270: Fb 27.0, Fc 21.6, E 9,500 N/mm²</td><td><span class="en">short-term allowable = 2/3 F, long-term = 1.1/3 F</span><span class="ja" lang="ja">短期許容 = 2/3 F、長期 = 1.1/3 F</span></td></tr>
-<tr><td><span class="en">Steel</span><span class="ja" lang="ja">鋼材</span></td><td>STKR400: F 235 N/mm²</td><td><span class="en">short-term allowable = F</span><span class="ja" lang="ja">短期許容 = F</span></td></tr>
-<tr><td><span class="en">Braced walls</span><span class="ja" lang="ja">耐力壁</span></td><td>1.96 kN/m × <span class="en">wall multiplier</span><span class="ja" lang="ja">壁倍率</span></td><td><span class="en">45×90 braces both ways 4.0 + plywood → 5.0 (the code's cap)</span><span class="ja" lang="ja">筋交い45×90たすき掛け4.0＋構造用合板 → 5.0（上限）</span></td></tr></tbody></table></div>
+<tr><td><span class="en">Glulam</span><span class="ja" lang="ja">集成材</span></td><td>E95-F270: Fb 27.0, Fc 21.6, E 9,500 N/mm²</td><td><span class="en">short term 2/3 F, long term 1.1/3 F; heavy-snow area: long term with 0.7 S × 1.3, short term with full snow × 0.8</span><span class="ja" lang="ja">短期 2/3 F、長期 1.1/3 F。多雪区域：積雪時の長期（0.7S）×1.3、積雪時の短期（S）×0.8</span></td></tr>
+<tr><td><span class="en">Steel</span><span class="ja" lang="ja">鋼材</span></td><td>STKR400: F 235 N/mm², E 205,000</td><td><span class="en">short-term allowable = F; □150×150×9: A 48.67 cm², I 1,580 cm⁴, Z 210 cm³, i 5.70 cm (JIS)</span><span class="ja" lang="ja">短期許容 = F。□150×150×9：A 48.67 cm²、I 1,580 cm⁴、Z 210 cm³、i 5.70 cm（JIS）</span></td></tr>
+<tr><td><span class="en">Braced walls</span><span class="ja" lang="ja">耐力壁</span></td><td>1.96 kN/m × <span class="en">wall multiplier</span><span class="ja" lang="ja">壁倍率</span></td><td><span class="en">braces both ways 4.0 + plywood (2.5) → 6.5 on the east wall; 5.0 elsewhere (the cap is 7.0 since April 2025)</span><span class="ja" lang="ja">筋かいたすき掛け4.0＋構造用合板2.5 → 東面6.5、その他5.0（2025年4月以降の上限は7.0）</span></td></tr>
+<tr><td><span class="en">Drift pins</span><span class="ja" lang="ja">ドリフトピン</span></td><td>Ø12: 10.5 kN, 14.2 kN/mm</td><td><span class="en">per pin, short term, through a slotted-in steel plate (conservative; yield theory gives about 14–17 kN); slip stiffness from EN 1995 K_ser × 2/3</span><span class="ja" lang="ja">1本あたり短期、鋼板挿入（安全側。降伏理論では約14〜17 kN）。すべり剛性はEN 1995のK_ser×2/3</span></td></tr></tbody></table></div>
   <h3><span class="en">3. Sideways load on the living wing's upper floor</span><span class="ja" lang="ja">3. リビング棟2階の水平力</span></h3>
-  <pre class="calc">roof area incl. eaves      A = 40.84 m²
-weight at the roof         W = A × (DL + 0.35 S) + upper half of the walls
-                             = 40.84 × (1.0 + 0.35 × 6.90) + 16.9 = 156.4 kN
-Ai (upper floor)           Ai = 1 + (1/√α − α)·2T/(1+3T),  α = 0.682, T = 0.21 s  →  Ai = 1.136
-shear coefficient          C = Z·Rt·Ai·C0 = 0.9 × 1.0 × 1.136 × 0.2 = 0.2045
-earthquake                 Q = C × W = 32.0 kN      (wind: 18.2 kN → the earthquake governs)
-per wall line (½)          Q_line = 16.0 kN</pre>
-  <h3><span class="en">4. The wall lines (each element's capacity, then the share)</span><span class="ja" lang="ja">4. 各通りの耐力と負担</span></h3>
-  <pre class="calc">knee brace geometry        post height to the beam H = 2.52 m, brace legs d = 0.75 m (45°), post below the brace L1 = H − d = 1.77 m
-brace force per kN of post shear   KB = H / (d·cos45°) = 4.75
-one brace joint            8 drift pins Ø12 × 10.5 kN = 84.0 kN  →  post shear 84.0 / 4.75 = 17.68 kN
+  <pre class="calc"><span class="en">roof area incl. eaves      A = 40.84 m²
+weight at the roof         W = A × (DL + 0.35 S) + upper half of the walls (south, east glazed; north solid)
+                             = 40.84 × (1.0 + 0.35 × 6.90) + 20.9 = 160.4 kN
+Ai (upper floor)           Ai = 1 + (1/√α − α)·2T/(1+3T),  α = 0.682 (weight above the 2F / the whole house), T = 0.03 × 8.966 = 0.269 s  →  Ai = 1.157
+shear coefficient          C = Z·Rt·Ai·C0 = 0.9 × 1.0 × 1.157 × 0.2 = 0.2083
+earthquake                 Q = C × W = <b>33.4 kN</b>      (wind: 18.2 kN → the earthquake governs)
+east–west                  south line ½, north line ½ = 16.7 kN each
+north–south                east line 0.559 (the weight's centre between x 0.91 and 7.28) × Q = 18.7 kN; the rest goes to the main block</span><span class="ja" lang="ja">屋根面積（軒の出を含む）   A = 40.84 m²
+屋根位置の重量             W = A × (DL + 0.35 S) ＋ 2階壁の上半分（南・東はガラス、北は壁）
+                             = 40.84 × (1.0 + 0.35 × 6.90) + 20.9 = 160.4 kN
+Ai（2階）                  Ai = 1 + (1/√α − α)·2T/(1+3T)、α = 0.682（2階以上の重量／建物全体）、T = 0.03 × 8.966 = 0.269 s → Ai = 1.157
+層せん断力係数             C = Z·Rt·Ai·C0 = 0.9 × 1.0 × 1.157 × 0.2 = 0.2083
+地震力                     Q = C × W = <b>33.4 kN</b>      （風圧力 18.2 kN → 地震で決定）
+東西方向                   南通り½、北通り½ = 各 16.7 kN
+南北方向                   東通り 0.559（x 0.91〜7.28 の間の重量の重心位置から）× Q = 18.7 kN、残りは主棟が負担</span></pre>
+  <h3><span class="en">4. The wall lines: shared by stiffness</span><span class="ja" lang="ja">4. 各通りの負担（剛性比）</span></h3>
+  <pre class="calc"><span class="en">frame model (frame2d.py)   posts pinned at the 2F floor; the head beam glulam 150×300 continuous over the posts; knee braces glulam 120×120,
+                           legs d = 1.10 m at 45°, steel plates + 10 drift pins Ø12 at each end (joint slip 10 × 14.2 kN/mm per pin group)
+braced wall stiffness      allowed load at 1/120 rad (the wall-multiplier rule): K = Pa / (2.67 m / 120); also checked at 1/200
 
-corner post  steel □150×150×9   Z = 225.2 cm³, I = 1,688.8 cm⁴, A = 50.76 cm²
-             bending (both ways, ×1.3): V = 235 × Z / 1.3 / L1 = 23.00 kN;  joint 17.68 kN  →  17.68 kN
-pier posts   glulam 120×240     Z = 1,152.0 cm³: V = 18.0 × Z / L1 = 11.72 kN
-             fin pier (1 brace): min(11.72, 17.68) = 11.72 kN;  mid pier (2 braces): min(11.72, 35.36) = 11.72 kN
-braced wall, east (1.365 m)     1.365 × 5.0 × 1.96 = 13.4 kN
-braced walls, north (2 × 1.82 m)  3.64 × 5.0 × 1.96 = 35.7 kN
+EAST line  (18.7 kN)    braced wall 1.365 m × 6.5 × 1.96 = 17.4 kN (plywood outside 2.5 + braces both ways 4.0) + the corner frame
+                           wall 8.0 kN → <b>46%</b>   (stiffer wall, 1/200: 10.4 kN → <b>60%</b>);  corner frame 10.6 kN;  sway 1/244
+SOUTH line (16.7 kN)    frames only: fin pier post 4.3 kN, mid pier post 4.9 kN, corner post 7.6 kN;  sway 1/338
+NORTH line (16.7 kN)    braced walls 2 × 1.82 m × 5.0 × 1.96 = 35.7 kN → <b>47%</b></span><span class="ja" lang="ja">フレームモデル（frame2d.py）  柱脚ピン（2階床）、窓上の梁 集成材150×300（柱の上で連続）、方杖 集成材120×120、
+                           脚長 d = 1.10 m・45°、両端 鋼板＋ドリフトピンØ12×10本（すべり剛性 10 × 14.2 kN/mm／1群）
+耐力壁の剛性               層間変形角1/120で許容耐力（壁倍率の考え方）：K = Pa ／（2.67 m／120）。1/200でも確認
 
-SOUTH line   16.0 / (11.72 + 11.72 + 17.68) = <b>39%</b>
-EAST line    16.0 / (13.4 + 17.68) = <b>52%</b>
-NORTH line   16.0 / 35.7 = <b>45%</b></pre>
-  <h3><span class="en">5. Members at their share</span><span class="ja" lang="ja">5. 各部材の検定</span></h3>
-  <pre class="calc">corner post   V = 52% × 17.68 = 9.11 kN, M = V × L1 = 16.12 kNm
-              bending 1.3 × M / Z / 235 + axial N/A/fc (N = 6 m² × (DL + 0.35 S) = 20.5 kN, fc = 162.8 N/mm²) = <b>42%</b>
-              sway δ = V·L1³/(3EI) → 1/518
-pier posts    V = 4.56 kN, M / Z / 18.0 = <b>39%</b>, sway 1/393
-knee brace    F = 43.3 kN (the largest), glulam 120×120, length 1,061 mm, λ = 30.6, η = 0.994
-              F / (η × 14.4 × 120 × 120) = <b>21%</b>;  joint F / (8 × 10.5) = <b>52%</b>
-head beam     glulam 150×300, span 3.53 m, brace push 30.6 kN at 0.75 m:
-              M = 18.1 kNm → M / Z / 18.0 = <b>45%</b>
-hold-downs    uplift at the braced wall ends T = 14.1 kN / 30 kN = <b>47%</b></pre>
+東通り（18.7 kN）     耐力壁 1.365 m × 6.5 × 1.96 = 17.4 kN（外部 構造用合板2.5＋筋かいたすき掛け4.0）＋隅の門型フレーム
+                           耐力壁 8.0 kN → <b>46%</b>（壁を硬めに見た場合 1/200：10.4 kN → <b>60%</b>）、門型フレーム 10.6 kN、層間変形角 1/244
+南通り（16.7 kN）     フレームのみ：ダイニング側の壁柱 4.3 kN、中間の壁柱 4.9 kN、隅柱 7.6 kN、層間変形角 1/338
+北通り（16.7 kN）     耐力壁 2 × 1.82 m × 5.0 × 1.96 = 35.7 kN → <b>47%</b></span></pre>
+  <h3><span class="en">5. Members</span><span class="ja" lang="ja">5. 各部材の検定</span></h3>
+  <pre class="calc"><span class="en">corner post   steel □150×150×9, from the floor to the underside of the head beam (2.52 m); above the beam a timber roof strut 120×120
+              (roof framing, so the eave stays the beam: the 7 m rule)
+              M = 15.11 kNm (east frame), 10.77 kNm (south frame): 100 % + 30 % → 18.34 kNm
+              M / Z / 235 + N / (A·fc)   (N = 6 m² × (DL + 0.35 S) = 20.5 kN, λ = 44.2, fc = 209.6 N/mm²) = <b>39%</b>
+pier posts    glulam 120×240: M = 6.89 kNm → M / Z / 18.0 + N / (A·η·14.4)  (N = 19.0 kN, η = 0.573) = <b>41%</b>
+knee brace    F = 33.4 kN (the largest), length 1,556 mm, λ = 44.9, η = 0.851:  F / (η × 14.4 × 120 × 120) = <b>19%</b>
+joints        F / (10 pins × 10.5 kN × 0.75 at 45° to the grain in the beam / timber post) = <b>42%</b>
+head beam     glulam 150×300 over the posts (spans ≤ 1.82 m); roof 1.82 m wide on the east beam, 1.0 m on the south, + the upper glass
+              long term G + 0.7 S: 3.63 kNm;  snow G + S: 4.84 kNm;  earthquake G + 0.35 S + the frames: 8.45 kNm  → <b>21%</b>
+              deflection, long term × 2 (creep): 1/5401
+hold-downs    east braced wall ends: T = V × 2.8 / 1.365 = 16.5 kN / 40 kN = <b>41%</b>  (stiffer wall 21.3 kN = 53%);
+              north walls 12.8 kN / 30 kN = 43%</span><span class="ja" lang="ja">隅柱          角形鋼管 □150×150×9、2階床から窓上の梁の下端まで（2.52 m）。梁の上は木製の束 120×120
+              （小屋組。軒高は梁の天端：軒高7 m以下）
+              M = 15.11 kNm（東面フレーム）、10.77 kNm（南面フレーム）：100%＋30% → 18.34 kNm
+              M / Z / 235 ＋ N / (A·fc)（N = 6 m² × (DL + 0.35 S) = 20.5 kN、λ = 44.2、fc = 209.6 N/mm²）= <b>39%</b>
+壁柱          集成材 120×240：M = 6.89 kNm → M / Z / 18.0 ＋ N / (A·η·14.4)（N = 19.0 kN、η = 0.573）= <b>41%</b>
+方杖          F = 33.4 kN（最大）、長さ 1,556 mm、λ = 44.9、η = 0.851：F / (η × 14.4 × 120 × 120) = <b>19%</b>
+接合部        F /（10本 × 10.5 kN × 0.75：梁・木の柱側は繊維に45°）= <b>42%</b>
+窓上の梁      集成材 150×300、柱の上で連続（スパン最大 1.82 m）。屋根の負担幅 東 1.82 m、南 1.0 m ＋ 上段のガラス
+              長期 G + 0.7S：3.63 kNm、積雪 G + S：4.84 kNm、地震 G + 0.35S ＋ フレーム：8.45 kNm → <b>21%</b>
+              たわみ（長期×変形増大係数2）：1/5401
+ホールダウン  東面の耐力壁の両端：T = V × 2.8 / 1.365 = 16.5 kN / 40 kN = <b>41%</b>（壁を硬めに見た場合 21.3 kN = 53%）、
+              北面の耐力壁 12.8 kN / 30 kN = 43%</span></pre>
   <h3><span class="en">6. Posts between the big windows, beams over the 1F glass</span><span class="ja" lang="ja">6. 大開口の間の柱、1階の窓上の梁</span></h3>
-  <pre class="calc">post glulam 120×180 (120 along the wall: 1,820 − 120 = 1,700 clear for the 1,690 window; 180 into the wall), braced at the window head
+  <pre class="calc"><span class="en">post glulam 120×180 (120 along the wall: 1,820 − 120 = 1,700 clear for the 1,690 window; 180 into the wall), braced at the window head
 loads per post   roof 5.28 m² (half the wing + eave, 1.82 wide); 1F posts also the 2F floor 4.55 m² and the 2F glass wall
-2F post          long term N = 31.8 kN, snow N = 42.7 kN, wind on 1.82 m of glass (1,411 Pa, 2.52 m) → <b>32%</b>
-1F post          N + floor 11.4 + wall 2.3 kN, wind 1,227 Pa over 3.0 m → <b>45%</b>
+2F post          long term N = 31.8 kN (× 1.3), full snow N = 42.7 kN (× 0.8), wind on 1.82 m of glass (1,413 Pa, 2.52 m) → <b>29%</b>
+1F post          + floor 11.4 + wall 2.3 kN, wind 1,226 Pa over 3.0 m → <b>39%</b>
 beam over the 1F glass where a 2F post lands mid-span: glulam 150×360
-                 M = P·L/4 + w·L²/8 = 17.0 kNm (long term) → <b>53%</b></pre>
-  <h3><span class="en">7. Ground floor under the corner</span><span class="ja" lang="ja">7. 角の下の1階</span></h3>
-  <pre class="calc">1F weight W = 244.8 kN → Q = Z × Rt × 1.0 × C0 × W / 2 = 22.0 kN per direction
-east–west   den 1 north wall 3.64 m + guest room north wall 1.365 m, × 5.0 × 1.96 = 49.0 kN → <b>45%</b>
-north–south guest room east walls 2 × 1.82 m + den 1 | guest wall 3.64 m = 71.3 kN → <b>31%</b></pre>
+                 M = P·L/4 + w·L²/8 = 17.0 kNm (long term, × 1.3, depth factor 0.98) → <b>42%</b></span><span class="ja" lang="ja">柱 集成材 120×180（壁方向120：1,820 − 120 = 1,700 が1,690の窓の開口、壁厚方向180）、窓上の梁で座屈止め
+柱1本の負担      屋根 5.28 m²（棟の半分＋軒、幅1.82）。1階の柱は2階床 4.55 m² と2階のガラス壁も負担
+2階の柱          長期 N = 31.8 kN（×1.3）、積雪 N = 42.7 kN（×0.8）、幅1.82 mのガラスの風圧（1,413 Pa、2.52 m）→ <b>29%</b>
+1階の柱          ＋床 11.4＋壁 2.3 kN、風圧 1,226 Pa（3.0 m）→ <b>39%</b>
+2階の柱が中間に乗る1階の窓上の梁：集成材 150×360
+                 M = P·L/4 + w·L²/8 = 17.0 kNm（長期、×1.3、寸法効果0.98）→ <b>42%</b></span></pre>
+  <h3><span class="en">7. Ground floor of the wing</span><span class="ja" lang="ja">7. リビング棟の1階</span></h3>
+  <pre class="calc"><span class="en">1F weight W = 252.7 kN → Q = Z × Rt × 1.0 × C0 × W = 45.5 kN each way; the 1F south face is glass, so the other walls take it
+east–west    3.88 m + 2.76 m + 1.82 m + 0.97 m = 9.44 m × 5.0 × 1.96 = 92.5 kN → <b>49%</b>
+             (north wall (between the window and the door); den 1 north wall (less the door); boiler room south wall; south-east corner)
+north–south  3.77 m + 2.89 m + 2.73 m + 2.73 m = 12.12 m × 5.0 × 1.96 = 118.8 kN → <b>38%</b>
+             (east wall (each side of the window); den 1 | guest wall (less the door); boiler room walls; den 1 west wall)</span><span class="ja" lang="ja">1階の重量 W = 252.7 kN → Q = Z × Rt × 1.0 × C0 × W = 各方向 45.5 kN。1階の南面はガラスのため、その他の壁で負担
+東西方向     3.88 m + 2.76 m + 1.82 m + 0.97 m = 9.44 m × 5.0 × 1.96 = 92.5 kN → <b>49%</b>
+             （北面の窓と扉の間、書斎1の北面（扉を除く）、ボイラー室の南面、南東の角）
+南北方向     3.77 m + 2.89 m + 2.73 m + 2.73 m = 12.12 m × 5.0 × 1.96 = 118.8 kN → <b>38%</b>
+             （東面の窓の両側、書斎1とゲスト寝室の間（扉を除く）、ボイラー室の壁、書斎1の西面）</span></pre>
   <h3><span class="en">8. Wind on the glass → window grade</span><span class="ja" lang="ja">8. ガラスの風圧 → 窓の耐風圧等級</span></h3>
-  <pre class="calc">告示1458 method: W = q̂ × Ĉf,  q̂ = 0.6 Er² V0²,  Er = 1.7 (H/ZG)^α  (H = average of the height 8.966 m and the eave 6.805 m = 7.89 m, terrain III: ZG 450, α 0.20)
+  <pre class="calc"><span class="en">告示1458 method: W = q̂ × Ĉf,  q̂ = 0.6 Er² V0²,  Er = 1.7 (H/ZG)^α  (H = average of the height 8.966 m and the eave 6.805 m = 7.89 m, terrain III: ZG 450, α 0.20)
 q̂ = 0.6 × 0.757² × 34² = 398 N/m²
-pushing in, 2F glass (taken at z = 8 m):  Ĉpe = Cpe × Gpe = 1.006 × 3.031, minus the inside −0.5 → W = <b>1,411 Pa</b>
+pushing in, 2F glass (its top, z = 8.03 m):  Ĉpe = Cpe × Gpe = 1.007 × 3.031, minus the inside −0.5 → W = <b>1,413 Pa</b>
 pushing in, 1F glass (z ≤ 5 m):  0.833 × 3.10 + 0.5 → W = <b>1,226 Pa</b>
 suction:  −1.8 (general) / −2.2 (corner zones) → 716 / 875 Pa
 → every window needs wind grade <b>S-3</b> (1,600 Pa); S-2 (1,200 Pa) is not enough on either floor.
 LIXIL's 15 mm joint between two TW fixed windows (連窓方立180°) reaches S-3 only up to about 2,486 mm wide at this height (chart, SN4100 p.265)
-→ two 1,690 windows joined (3,395) do not reach S-3 → single windows with a post between them.</pre>
+→ two 1,690 windows joined (3,395) do not reach S-3 → single windows with a post between them.</span><span class="ja" lang="ja">告示1458の方法：W = q̂ × Ĉf、q̂ = 0.6 Er² V0²、Er = 1.7 (H/ZG)^α（H = 最高高さ 8.966 m と軒高 6.805 m の平均 = 7.89 m、地表面粗度区分III：ZG 450、α 0.20）
+q̂ = 0.6 × 0.757² × 34² = 398 N/m²
+正圧、2階のガラス（上端 z = 8.03 m）：Ĉpe = Cpe × Gpe = 1.007 × 3.031、内圧 −0.5 を差し引き → W = <b>1,413 Pa</b>
+正圧、1階のガラス（z ≤ 5 m）：0.833 × 3.10 + 0.5 → W = <b>1,226 Pa</b>
+負圧：−1.8（一般部）／−2.2（隅角部）→ 716／875 Pa
+→ すべての窓に耐風圧 <b>S-3</b>（1,600 Pa）が必要。S-2（1,200 Pa）では1階・2階とも不足。
+LIXIL TW のFIX窓の連窓（連窓方立180°、15 mm）でS-3を満たすのは、この高さで幅約2,486 mmまで（SN4100 p.265 の図）
+→ 1,690の窓2台の連窓（3,395）はS-3を満たさない → 単体の窓を柱で区切って配置。</span></pre>
   <p><span class="en">Each window type against LIXIL's own size table (the grade is per size; the series headline “S-4” only holds for small units):</span><span class="ja" lang="ja">各窓をLIXILのサイズ別の性能表で確認（等級はサイズごと。シリーズの「S-4」は小さいサイズのみ）：</span></p>
-  <div class="tw"><table class="win"><thead><tr><th><span class="en">Window</span><span class="ja" lang="ja">窓</span></th><th><span class="en">Table (SN4100)</span><span class="ja" lang="ja">性能表（SN4100）</span></th><th><span class="en">Grade</span><span class="ja" lang="ja">等級</span></th><th><span class="en">Needs S-3</span><span class="ja" lang="ja">S-3以上</span></th><th><span class="en">Units</span><span class="ja" lang="ja">台数</span></th></tr></thead><tbody><tr><td><span class="en">2-panel sliding window, floor level 16524 (1,690 × 2,430), 4 mm triple glass 4-A-1.3-A-4</span><span class="ja" lang="ja">引違い窓 テラス 2枚建 16524（1,690×2,430）ガラス 4-A-1.3-A-4</span></td><td>p.116 · IS8600 p.371</td><td>S-3</td><td>OK</td><td>17</td></tr>
+  <div class="tw"><table class="win"><thead><tr><th><span class="en">Window</span><span class="ja" lang="ja">窓</span></th><th><span class="en">Table (SN4100)</span><span class="ja" lang="ja">性能表（SN4100）</span></th><th><span class="en">Grade</span><span class="ja" lang="ja">等級</span></th><th><span class="en">Needs S-3</span><span class="ja" lang="ja">S-3以上</span></th><th><span class="en">Units</span><span class="ja" lang="ja">台数</span></th></tr></thead><tbody><tr><td><span class="en">2-panel sliding window, floor level 16524 (1,690 × 2,430), 4 mm triple glass 4-A-1.3-A-4</span><span class="ja" lang="ja">単体引違い窓 テラス 2枚建 16524（1,690×2,430）ガラス 4-A-1.3-A-4</span></td><td>p.116 · IS8600 p.371</td><td>S-3</td><td>OK</td><td>17</td></tr>
 <tr><td><span class="en">Fixed window 16507 (1,690 × 770), upper row</span><span class="ja" lang="ja">FIX窓 マド 16507（1,690×770）上段</span></td><td>p.231</td><td>S-4</td><td>OK</td><td>2</td></tr>
-<tr><td><span class="en">Fixed windows 16511 / 16515 (1,690 × 1,170 / 1,570), upper row</span><span class="ja" lang="ja">FIX窓 マド 16511／16515（1,690×1,170／1,570）上段</span></td><td>p.231</td><td>S-3</td><td>OK</td><td>3</td></tr>
-<tr><td><span class="en">Fixed windows 16509 / 11909 (970 high)</span><span class="ja" lang="ja">FIX窓 マド 16509／11909（高さ970）</span></td><td>p.231</td><td>S-3</td><td>OK</td><td>6</td></tr>
-<tr><td><span class="en">Fixed window 07409 (780 × 970)</span><span class="ja" lang="ja">FIX窓 マド 07409（780×970）</span></td><td>p.231</td><td>S-4</td><td>OK</td><td>1</td></tr>
-<tr><td><span class="en">Casement + fixed pane TF 16513 / 11913 / 16509</span><span class="ja" lang="ja">縦すべり出し窓 TF 16513／11913／16509</span></td><td>p.179</td><td>S-3</td><td>OK</td><td>4</td></tr>
+<tr><td><span class="en">Fixed window 16511 (1,690 × 1,170), upper row</span><span class="ja" lang="ja">FIX窓 マド 16511（1,690×1,170）上段</span></td><td>p.231</td><td>S-3</td><td>OK</td><td>3</td></tr>
+<tr><td><span class="en">Fixed windows 16509 (1,690 × 970)</span><span class="ja" lang="ja">FIX窓 マド 16509（1,690×970）</span></td><td>p.231</td><td>S-3</td><td>OK</td><td>3</td></tr>
+<tr><td><span class="en">Fixed windows 07409 (780 × 970)</span><span class="ja" lang="ja">FIX窓 マド 07409（780×970）</span></td><td>p.231</td><td>S-4</td><td>OK</td><td>2</td></tr>
+<tr><td><span class="en">Casement + fixed pane TF 16513 / 11913 / 16509 / 11909</span><span class="ja" lang="ja">縦すべり出し窓 TF 16513／11913／16509／11909</span></td><td>p.179</td><td>S-3</td><td>OK</td><td>8</td></tr>
 <tr><td><span class="en">Casement T 06009</span><span class="ja" lang="ja">縦すべり出し窓 T 06009</span></td><td>p.179</td><td>S-4</td><td>OK</td><td>1</td></tr>
 <tr><td><span class="en">Not used: 4-panel sliding window 34724 (3,510 × 2,430)</span><span class="ja" lang="ja">不使用：引違い窓 4枚建 34724（3,510×2,430）</span></td><td>p.116</td><td>S-2</td><td>✗</td><td>—</td></tr>
 <tr><td><span class="en">Not used: fixed window, floor level 16524 (1,690 × 2,430)</span><span class="ja" lang="ja">不使用：FIX窓 テラス 16524（1,690×2,430）</span></td><td>p.231</td><td>S-1</td><td>✗</td><td>—</td></tr>
@@ -147,7 +190,7 @@ LIXIL's 15 mm joint between two TW fixed windows (連窓方立180°) reaches S-3
   <p class="note"><span class="en">So the widest unit that reaches S-3 at the full 2,430 height is the 2-panel sliding window 16524 with 4 mm triple glass; every big opening on both floors uses it. A 3.5 m unit reaches S-3 only at 2,230 high or lower (TW concept 34722). The 2F sliding windows open at floor level, so each gets a glass guard outside (top 1.1 m).</span><span class="ja" lang="ja">全高2,430でS-3を満たす最も幅の広い窓は、ガラス 4-A-1.3-A-4 の2枚建引違い窓 16524 です。1階・2階の大開口はすべてこの窓としています。幅3.5 mの窓がS-3を満たすのは高さ2,230以下（TWコンセプト 34722）のみです。2階の引違い窓は床から開くため、外側にガラス手すり（高さ1.1 m）を設けます。</span></p>
   <p class="note"><span class="en">Legal note: the 告示1458 check is required by law only where a structural calculation is (for a timber house since April 2025: 3 or more storeys, or over 300 m²); this house (2 storeys, 253 m²) is below that, so we use it as our design basis for picking the window grade.</span><span class="ja" lang="ja">法的には、告示1458の検討は構造計算が必要な建築物（木造は2025年4月以降、3階建て以上または延べ面積300 m²超）が対象です。本計画（2階建て・253 m²）は対象外のため、窓の等級を決める設計の根拠として用いています。</span></p>
   <h3><span class="en">9. Kutchan roof / snow / height checks</span><span class="ja" lang="ja">9. 倶知安町の屋根・落雪・高さの検討</span></h3>
-  <pre class="calc">PASS Art.6 west snow (pitch 1.40/10, L 15.8, H 6.8, V 3.50 m/s, D 4.0) -&gt; needs 4.450 m &lt;= 4.650 (margin +0.200)
+  <pre class="calc"><span class="en">PASS Art.6 west snow (pitch 1.40/10, L 15.8, H 6.8, V 3.50 m/s, D 4.0) -&gt; needs 4.450 m &lt;= 4.650 (margin +0.200)
 PASS Art.7 east (road): H 9.0 -&gt; 1.3 + 0.4 = 1.700 &lt;= 1.931 (margin +0.231)
 PASS Art.7 north: H 9.0 -&gt; 1.3 + 0.4 = 1.700 &lt;= 5.400 (margin +3.700)
 PASS Art.7 south: H 9.0 -&gt; 1.3 + 0.4 = 1.700 &lt;= 6.051 (margin +4.351)
@@ -155,12 +198,29 @@ PASS height 8.966 m &lt;= 12
 PASS 1 m wall setback (W 4.650 E 1.931 N 5.400 S 6.051)
 PASS north-side slope: worst roof corner x +1.18: 8.041 &lt;= 5 + 1.25 x 5.017 = 11.271 (margin +3.230)
 PASS eave &lt;= 7 m: eave beam top 6.805 m above ground; walls west of x -3.83 top out at &lt;= 6.999 m (above the beam = roof framing)
-PASS road slope (8 m road, s 1.531): 8.966 &lt;= 13.828</pre>
+PASS eave beam, north wall: starts at x -4.55 &lt;= -3.83 (no wall above 7 m without it)
+PASS eave beam, south wall: starts at x -4.035 &lt;= -3.83 (no wall above 7 m without it)
+PASS posts stop under the eave beam: highest post top 2.520 &lt;= 2.520 over the 2F floor
+PASS road slope (8 m road, s 1.531): 8.966 &lt;= 13.828</span><span class="ja" lang="ja">適合 第6条 西面の落雪 (勾配 1.40/10, L 15.8, H 6.8, V 3.50 m/s, D 4.0) → 必要 4.450 m ≤ 4.650 (余裕 +0.200)
+適合 第7条 東（道路側）: H 9.0 → 1.3 + 0.4 = 1.700 ≤ 1.931 (余裕 +0.231)
+適合 第7条 北: H 9.0 → 1.3 + 0.4 = 1.700 ≤ 5.400 (余裕 +3.700)
+適合 第7条 南: H 9.0 → 1.3 + 0.4 = 1.700 ≤ 6.051 (余裕 +4.351)
+適合 高さ 8.966 m ≤ 12
+適合 外壁の後退 1 m (W 4.650 E 1.931 N 5.400 S 6.051)
+適合 北側斜線: 最も厳しい屋根の角 x +1.18: 8.041 ≤ 5 + 1.25 x 5.017 = 11.271 (余裕 +3.230)
+適合 軒高7 m以下：軒桁の天端 6.805 m（地盤から）; x -3.83 より西の壁の上端 ≤ 6.999 m （梁より上は小屋組）
+適合 北面の軒桁の始点 x -4.55 ≤ -3.83 （軒桁のない7 m超の壁なし）
+適合 南面の軒桁の始点 x -4.035 ≤ -3.83 （軒桁のない7 m超の壁なし）
+適合 柱は軒桁の下まで：柱の上端（最大） 2.520 ≤ 2.520 （2階床から）
+適合 道路斜線 (道路幅員 8 m, s 1.531): 8.966 ≤ 13.828</span></pre>
   <p class="note"><span class="en">House 4.65 m from the west line and 5.4 m from the north line (lot 9: 21.369 × 23.509 m). Art.6 = snow sliding off the roof must land on our lot (Kutchan guideline formula 1); Art.7 = gaps on the other sides; eave ≤ 7 m = the shadow rule (posts stop under the eave beam, above it is roof framing).</span><span class="ja" lang="ja">西境界から4.65 m、北境界から5.4 m（9号地 21.369 × 23.509 m）。第6条＝屋根の落雪が敷地内に収まること（倶知安町の指導要綱 式1）、第7条＝その他の面の離れ、軒高7 m以下＝日影規制（柱は軒桁まで、その上は小屋組）。</span></p>
   <h3><span class="en">10. What a structural engineer still has to do</span><span class="ja" lang="ja">10. 構造設計者に残る検討</span></h3>
   <ul class="calc">
-    <li><span class="en">The whole-house wall quantity and balance checks (壁量計算, 四分割法, N値) and the permit calculation</span><span class="ja" lang="ja">建物全体の壁量計算・四分割法・N値計算と確認申請用の構造計算</span></li>
-    <li><span class="en">Roof framing (rafters / purlins) under 6.9 kN/m² of snow, the foundation, and every connection detail</span><span class="ja" lang="ja">積雪6.9 kN/m²を受ける小屋組（垂木・母屋）、基礎、各接合部の詳細</span></li>
+    <li><span class="en">A full allowable-stress structural calculation for the permit: knee-braced frames are outside the wall-quantity method, so the house cannot be checked by wall quantities alone</span><span class="ja" lang="ja">確認申請用の許容応力度計算：方杖付きの門型フレームは壁量計算の対象外のため、壁量計算だけでは確認できません</span></li>
+    <li><span class="en">Whole-house wall quantities and balance (2025 rules incl. the heavy-snow wall amount), N-values, post sizes</span><span class="ja" lang="ja">建物全体の壁量（2025年基準、多雪区域の必要壁量を含む）・四分割法・N値計算・柱の小径</span></li>
+    <li><span class="en">The roof and 2F floor diaphragms (floor multipliers), and carrying the wing's north–south load into the main block (no 2F wall at the dining)</span><span class="ja" lang="ja">屋根面・2階床面の水平構面（床倍率）、リビング棟の南北方向の力を主棟へ伝える経路（ダイニング側に2階の壁なし）</span></li>
+    <li><span class="en">Carrying the 2F south frames' load down past the glass 1F south wall; bracing the upper glass band above the head beams</span><span class="ja" lang="ja">2階南面のフレームの力を1階のガラスの南面を越えて下へ伝える経路、窓上の梁より上のガラス帯の補強</span></li>
+    <li><span class="en">Roof framing (rafters / purlins) under 6.9 kN/m² of snow, the foundation, and every connection detail (drift pins at 45° to the grain, beam splitting at the brace joints)</span><span class="ja" lang="ja">積雪6.9 kN/m²を受ける小屋組（垂木・母屋）、基礎、各接合部の詳細（繊維に45°のドリフトピン、方杖接合部での梁の割裂）</span></li>
     <li><span class="en">Lining up the 1F and 2F posts where possible (where a 2F post lands on a beam, that beam is checked in section 6)</span><span class="ja" lang="ja">1階と2階の柱の位置をできるだけ揃えること（2階の柱が梁に乗る箇所は6.で検討）</span></li>
   </ul>
 </section>
