@@ -77,7 +77,7 @@ const REFS = {
   /* house 13 = Ideal — 75 tsubo (house 12 enlarged, 2026-10-22; ref/gen_model_j.py <out> 75) */
   13: { url: '../ref-model-k.json?v=12', key: 'h3dRefModelK' },
   /* STAGING house 17 = Ideal — 75 tsubo on the 910 grid with LIXIL / YKK AP windows (2026-11-05, plan o) */
-  17: { url: 'ref-model-o.json?v=2c07724b', key: 'h3dRefModelO' },
+  17: { url: 'ref-model-o.json?v=070e6b6a', key: 'h3dRefModelO' },
   8: { url: 'ref-model-f.json?v=5', key: 'h3dRefModelF', ichijo: true },
   9: { url: 'ref-model-g.json?v=3', key: 'h3dRefModelG', ichijo: true },
 };
