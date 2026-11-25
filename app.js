@@ -247,7 +247,12 @@ const ROOF_HEAD = 0.15;      /* least wall left over a window cut down by the ro
 /* ------------------------------------------------------------ renderer etc */
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+/* v44s26: pixel ratio, canvas box, buffer and camera.aspect are set ONLY by resize() (re-run on resize, DPR change, a
+   ResizeObserver and a per-frame drift check, see viewGuard) */
+const PR_MAX = 1.75;
+const wantPr = () => Math.min(devicePixelRatio || 1, PR_MAX);
+canvas.style.width = '100%'; canvas.style.height = '100%';   /* v44s26: never the canvas' intrinsic (= buffer) size */
+renderer.setPixelRatio(wantPr());
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -4119,7 +4124,7 @@ function bindRoofTip() {
 
 /* ------------------------------------------------------------ post + loop */
 function setupComposer() {
-  const w = innerWidth, h = innerHeight;
+  const [w, h] = viewSize();                       /* v44s27: the canvas' displayed box, like resize() */
   const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 0 });
   composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
@@ -4138,15 +4143,88 @@ function setupComposer() {
   smaaPass = new SMAAPass(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
   composer.addPass(smaaPass);
 }
+/* v44s26 (Toby 2026-11-25: 'not level ... the centre of the lens is somewhere on the lower right'). ROOT CAUSE: resize()
+   sized only the drawing buffer (setSize(w, h, false)) and #c had no CSS width / height; a position:fixed canvas with
+   width / height auto is laid out at its INTRINSIC size = buffer px as CSS px. At pixel ratio 1.75 (every Retina / DPR >= 1.75
+   screen) the canvas was 1.75x the window and only its top-left 57 % showed: the lens centre sat at 0.875 W, 0.875 H.
+   Now the canvas box is pinned to 100 % of the viewport (index.html + inline style), and this ONE function sets the pixel
+   ratio, buffer, camera.aspect and composer from the viewport; viewGuard() re-runs it whenever any of them drift. */
+/* v44s27: w, h = the canvas' OWN displayed CSS box (window size only if it has none yet). innerWidth / innerHeight can
+   differ from the 100 % fixed box for good (mobile dynamic toolbars, on-screen keyboard, pinch zoom): buffer and aspect
+   must match what is shown, or the picture is stretched / off-centre again */
+function viewSize() { return [canvas.clientWidth || innerWidth, canvas.clientHeight || innerHeight]; }
+/* v44s27: counters, read by __viewCheck(): resize() calls, real buffer / composer re-allocations, guard checks / re-syncs */
+const VSTAT = { calls: 0, buffer: 0, composer: 0, checks: 0, guard: 0 };
+let _vw = 0, _vh = 0;
+/* v44s27: composer out of step = its render target is not buffer-sized (it starts at CSS size, setupComposer) */
+const composerOff = (w, h, pr) => !!composer && (composer._pixelRatio !== pr || composer.renderTarget1.width !== w * pr || composer.renderTarget1.height !== h * pr);
 function resize() {
-  const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h; applyLens();              /* vertical fov follows the aspect */
-  placeHud();
-  if (HOUSE === 2) placeRoofPanel();
-  if (IJH) placeIchijo7();
-  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
+  VSTAT.calls++;
+  if (canvas.style.width !== '100%' || canvas.style.height !== '100%') { canvas.style.width = '100%'; canvas.style.height = '100%'; }
+  const [w, h] = viewSize(), pr = wantPr();        /* v44s27: read AFTER the style fix (the box it gives) */
+  /* v44s27: idempotent - only touch what is out of step (assigning canvas.width clears the picture, composer.setSize
+     re-allocates its render targets). setDrawingBufferSize = pixel ratio + buffer in ONE assignment */
+  if (renderer.getPixelRatio() !== pr || canvas.width !== Math.floor(w * pr) || canvas.height !== Math.floor(h * pr)) {
+    renderer.setDrawingBufferSize(w, h, pr);       /* buffer only: the CSS box is the 100 % above */
+    VSTAT.buffer++;
+  }
+  if (camera.aspect !== w / h) { camera.aspect = w / h; applyLens(); }   /* vertical fov follows the aspect */
+  if (w !== _vw || h !== _vh) {                    /* the top bar may re-wrap: panels under it */
+    placeHud();
+    if (HOUSE === 2) placeRoofPanel();
+    if (IJH) placeIchijo7();
+  }
+  if (composerOff(w, h, pr)) {                    /* (setPixelRatio re-sizes too: setSize only if still off) */
+    if (composer._pixelRatio !== pr) composer.setPixelRatio(pr);
+    if (composerOff(w, h, pr)) composer.setSize(w, h);
+    VSTAT.composer++;
+  }
+  _vw = w; _vh = h;
 }
+/* v44s27: drift check, 4x a second - compares the live state with exactly what resize() would set from the SAME inputs
+   (canvas box, devicePixelRatio), so once resize() has run it cannot fire again until something really changes (the
+   v44s26 version also compared innerWidth / innerHeight with the canvas box: where those differ for good it re-ran
+   resize() 4x a second forever). Catches monitor / DPR changes without an event, bfcache returns, anything that
+   touched the canvas, buffer or aspect */
+let _guardT = -1e9;
+function viewGuard() {
+  const now = performance.now();
+  if (now - _guardT < 250) return;
+  _guardT = now; VSTAT.checks++;
+  const [w, h] = viewSize(), pr = wantPr();
+  if (w !== _vw || h !== _vh || canvas.style.width !== '100%' || canvas.style.height !== '100%' || renderer.getPixelRatio() !== pr
+    || canvas.width !== Math.floor(w * pr) || canvas.height !== Math.floor(h * pr) || camera.aspect !== w / h
+    || composerOff(w, h, pr)) { VSTAT.guard++; resize(); }
+}
+function watchDpr() {                               /* v44s26: DPR change (window dragged to another monitor, zoom) */
+  const mq = matchMedia('(resolution: ' + devicePixelRatio + 'dppx)');
+  mq.addEventListener('change', () => { resize(); watchDpr(); }, { once: true });
+}
+/* v44s26: the invariants the regression test (tools/viewcheck.js) checks; ok = canvas covers the viewport, buffer =
+   CSS x pixel ratio, frustum symmetric across (proj[8] 0, no view / film offset; proj[9] = only the documented vertical
+   lens shift of st.pitch, lensShift()), aspect = CSS w / h, no roll */
+window.__viewCheck = () => {
+  const r = canvas.getBoundingClientRect(), e = camera.projectionMatrix.elements, pr = renderer.getPixelRatio();
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  const sh = st.orbit ? 0 : lensShift(st.pitch), e9want = sh ? Math.tan(sh) / Math.tan(camera.fov * Math.PI / 360) : 0;
+  let tf = '';
+  for (let n = canvas; n && n.nodeType === 1; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (cs.transform !== 'none' || (cs.zoom && cs.zoom !== '1') || cs.scale !== 'none') tf += n.tagName + ' ';
+  }
+  /* v44s27: the box is judged against the layout viewport (= innerWidth x innerHeight on desktop; on a phone innerHeight
+     also moves with toolbars / keyboard / pinch zoom while the fixed 100 % box follows the layout viewport) */
+  const lw = document.documentElement.clientWidth || innerWidth, lh = document.documentElement.clientHeight || innerHeight;
+  const box = Math.abs(r.x) < 0.5 && Math.abs(r.y) < 0.5 && Math.abs(r.width - lw) < 0.5 && Math.abs(r.height - lh) < 0.5 && !tf;
+  const buf = pr === wantPr() && Math.abs(canvas.width - r.width * pr) <= 1 && Math.abs(canvas.height - r.height * pr) <= 1;
+  const sym = e[8] === 0 && camera.view === null && camera.filmOffset === 0 && Math.abs(camera.aspect - r.width / r.height) < 1e-9
+    && Math.abs(e[5] / e[0] - camera.aspect) < 1e-6 && Math.abs(e[9] - e9want) < 1e-9;
+  const level = Math.abs(right.y) < 1e-6;
+  return { ok: box && buf && sym && level, box, buf, sym, level, inner: [innerWidth, innerHeight], layout: [lw, lh], dpr: devicePixelRatio, css: [r.x, r.y, r.width, r.height],
+    buffer: [canvas.width, canvas.height], pr, aspect: camera.aspect, e8: e[8], e9: e[9], e9shift: e9want, view: camera.view, filmOffset: camera.filmOffset,
+    rightY: right.y, transforms: tf, composer: composer ? [composer.renderTarget1.width, composer.renderTarget1.height] : null,
+    stats: Object.assign({}, VSTAT) };            /* v44s27: guard = drift re-syncs (0 in a steady state) */
+};
 let last = performance.now();
 const EUL = new THREE.Euler(0, 0, 0, 'YXZ');
 function loop(now) {
@@ -4160,6 +4238,7 @@ function indoors() {
   return LV.some(L => p.y > L.base - 0.3 && p.y < L.base + L.h + 0.2 && L.rooms.some(r => inside(r.poly, p.x, p.z)));
 }
 function frame(dt) {
+  viewGuard();                                       /* v44s26 */
   move(dt);
   const target = indoors() ? 1.3 : 0.9;
   expo += (target - expo) * Math.min(1, dt * 2.5);
@@ -4217,6 +4296,8 @@ planReady.then(async (plan) => {
   if (IJH) views7();
   bindPad(); bindUI(); applyLang(); resize();
   addEventListener('resize', resize);
+  watchDpr();                                        /* v44s26: + DPR changes, container size changes */
+  if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(canvas);   /* v44s27: the canvas' own box; resize() is idempotent */
   goView(VIEWS[0]);
   setFov(FOV.def);
   Object.assign(window, { FOV, SHIFT, applyLens, frame, move, supportAt, FLOOR_RECTS, THREE, scene, camera, renderer, composer, root, G, LV, STAIRS, COLL, SLIDERS, MAT, GLTF, VIEWS, st, act, goView, applyVis, setFov, blocked, curLevel });

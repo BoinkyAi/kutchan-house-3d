@@ -23,7 +23,8 @@
   html,body{margin:0;height:100%;overflow:hidden;background:#0b0f14;color:var(--fg);
     font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-  #c{position:fixed;inset:0;display:block;touch-action:none;cursor:grab}
+  /* v44s26: width/height 100% - a fixed canvas with width/height auto shows at its buffer size (1.75x the window on Retina) */
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
   #c.look{cursor:grabbing}
   .panel{position:fixed;background:rgba(17,22,28,.86);backdrop-filter:blur(8px);
     border:1px solid var(--bd);border-radius:12px;padding:8px}
@@ -136,6 +137,6 @@
 <script type="importmap">
 {"imports":{"three":"./three.module.min.js","three/addons/":"./jsm/"}}
 </script>
-<script type="module" src="app.js?v=ff857c22"></script>
+<script type="module" src="app.js?v=df98b97e"></script>
 </body>
 </html>
